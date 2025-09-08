@@ -1,0 +1,43 @@
+/.venv
+/.cache
+__pycache__/
+.pytest_cache/
+/data/db_data
+
+.DS_Store
+
+# Ignore venv and virtualenv wrapper files
+venv/
+env/
+ENV/
+
+# Local IDE and editor folders
+.vscode/
+.idea/
+
+# Docker
+**/node_modules/
+**/dist/
+
+# macOS
+.DS_Store
+
+# Local env files
+.env
+.env.*
+
+# Python/tool caches and build artifacts
+.python-version
+.tox/
+.mypy_cache/
+.ruff_cache/
+pip-wheel-metadata/
+*.egg-info/
+.coverage
+coverage.xml
+htmlcov/
+build/
+
+# Allow committed VS Code workspace settings
+!.vscode/settings.json
+

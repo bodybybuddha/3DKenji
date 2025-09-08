@@ -1,0 +1,23 @@
+# Ignore files and folders not needed in Docker build context
+.git
+.venv
+__pycache__/
+.pytest_cache/
+node_modules/
+*.log
+*.pyc
+*.pyo
+.DS_Store
+.vscode/
+.env
+.env.*
+.idea/
+*.swp
+*.swo
+*.bak
+*.tmp
+memory/
+scripts/
+specs/
+templates/
+tests/

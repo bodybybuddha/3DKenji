@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.11"
 
 [[package]]
-name = "3d-kenji"
+name = "3dkenji"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
@@ -13,6 +13,7 @@ dependencies = [
     { name = "flask" },
     { name = "httpx" },
     { name = "jinja2" },
+    { name = "pluggy" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "pytest" },
@@ -30,6 +31,7 @@ requires-dist = [
     { name = "flask", specifier = "==2.2.5" },
     { name = "httpx", specifier = "==0.24.1" },
     { name = "jinja2", specifier = "==3.1.2" },
+    { name = "pluggy", specifier = ">=1.6.0" },
     { name = "psycopg", extras = ["binary"], specifier = "==3.2.9" },
     { name = "pydantic", specifier = "==1.10.11" },
     { name = "pytest", specifier = "==7.3.2" },

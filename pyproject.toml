@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "3d-kenji"
+name = "3dkenji"
 version = "0.0.0"
-description = "3DKenji API-first web app"
+description = "3D Kenji: Self-hosted knowledge keeper for 3D printing projects."
 authors = [ { name = "bodybybuddha" } ]
 readme = "README.md"
 requires-python = ">=3.11"
@@ -24,4 +24,10 @@ dependencies = [
   "pytest==7.3.2",
   "httpx==0.24.1",
   "pytest-asyncio==0.21.0",
+  "pluggy>=1.6.0",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["*"]
+
