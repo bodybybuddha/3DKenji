@@ -43,10 +43,10 @@ class LocalStorageBackend(StorageBackend):
 
         Args:
             storage_root: Root directory for file storage.
-                         Defaults to /workspace/data/storage
+                         Defaults to data/storage (relative to project root)
         """
         self.storage_root = Path(
-            storage_root or os.getenv("STORAGE_ROOT", "/workspace/data/storage")
+            storage_root or os.getenv("STORAGE_ROOT", "data/storage")
         )
         # Ensure root directory exists
         self.storage_root.mkdir(parents=True, exist_ok=True)
