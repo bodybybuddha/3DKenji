@@ -1,175 +1,175 @@
 /* Navigation bar styles */
 
 .navbar {
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: var(--shadow-sm);
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
 }
 
 .navbar .container {
-  padding: var(--spacing-md) var(--spacing-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
 }
 
 .navbar-brand {
-  display: flex;
-  align-items: center;
-  text-decoration: none;
-  color: var(--text-primary);
-  font-weight: 600;
-  font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1.25rem;
 }
 
 .navbar-brand-link {
-  color: var(--text-primary);
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
+    color: var(--text-primary);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
 }
 
 .navbar-brand-link:hover {
-  color: var(--color-primary);
+    color: var(--color-primary);
 }
 
 .navbar-menu {
-  list-style: none;
-  display: flex;
-  gap: var(--spacing-lg);
-  align-items: center;
-  margin: 0;
-  padding: 0;
+    list-style: none;
+    display: flex;
+    gap: var(--spacing-lg);
+    align-items: center;
+    margin: 0;
+    padding: 0;
 }
 
 .navbar-menu a {
-  color: var(--text-primary);
-  text-decoration: none;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+    color: var(--text-primary);
+    text-decoration: none;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
 }
 
 .navbar-menu a:hover {
-  background-color: var(--bg-tertiary);
-  color: var(--color-primary);
+    background-color: var(--bg-tertiary);
+    color: var(--color-primary);
 }
 
 /* Navbar dropdown */
 
 .navbar-dropdown {
-  position: relative;
-  display: inline-block;
+    position: relative;
+    display: inline-block;
 }
 
-.navbar-dropdown > .btn {
-  background-color: var(--bg-tertiary);
-  color: var(--text-primary);
-  border-color: var(--border-color);
-  border-radius: var(--radius-md);
+.navbar-dropdown>.btn {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+    border-radius: var(--radius-md);
 }
 
-.navbar-dropdown > .btn:hover,
-.navbar-dropdown > .btn:focus {
-  border-color: var(--color-primary);
-  background-color: var(--bg-primary);
+.navbar-dropdown>.btn:hover,
+.navbar-dropdown>.btn:focus {
+    border-color: var(--color-primary);
+    background-color: var(--bg-primary);
 }
 
 .dropdown-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  min-width: 200px;
-  margin-top: var(--spacing-sm);
-  box-shadow: var(--shadow-lg);
-  z-index: 101;
-  display: none;
-  overflow: hidden;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    min-width: 200px;
+    margin-top: var(--spacing-sm);
+    box-shadow: var(--shadow-lg);
+    z-index: 101;
+    display: none;
+    overflow: hidden;
 }
 
 .dropdown-menu.is-open {
-  display: block;
+    display: block;
 }
 
 .dropdown-menu a {
-  display: block;
-  padding: var(--spacing-md) var(--spacing-lg);
-  color: var(--text-primary);
-  text-decoration: none;
-  transition: all var(--transition-fast);
-  border-radius: 0;
+    display: block;
+    padding: var(--spacing-md) var(--spacing-lg);
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    border-radius: 0;
 }
 
 .dropdown-menu a:hover {
-  background-color: var(--bg-tertiary);
-  color: var(--color-primary);
+    background-color: var(--bg-tertiary);
+    color: var(--color-primary);
 }
 
 .dropdown-menu hr {
-  margin: var(--spacing-xs) 0;
-  border-color: var(--border-color);
+    margin: var(--spacing-xs) 0;
+    border-color: var(--border-color);
 }
 
 /* Responsive navbar */
 
 @media (max-width: 768px) {
-  .navbar-menu {
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-  }
+    .navbar-menu {
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+    }
 
-  .navbar-menu a {
-    padding: var(--spacing-xs) var(--spacing-sm);
-    font-size: 0.875rem;
-  }
+    .navbar-menu a {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        font-size: 0.875rem;
+    }
 
-  /* Hide some items on mobile */
-  .navbar-menu > li:nth-child(n+3):not(:last-child) {
-    display: none;
-  }
+    /* Hide some items on mobile */
+    .navbar-menu>li:nth-child(n+3):not(:last-child) {
+        display: none;
+    }
 }
 
 /* Mobile hamburger menu (can be implemented with JavaScript) */
 
 .navbar-toggle {
-  display: none;
-  background: none;
-  border: none;
-  color: var(--text-primary);
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: var(--spacing-sm);
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: var(--spacing-sm);
 }
 
 @media (max-width: 640px) {
-  .navbar-toggle {
-    display: block;
-  }
+    .navbar-toggle {
+        display: block;
+    }
 
-  .navbar-menu {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background-color: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
-    flex-direction: column;
-    gap: 0;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height var(--transition-base);
-  }
+    .navbar-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        flex-direction: column;
+        gap: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height var(--transition-base);
+    }
 
-  .navbar-menu.is-open {
-    max-height: 500px;
-  }
+    .navbar-menu.is-open {
+        max-height: 500px;
+    }
 
-  .navbar-menu a {
-    padding: var(--spacing-md) var(--spacing-lg);
-    border-bottom: 1px solid var(--border-color);
-  }
+    .navbar-menu a {
+        padding: var(--spacing-md) var(--spacing-lg);
+        border-bottom: 1px solid var(--border-color);
+    }
 }
