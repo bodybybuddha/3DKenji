@@ -3,8 +3,9 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, status
 
-from backend.api import auth_router, projects_router, models_router, keys_router
+from backend.api import auth_router, projects_router, models_router, keys_router, health_router
 from backend.storage import initialize_storage
+from backend.logging_config import logger
 import backend.storage as storage_module
 
 
@@ -18,23 +19,18 @@ def create_app() -> FastAPI:
     # Initialize storage backend on startup
     @app.on_event("startup")
     async def startup():
+        logger.info("3D Kenji API starting up")
         await initialize_storage(app)
+        logger.info("Storage backend initialized")
 
     # Register API routes
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(projects_router, prefix="/api/v1")
     app.include_router(models_router, prefix="/api/v1")
     app.include_router(keys_router, prefix="/api/v1")
-
-    @app.get("/api/v1/health")
-    async def health():
-        storage_health = await storage_module._storage_backend.health_check() if storage_module._storage_backend else {"status": "not_initialized"}
-        return {
-            "status": "ok",
-            "components": {
-                "storage": storage_health
-            }
-        }
+    app.include_router(health_router, prefix="/api/v1")
+    
+    logger.info("API routes registered")
 
     @app.get("/api/v1/projects")
     async def list_projects_placeholder():

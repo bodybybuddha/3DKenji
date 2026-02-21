@@ -1,0 +1,13 @@
+{"timestamp": "2026-02-21T20:11:37.269469", "level": "INFO", "logger": "3dkenji", "message": "API routes registered", "module": "main", "function": "create_app", "line": 33}
+{"timestamp": "2026-02-21T20:11:41.651018", "level": "INFO", "logger": "3dkenji", "message": "API routes registered", "module": "main", "function": "create_app", "line": 33}
+{"timestamp": "2026-02-21T20:11:46.782593", "level": "INFO", "logger": "3dkenji", "message": "API routes registered", "module": "main", "function": "create_app", "line": 33}
+{"timestamp": "2026-02-21T20:11:52.444696", "level": "INFO", "logger": "3dkenji", "message": "API routes registered", "module": "main", "function": "create_app", "line": 33}
+{"timestamp": "2026-02-21T20:11:54.772958", "level": "INFO", "logger": "3dkenji", "message": "API routes registered", "module": "main", "function": "create_app", "line": 33}
+{"timestamp": "2026-02-21T20:12:02.634035", "level": "INFO", "logger": "3dkenji", "message": "API routes registered", "module": "main", "function": "create_app", "line": 33}
+{"timestamp": "2026-02-21T20:12:05.193081", "level": "INFO", "logger": "3dkenji", "message": "API routes registered", "module": "main", "function": "create_app", "line": 33}
+{"timestamp": "2026-02-21T20:12:09.037219", "level": "INFO", "logger": "3dkenji", "message": "API routes registered", "module": "main", "function": "create_app", "line": 33}
+{"timestamp": "2026-02-21T20:12:13.254582", "level": "INFO", "logger": "3dkenji", "message": "API routes registered", "module": "main", "function": "create_app", "line": 33}
+{"timestamp": "2026-02-21T20:12:16.498398", "level": "INFO", "logger": "3dkenji", "message": "API routes registered", "module": "main", "function": "create_app", "line": 33}
+{"timestamp": "2026-02-21T20:12:16.498843", "level": "INFO", "logger": "3dkenji", "message": "3D Kenji API starting up", "module": "main", "function": "startup", "line": 22}
+{"timestamp": "2026-02-21T20:12:16.499466", "level": "INFO", "logger": "3dkenji", "message": "Storage backend initialized", "module": "main", "function": "startup", "line": 24}
+{"timestamp": "2026-02-21T20:12:16.702425", "level": "INFO", "logger": "3dkenji", "message": "Health check completed", "module": "health", "function": "health_check", "line": 131}
