@@ -1,8 +1,8 @@
 # Task Breakdown: Phase 6 - Web UI Frontend
 
-**Total Tasks**: 25 (T051-T075)  
-**Estimated Duration**: 2 weeks (10 working days)  
-**Sprint Schedule**: Feb 24 - Mar 6, 2026  
+**Total Tasks**: 30 (T051-T080)  
+**Estimated Duration**: 3 weeks (15 working days)  
+**Sprint Schedule**: Feb 24 - Mar 11, 2026  
 
 ---
 
@@ -1032,12 +1032,336 @@ Week 2 (Mar 1-6)
 
 ---
 
+## Phase 6F: Admin Interface (T076-T080)
+
+### T076: First-Time Setup Flow ⭕
+
+**Objective**: Implement automatic admin account creation on startup
+
+**Tasks**:
+- [ ] Update User model (SQLAlchemy)
+  - Add `is_admin: bool = False` column
+  - Add `is_active: bool = True` column
+  - Add database indexes
+- [ ] Create Alembic migration for new columns
+- [ ] Create SetupForm Pydantic model
+  - Fields: username, email, password, confirm_password
+  - Validation: password strength (8+ chars, mixed case, numbers)
+- [ ] Add startup hook to check admin count
+  - `app.state.setup_required = True` if no admins exist
+- [ ] Create setup middleware
+  - Redirects to /setup if setup_required and not on allowed routes
+  - Allowed: /setup, /static/*, /api/v1/theme/css
+- [ ] Implement GET /setup route
+  - Render setup.html with form
+  - Check if setup already done (redirect to /)
+- [ ] Implement POST /setup route
+  - Validate form data
+  - Create admin user via UserService
+  - Set app.state.setup_required = False
+  - Set session and redirect to login
+- [ ] Create frontend/templates/setup.html
+  - Logo/branding section
+  - Admin creation form
+  - Theme preference selector (Dark/Light)
+  - Submit button and success message
+
+**Testing**:
+- [ ] Test: First startup creates setup_required flag
+- [ ] Test: Setup page renders when required
+- [ ] Test: Admin account creation works
+- [ ] Test: Setup complete redirects to login
+- [ ] Test: Navigation redirects to setup when required
+- [ ] Test: Setup hidden after completion
+
+**Deliverables**:
+- Alembic migration (add is_admin, is_active)
+- SetupForm model
+- Setup routes (GET, POST)
+- Setup template
+- Startup middleware
+- Database migration applied
+
+**Dependencies**: T051 (theme loaded in setup page)
+
+**Timeline**: 1.5 days
+
+---
+
+### T077: Admin Dashboard & Navigation ⭕
+
+**Objective**: Build admin overview dashboard with core statistics
+
+**Tasks**:
+- [ ] Create admin middleware/auth
+  - Helper function: `get_admin_user()` dependency
+  - Check user.is_admin flag
+  - Return 403 if not admin
+- [ ] Create GET /admin route
+  - Calculate stats: user_count, project_count, model_count, storage_used
+  - Get recent activity log (last 10 entries)
+  - Render admin/dashboard.html
+- [ ] Create frontend/templates/admin/base.html
+  - Base template with admin nav
+  - Sidebar with admin menu links
+  - Top nav with user profile and logout
+  - Theme switcher
+  - Breadcrumb navigation
+- [ ] Create sidebar navigation
+  ```
+  Admin Dashboard
+  ├── Dashboard (overview)
+  ├── Users (management)
+  ├── Plugins (manager)
+  ├── Settings (configuration)
+  ├── Logs (viewer)
+  └── Health (system status)
+  ```
+- [ ] Create frontend/templates/admin/dashboard.html
+  - Stats cards (display counts and storage)
+  - Recent activity list
+  - System status indicator
+  - Quick links section
+  - Welcome message for new admin
+- [ ] Style admin layout with responsive design
+  - Mobile sidebar (hamburger toggle)
+  - Tablet and desktop layouts
+  - Dark/light theme support
+
+**Testing**:
+- [ ] Test: Admin route requires authentication
+- [ ] Test: Admin route requires is_admin=True
+- [ ] Test: Dashboard stats display correctly
+- [ ] Test: Navigation renders all links
+- [ ] Test: Breadcrumbs show correct path
+- [ ] Test: Dashboard responsive on mobile
+
+**Deliverables**:
+- Admin authentication dependency
+- GET /admin route
+- admin/base.html template
+- admin/dashboard.html template
+- Admin navigation styling
+- Test suite
+
+**Dependencies**: T076 (admin user exists), T055 (theme system)
+
+**Timeline**: 2 days
+
+---
+
+### T078: User Management Interface ⭕
+
+**Objective**: Build CRUD interface for managing users
+
+**Tasks**:
+- [ ] Create admin routes for users
+  - GET /admin/users - List users (paginated)
+  - GET /admin/users/create - Create form modal
+  - POST /admin/users/create - Create user
+  - GET /admin/users/{id}/edit - Edit form modal
+  - POST /admin/users/{id}/edit - Update user
+  - DELETE /admin/users/{id} - Delete with confirmation
+- [ ] Update UserService
+  - Add count() method
+  - Add list() method with pagination
+  - Add filter methods (by username, email, role)
+- [ ] Create frontend/templates/admin/users/list.html
+  - Table with columns: username, email, role, created_at, last_login, actions
+  - Pagination controls (next, prev, pages)
+  - Search/filter box
+  - Create new user button
+- [ ] Create frontend/templates/admin/users/form.html (modal)
+  - Username field (required, unique validation)
+  - Email field (required, unique validation)
+  - Password field (required for create, optional for edit)
+  - Confirm password field
+  - Role select (admin checkbox or dropdown)
+  - Is active checkbox
+  - Submit and cancel buttons
+- [ ] Implement HTMX interactions
+  - Show create form modal via HTMX (GET /admin/users/create)
+  - Create user via HTMX form submission
+  - Show edit form modal via HTMX
+  - Update user via HTMX form submission
+  - Delete with HTMX confirmation
+  - Real-time table update after CRUD
+- [ ] Add form validation
+  - Username unique check
+  - Email unique check
+  - Password strength validation
+  - Client-side + server-side validation
+
+**Testing**:
+- [ ] Test: List users page renders with pagination
+- [ ] Test: Create form modal opens and validates
+- [ ] Test: New user created successfully
+- [ ] Test: Edit form loads current data
+- [ ] Test: User updated successfully
+- [ ] Test: Delete shows confirmation
+- [ ] Test: User deleted successfully
+- [ ] Test: Search/filter works
+
+**Deliverables**:
+- Admin user routes (GET, POST, DELETE)
+- UserService extended with list/filter methods
+- admin/users/list.html template
+- admin/users/form.html template
+- HTMX interactions
+- Validation logic
+
+**Dependencies**: T077 (admin navigation)
+
+**Timeline**: 2 days
+
+---
+
+### T079: Plugin Manager & Settings ⭕
+
+**Objective**: Build interface to manage plugins and system settings
+
+**Tasks**:
+- [ ] Create admin routes for plugins
+  - GET /admin/plugins - List installed plugins
+  - POST /admin/plugins/{id}/toggle-enable - Enable/disable plugin
+  - GET /admin/plugins/{id}/config - Show config form modal
+  - POST /admin/plugins/{id}/config - Save plugin configuration
+- [ ] Extend PluginManager
+  - Add get_all() method returning plugin metadata
+  - Add get_by_id(id) method
+  - Add toggle_enabled(id) method
+  - Add get_config(id) and set_config(id, config) methods
+- [ ] Create GET /admin/settings route
+  - Render admin/settings.html
+  - Load current settings (theme, log_level, etc.)
+- [ ] Create frontend/templates/admin/plugins/list.html
+  - Table with columns: name, type, version, status (enabled/disabled), actions
+  - Enable/disable toggle per plugin
+  - Configuration button per plugin
+  - Plugin details (dependencies, description)
+- [ ] Create frontend/templates/admin/plugins/config.html (modal)
+  - Dynamic form based on plugin configuration schema
+  - Save button
+  - Show current config values
+- [ ] Create frontend/templates/admin/settings.html
+  - Theme selector (dropdown)
+  - Log level selector (DEBUG, INFO, WARNING, ERROR)
+  - Backup options (backup now button)
+  - Restore from backup
+  - Advanced settings (rate limiting, etc.)
+- [ ] Implement HTMX interactions
+  - Toggle plugin enable/disable button via HTMX
+  - Open config modal for plugin
+  - Save plugin config via HTMX
+  - Update plugin list after changes
+  - Save global settings via HTMX
+- [ ] Add admin logging
+  - Log all plugin enable/disable changes
+  - Log all settings changes with who changed them
+
+**Testing**:
+- [ ] Test: List plugins page renders
+- [ ] Test: Plugins enable/disable toggles work
+- [ ] Test: Config modal opens with current settings
+- [ ] Test: Save plugin config works
+- [ ] Test: Settings page renders current values
+- [ ] Test: Change theme setting persists
+- [ ] Test: Log level change takes effect
+- [ ] Test: Only admins can access these pages
+
+**Deliverables**:
+- Admin plugin routes
+- PluginManager extended methods
+- GET /admin/settings route
+- admin/plugins/list.html template
+- admin/plugins/config.html template
+- admin/settings.html template
+- HTMX interactions
+- Admin audit logging
+
+**Dependencies**: T077 (admin base), T031 (plugin system)
+
+**Timeline**: 2 days
+
+---
+
+### T080: Logs Viewer & System Health ⭕
+
+**Objective**: Build interface for system monitoring and troubleshooting
+
+**Tasks**:
+- [ ] Create admin routes for logs
+  - GET /admin/logs - Fetch recent logs (JSON)
+  - GET /admin/health - System health status (JSON)
+- [ ] Extend logging system
+  - Add method to fetch recent logs from file: logs_tail(n_lines, level=None)
+  - Add method to filter logs: logs_filter(level, module, search_term)
+  - Ensure JSON format for structured parsing
+- [ ] Create frontend/templates/admin/logs.html
+  - Log viewer with real-time tail display
+  - Filter by level (DEBUG, INFO, WARNING, ERROR)
+  - Filter by module/logger name
+  - Search by message text
+  - Download logs button
+  - Auto-refresh toggle (refresh every 5 seconds)
+  - Timestamp, level, module, message columns
+- [ ] Create frontend/templates/admin/health.html
+  - Storage usage card (progress bar)
+  - Database connection status
+  - API response time (average, 95th percentile)
+  - User count, project count, model count
+  - Uptime information
+  - Last backup timestamp (if applicable)
+  - System load/CPU info (if available)
+- [ ] Implement HTMX interactions
+  - Auto-refreshing logs display (HTMX polling every 2 seconds)
+  - Filter logs via HTMX (no page reload)
+  - Download logs file button
+  - Real-time health updates (every 10 seconds)
+- [ ] Add health check endpoints
+  - GET /api/v1/health/storage - Storage status
+  - GET /api/v1/health/database - Database status
+  - GET /api/v1/health/api - API metrics
+- [ ] Implement system monitoring
+  - Calculate storage used (from storage service)
+  - Database connection test
+  - API response time tracking (middleware)
+  - Uptime tracking
+
+**Testing**:
+- [ ] Test: Logs page renders with recent entries
+- [ ] Test: Filter by level works
+- [ ] Test: Search logs works
+- [ ] Test: Auto-refresh updates logs
+- [ ] Test: Download logs file works
+- [ ] Test: Health page displays all metrics
+- [ ] Test: Storage calculation correct
+- [ ] Test: Database status accurate
+- [ ] Test: Only admins can access
+
+**Deliverables**:
+- GET /admin/logs and /admin/health routes
+- Logs filtering methods in logging
+- Health check API routes
+- admin/logs.html template
+- admin/health.html template
+- HTMX auto-refresh interactions
+- System monitoring middleware/service
+- Test suite
+
+**Dependencies**: T077 (admin base), T039 (health checks)
+
+**Timeline**: 2 days
+
+---
+
 ## Dependencies & Blockers
 
 **Dependencies**:
 - Phase 1 MVP (API) complete ✅
 - FastAPI running ✅
 - Database working ✅
+- Phases 6A-6E complete (before Phase 6F)
 
 **No external blockers identified**
 

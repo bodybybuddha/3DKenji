@@ -3,7 +3,7 @@
 **Feature ID**: 002-web-frontend  
 **Status**: In Progress  
 **Start Date**: February 21, 2026  
-**Target Completion**: March 4, 2026  
+**Target Completion**: March 11, 2026 (expanded for admin interface)  
 
 ---
 
@@ -19,6 +19,9 @@ Add a complete web-based user interface to 3DKenji using FastAPI + Jinja2 templa
 ✅ Maintain separation between frontend code and theme definitions  
 ✅ Enable easy addition of new themes and UI extensions  
 ✅ Ensure dark mode by default with light mode option  
+✅ Build comprehensive admin interface for system management  
+✅ Implement first-time setup flow (admin account creation)  
+✅ Enable user, plugin, and configuration management
 
 ### Success Criteria
 
@@ -32,6 +35,13 @@ Add a complete web-based user interface to 3DKenji using FastAPI + Jinja2 templa
 - [ ] Authentication flows work with session management
 - [ ] File upload for 3D models works with progress
 - [ ] Search and pagination work via HTMX
+- [ ] First-time setup creates admin account automatically
+- [ ] Admin interface requires authentication and is_admin flag
+- [ ] Admin can manage users (create, edit, delete, role assignment)
+- [ ] Admin can view and manage plugins
+- [ ] Admin can view application logs in real-time
+- [ ] Admin can view system health and status
+- [ ] Settings panel allows configuration changes
 
 ---
 
@@ -182,7 +192,9 @@ css_variables = {
 - Advanced filtering/search UI
 - Print job tracking interface
 - Mobile app
-- Analytics dashboard
+- Advanced analytics dashboard
+- OAuth provider settings (basic auth only in MVP)
+- Email notifications/SMTP configuration
 
 ---
 
@@ -234,9 +246,113 @@ User
 
 ---
 
-## 5. Design System
+## 5. Admin Interface Architecture
 
-### 5.1 CSS Architecture
+### 5.1 First-Time Setup Flow
+
+**Startup Process**:
+1. App initializes database migrations (Alembic)
+2. Check if any admin users exist in database
+3. If no admins: Redirect to `/setup` page
+4. If admins exist: Normal flow
+
+**Setup Page**:
+```
+[Logo] 3DKenji Setup
+
+Welcome! Let's set up your 3DKenji instance.
+
+[Form]
+Admin Username: ____________
+Admin Email: ________________
+Password: ___________________
+Confirm: ____________________
+
+Default Theme: [Dark] [Light]
+
+[Create Admin Account and Continue]
+
+After submission:
+- Create admin user (is_admin=True)
+- Set theme preference
+- Redirect to /login
+- Show "Admin account created. Please log in."
+```
+
+### 5.2 Admin Dashboard
+
+**Overview**:
+- System status cards (storage used, users count, projects count, uptime)
+- Recent activity log
+- Quick links to management sections
+- System health status
+
+**Navigation**:
+```
+Admin Dashboard
+├── Dashboard (home)
+├── Users → List, Create, Edit, Delete, Assign Roles
+├── Plugins → View, Enable/Disable, Configure
+├── Settings → Theme, Log Level, Backup
+├── Logs → View, Filter, Download
+└── System Health → Storage, Database, API Status
+```
+
+### 5.3 Admin Pages Layout
+
+**User Management Page**:
+- Table of users: username, email, role, created_date, last_login
+- Create new user button → modal form
+- Edit button per user → modal form
+- Delete button with confirmation
+- Filter/search by username or email
+- Pagination for large user lists
+
+**Plugin Manager Page**:
+- List installed plugins: name, type, version, status
+- Enable/disable toggle per plugin
+- Configuration button per plugin (opens modal)
+- View plugin details/dependencies
+- Update available (future)
+
+**Settings Page**:
+- Theme selection dropdown
+- Log level selection
+- Backup/restore options
+- Advanced settings (API rate limiting, etc.)
+
+**Logs Viewer Page**:
+- Real-time log display (tail logs)
+- Filter by level (DEBUG, INFO, WARNING, ERROR)
+- Filter by module/logger
+- Search by message
+- Download logs as file
+- Auto-refresh toggle
+
+**System Health Page**:
+- Storage usage (total, used, available)
+- Database connection status
+- API response time metrics
+- User/Project/Model counts
+- Uptime information
+
+---
+
+## 6. Design System
+
+### 6.1 Admin UI Components
+
+**Additional Components for Admin**:
+- Admin navigation sidebar or top nav
+- Data tables with sorting and pagination
+- Modal dialogs for confirmations and forms
+- Badge components (status indicators)
+- Progress bars (storage usage, etc.)
+- Status cards with icons
+- Toast notifications for actions
+- Breadcrumb navigation
+
+### 6.2 CSS Architecture
 
 ```
 frontend/static/css/
@@ -260,7 +376,7 @@ frontend/static/css/
     └── responsive.css   # Media queries
 ```
 
-### 5.2 Color Variables
+### 6.3 Color Variables
 
 **Dark Theme** (default):
 ```css
@@ -310,7 +426,7 @@ frontend/static/css/
 }
 ```
 
-### 5.3 Component Library
+### 6.4 Component Library
 
 **Buttons**:
 - `.button` - Base button
@@ -340,7 +456,7 @@ frontend/static/css/
 - `.alert-warning` - Warning message
 - `.alert-info` - Info message
 
-### 5.4 Layout System
+### 6.5 Layout System
 
 **Grid Container**:
 ```css
@@ -362,7 +478,28 @@ Desktop: > 1024px
 
 ## 6. Technical Details
 
-### 6.1 File Structure
+### 7.1 Database Changes
+
+**Updated User Model**:
+```python
+class User(Base):
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True)
+    email = Column(String, unique=True)
+    hashed_password = Column(String)
+    display_name = Column(String, nullable=True)
+    is_admin = Column(Boolean, default=False)  # NEW
+    is_active = Column(Boolean, default=True)  # NEW
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+```
+
+**Alembic Migration**:
+- Add `is_admin` and `is_active` columns to users table
+- Default: is_admin=False, is_active=True
+- Create index on email (for login)
+
+### 7.2 File Structure
 
 ```
 project/
@@ -379,6 +516,7 @@ project/
 │   ├── templates/
 │   │   ├── base.html
 │   │   ├── index.html
+│   │   ├── setup.html               # NEW: First-time setup
 │   │   ├── auth/
 │   │   │   ├── login.html
 │   │   │   ├── register.html
@@ -396,6 +534,19 @@ project/
 │   │   │   └── list.html
 │   │   ├── settings/
 │   │   │   └── profile.html
+│   │   ├── admin/                   # NEW: Admin interface
+│   │   │   ├── base.html            # Admin base template
+│   │   │   ├── dashboard.html       # Admin home/overview
+│   │   │   ├── users/
+│   │   │   │   ├── list.html
+│   │   │   │   ├── form.html        # Modal
+│   │   │   │   └── card.html
+│   │   │   ├── plugins/
+│   │   │   │   ├── list.html
+│   │   │   │   └── config.html      # Modal
+│   │   │   ├── settings.html        # Global settings
+│   │   │   ├── logs.html            # Log viewer
+│   │   │   └── health.html          # System status
 │   │   └── components/
 │   │       ├── navbar.html
 │   │       ├── modal.html
@@ -571,9 +722,118 @@ async def new_page(request: Request):
 - End-to-end user flow tests
 - Documentation and deployment
 
+### Phase 6F: Admin Interface (T076-T080) **NEW**
+- First-time setup/bootstrap flow
+- Admin dashboard and navigation
+- User management interface
+- Plugin manager and settings
+- Logs viewer and system health
+
 ---
 
-## 10. Success Metrics
+## 10. Admin Interface Startup Logic
+
+### 10.1 First-Time Startup
+
+```python
+# backend/main.py startup hook
+
+@app.on_event("startup")
+async def startup_event():
+    # Run database migrations
+    # ...
+    
+    # Check if admin users exist
+    admin_count = await user_service.count_where({"is_admin": True})
+    
+    if admin_count == 0:
+        # Mark app as requiring setup
+        app.state.setup_required = True
+    else:
+        app.state.setup_required = False
+    
+    logger.info(f"Setup required: {app.state.setup_required}")
+
+# Middleware to enforce setup
+@app.middleware("http")
+async def setup_middleware(request: Request, call_next):
+    # Allow setup and static routes
+    if request.url.path in ["/setup", "/static/css", "/static/js", "/api/v1/theme/css"]:
+        return await call_next(request)
+    
+    # If setup required and not on setup page, redirect
+    if request.app.state.setup_required and request.url.path != "/setup":
+        return RedirectResponse("/setup")
+    
+    return await call_next(request)
+
+@app.get("/setup", response_class=HTMLResponse)
+async def setup_page(request: Request):
+    # If already set up, redirect
+    if not request.app.state.setup_required:
+        return RedirectResponse("/")
+    
+    return templates.TemplateResponse("setup.html", {"request": request})
+
+@app.post("/setup", response_class=HTMLResponse)
+async def setup_submit(request: Request, form_data: SetupForm):
+    # Validate input
+    # Create admin user
+    await user_service.create(
+        username=form_data.username,
+        email=form_data.email,
+        password=form_data.password,
+        is_admin=True
+    )
+    
+    # Mark setup as complete
+    request.app.state.setup_required = False
+    
+    # Show success message and redirect to login
+    request.session["setup_complete"] = True
+    return templates.TemplateResponse(
+        "auth/login.html",
+        {
+            "request": request,
+            "message": "Admin account created! Please log in.",
+            "message_type": "success"
+        }
+    )
+```
+
+### 10.2 Admin Route Protection
+
+```python
+# Helper to check if user is admin
+async def get_admin_user(request: Request) -> User:
+    user_id = request.session.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401)
+    
+    user = await user_service.get(user_id)
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    return user
+
+# Admin routes
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_dashboard(request: Request, user: User = Depends(get_admin_user)):
+    stats = {
+        "user_count": await user_service.count(),
+        "project_count": await project_service.count(),
+        "model_count": await model_service.count(),
+        "storage_used": await storage_service.get_used_space(),
+    }
+    return templates.TemplateResponse(
+        "admin/dashboard.html",
+        {"request": request, "user": user, "stats": stats}
+    )
+```
+
+---
+
+## 11. Success Metrics
 
 | Metric | Target | Validation |
 |--------|--------|-----------|
@@ -587,7 +847,7 @@ async def new_page(request: Request):
 
 ---
 
-## 11. Risks & Mitigations
+## 12. Risks & Mitigations
 
 | Risk | Impact | Mitigation |
 |------|--------|-----------|
@@ -598,13 +858,36 @@ async def new_page(request: Request):
 
 ---
 
-## 12. References
+## 13. References
 
 - **HTMX Docs**: https://htmx.org
 - **Jinja2 Docs**: https://jinja.palletsprojects.com/
 - **FastAPI Templates**: https://fastapi.tiangolo.com/advanced/templates/
 - **CSS Variables**: https://developer.mozilla.org/en-US/docs/Web/CSS/--*
 - **Semantic HTML**: https://www.w3.org/TR/html5/
+
+---
+
+---
+
+## 14. Admin Interface Feature Summary
+
+**New in Phase 6F**:
+- ✅ First-time setup with automatic admin account creation
+- ✅ Admin authentication check (is_admin flag)
+- ✅ Admin dashboard with system statistics
+- ✅ User management (CRUD operations)
+- ✅ Plugin manager (view, enable/disable, configure)
+- ✅ Global settings (theme, log level, backups)
+- ✅ Real-time logs viewer with filtering
+- ✅ System health and status monitoring
+- ✅ Protected admin routes with proper authorization
+
+**Ensures MVP is production-ready with**:
+- Initial setup automation
+- System observability
+- User administration capabilities
+- Plugin/configuration management
 
 ---
 
