@@ -3,6 +3,7 @@
 __pycache__/
 .pytest_cache/
 /data/db_data
+/data/logs/*
 
 .DS_Store
 
