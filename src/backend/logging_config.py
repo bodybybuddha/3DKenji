@@ -4,6 +4,7 @@ import logging
 import logging.handlers
 import json
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -117,10 +118,13 @@ def get_logger(
 
 
 # Root logger for the application
+# Use environment variable or default to relative path
+default_log_file =os.getenv("LOG_FILE", "data/logs/app.log") if os.getenv("ENABLE_FILE_LOGGING", "true").lower() in ("true", "1", "yes") else None
+
 logger = get_logger(
     "3dkenji",
     level=logging.INFO,
-    log_file="/workspace/data/logs/app.log",
+    log_file=default_log_file,
 )
 
 
