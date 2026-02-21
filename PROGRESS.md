@@ -7,9 +7,9 @@
 
 ## Summary
 
-✅ **Foundation complete** – Plugin framework and data models in place.  
-🔄 **Current focus** – Services layer (CRUD operations).  
-📍 **Next session** – Resume with T021 (UserService).
+✅ **Services complete** – All CRUD operations with 30 passing tests.  
+🔄 **Current focus** – Auth middleware and password auth plugin.  
+📍 **Next milestone** – Complete auth (T024-T029) for MVP readiness.
 
 ---
 
@@ -48,33 +48,34 @@
 
 ## In Progress 🔄
 
-### Phase 3b: Services ⚠️
-**Next**: T021-T023
-- `UserService` – CRUD + password hashing (bcrypt)
-- `ProjectService` – CRUD + owner validation
-- `ModelService` – CRUD + storage integration
-- **Estimated effort**: 1-2 days
-- **Blockers**: None
-- **Files to create**:
+### Phase 3b: Services ✅
+**Completed**: T021-T023 + comprehensive tests
+- `UserService` – CRUD + password hashing (bcrypt) + auth verification
+- `ProjectService` – CRUD + owner validation + ownership checks
+- `ModelService` – CRUD + storage integration + permission checking
+- **Test coverage**: 30 unit tests, all passing
+- **Status**: Business logic layer ready
+- **Files created**:
   - `backend/src/services/user_service.py`
   - `backend/src/services/project_service.py`
   - `backend/src/services/model_service.py`
   - `backend/src/services/__init__.py`
+  - `tests/services_test.py` (30 tests)
 
 ---
 
-## Not Started ⭕
+## In Progress 🔄
 
-### Phase 3b: Auth & Security
-**T024-T029** (2-3 days)
+### Phase 3c: Auth & Security
+**Next**: T024-T029 (2-3 days)
 - Core auth middleware (T024)
 - Password auth plugin (T025)
 - GitHub OAuth plugin (T026) – optional for MVP
 - Google OAuth plugin (T027) – optional for MVP
 - Auth endpoints (T028-T029)
-- **Dependency**: Services must be complete
+- **Dependency**: Services complete ✅
 
-### Phase 3c: Storage
+### Phase 3d: Storage
 **T030-T033** (1-2 days)
 - Local storage plugin 
 - S3 plugin skeleton
