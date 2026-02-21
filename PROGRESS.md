@@ -8,7 +8,8 @@
 ## Summary
 
 ✅ **Auth complete** – JWT, password plugin, and endpoints ready for MVP.  
-📍 **Next** – Storage plugins, then full API endpoints.  
+✅ **Storage complete** – LocalStorageBackend filesystem plugin and app integration working.  
+📍 **Next** – API endpoints (projects, models, keys).  
 🎯 **Estimated MVP** completion: Feb 22-23
 
 ---
@@ -83,19 +84,23 @@
   - `backend/api/auth.py` – Auth endpoints
   - `backend/api/__init__.py` – API routing
 
-### Phase 3d: Storage Plugins
-**T030-T033** (1-2 days)
-- Local storage plugin 
-- S3 plugin skeleton
-- Storage initialization
-- **Dependency**: Services must be complete
+### Phase 3d: Storage Plugins ✅
+**Completed**: T030-T033
+- `LocalStorageBackend` – Filesystem storage plugin with store/retrieve/delete/get_url
+- App factory integration – Storage initialized on startup
+- Health checks and error handling
+- **Test coverage**: 13 unit tests, all passing
+- **Status**: Storage layer ready for ModelService integration ✅
+- **Files created**:
+  - `backend/plugins/storage_local.py` – LocalStorageBackend implementation
+  - `tests/test_storage_backend.py` (13 tests)
 
 ### Phase 3e: API Endpoints
-**T034-T038** (2-3 days)
+**T034-T038** (in progress)
 - Projects CRUD endpoints
 - Models upload/download
 - API keys management
-- **Dependency**: Services + Auth must be complete
+- **Dependency**: Services + Auth + Storage must be complete ✅
 
 ### Phase 3f: Observability
 **T039-T040** (1 day)
