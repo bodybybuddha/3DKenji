@@ -19,6 +19,8 @@
 - T004 [P] Add CI skeleton with linting (flake8/ruff) and pytest
   - Files: `.github/workflows/ci.yml`
 
+> NOTE: Per repo inspection, T001 - T003 are completed on this branch. `data-model.md` and `contracts/` are not present in the feature directory; tasks that depend on those artifacts are deferred until those documents are added.
+
 ---
 
 ## Phase 2: Tests First (TDD) — MUST create failing tests before implementation
@@ -29,6 +31,19 @@ Contract tests (from `contracts/openapi.yaml`) — put in `tests/contract/`
 - T007 [P] Contract test: `tests/contract/test_models_upload.py` for POST /api/v1/projects/{project_id}/models (expect 201)
 - T008 [P] Contract test: `tests/contract/test_model_get.py` for GET /api/v1/models/{model_id}
 - T009 [P] Contract test: `tests/contract/test_keys_create_list_revoke.py` for POST/GET/DELETE /api/v1/keys
+
+--
+
+### Immediate executable tasks (no contracts/data-model required)
+
+- T005 [P] Add basic health endpoint test to `src/backend/test_main.py` (fastapi TestClient) — ensure test exists and fails if endpoint missing.
+- T006 [P] Add DB connectivity smoke test to `src/backend/test_main.py` that reads `DATABASE_URL` and:
+  - For `sqlite` URLs: attempts a simple `SELECT 1`.
+  - For network DBs: attempts to open a TCP connection to host:port.
+  - Test should `pytest.skip` if `DATABASE_URL` is unset or cannot be parsed.
+- T007 Add application factory and health endpoint (if missing) in `src/backend/main.py` so `T005` can pass.
+
+These tasks let you run tests locally in devcontainer without generated contracts. Mark T005 and T006 [P] as parallel-safe since they touch `src/backend/test_main.py` and will be independent if implemented in separate files or guarded by different names.
 
 Integration tests — put in `tests/integration/` and run against docker-compose test env
 - T010 [P] Integration test: user registration & login `tests/integration/test_auth_flow.py`

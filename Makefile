@@ -1,19 +1,22 @@
-.PHONY: venv install install-edit dev test docker-build compose-up compose-down clean
+.PHONY: venv install install-edit dev test compose-up compose-down clean
 
 PYTHON=python
 UV=uv
 
 venv:
-	@echo "Creating uv venv (.venv) using Python 3.11..."
-	$(UV) venv --python 3.11
+	@if [ -d .venv ]; then \
+		echo "Using existing .venv"; \
+	else \
+		echo "Creating uv venv (.venv) using Python 3.11..."; \
+		$(UV) venv --python 3.11; \
+	fi
 
 install: venv
-	@echo "Syncing dependencies into .venv..."
-	. .venv/bin/activate && $(UV) pip sync
+	@echo "Syncing dependencies into .venv from uv.lock..."
+	. .venv/bin/activate && $(UV) sync --frozen
 
 install-edit: install
-	@echo "Installing project in editable mode into .venv..."
-	. .venv/bin/activate && pip install --no-deps -e /workspace || . .venv/bin/activate && pip install --no-deps -e .
+	@echo "Project is installed editable via uv sync."
 
 dev: install-edit
 	@echo "Starting dev server (uvicorn) with reload..."
@@ -22,10 +25,6 @@ dev: install-edit
 test: install
 	@echo "Running tests..."
 	. .venv/bin/activate && $(PYTHON) -m pytest -q
-
-docker-build:
-	@echo "Building backend Docker image..."
-	docker build -t 3d-kenji-backend -f backend/Dockerfile backend
 
 compose-up:
 	@echo "Running docker-compose up (builds images)..."

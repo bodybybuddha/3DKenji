@@ -1,15 +1,21 @@
 # 3DKenji
 Self-hosted knowledge keeper for 3D printing projects.
 
-## Development with uv
+## Development
 
-This project supports Astral's `uv` as an optional project manager. If you have `uv` installed locally, you can create a `.venv` and install the pinned dependencies used by CI and the devcontainer:
+Use the devcontainer for local development. It sets up the virtual environment and dependencies automatically.
+
+If you are running locally without the devcontainer:
 
 ```bash
-uv venv --python 3.11
-. .venv/bin/activate
-uv pip sync
-uv lock    # generate `uv.lock` and commit it for reproducible installs
+make install
+make dev
 ```
 
-The devcontainer and CI are configured to install `uv==0.8.15`. Dependencies are declared in `pyproject.toml` and locked with `uv.lock`.
+Run tests with:
+
+```bash
+make test
+```
+
+Tests start the FastAPI app automatically for contract checks.

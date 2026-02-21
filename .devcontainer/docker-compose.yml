@@ -8,7 +8,7 @@ services:
     volumes:
       - ../data/db_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
   backend:
     build:
@@ -17,7 +17,7 @@ services:
     volumes:
       - ..:/workspace:cached
       - ${HOME}/.gitconfig:/home/vscode/.gitconfig
-      - ${HOME}/.ssh/id_rsa:/home/vscode/.ssh/id_rsa
+      - ${HOME}/.ssh:/home/vscode/.ssh:ro
       - venv_data:/workspace/.venv
     environment:
       DATABASE_URL: postgres://kenji:kenji@db:5432/kenji
