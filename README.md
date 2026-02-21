@@ -426,12 +426,113 @@ Logs are written to:
 Contributions welcome! Please:
 
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch from `dev`
 3. Add tests for new features
-4. Ensure all tests pass
-5. Submit a pull request
+4. Ensure all tests pass locally
+5. Submit a pull request to `dev`
 
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed contributor guidelines.
+See [.github/SETUP_GUIDE.md](.github/SETUP_GUIDE.md) for detailed setup instructions.
+
+## Development Workflow
+
+This project follows a **feature → dev → main** workflow with branch protection:
+
+### Branch Structure
+
+```
+main (production)    ← Stable releases only, requires approval
+  ↑
+dev (integration)    ← Active development, requires CI to pass
+  ↑
+feature branches     ← Individual features/fixes
+```
+
+### Creating a New Feature
+
+```bash
+# 1. Start from dev branch
+git checkout dev
+git pull origin dev
+
+# 2. Create feature branch
+git checkout -b feature/my-awesome-feature
+
+# 3. Make changes and commit
+git add .
+git commit -m "Add awesome feature"
+
+# 4. Run tests locally
+make test
+
+# 5. Push to remote
+git push origin feature/my-awesome-feature
+
+# 6. Create pull request to dev
+gh pr create --base dev --head feature/my-awesome-feature
+```
+
+### Merging to Dev
+
+- ✅ CI tests must pass
+- ✅ All conversations resolved
+- ✅ Code reviewed (optional but recommended)
+- Merge via GitHub UI
+- Delete feature branch after merge
+
+### Creating a Release
+
+```bash
+# 1. When dev is ready for production
+gh pr create --base main --head dev --title "Release v1.1.0"
+
+# 2. After approval and CI pass, merge to main
+
+# 3. Tag the release
+git checkout main
+git pull origin main
+git tag -a v1.1.0 -m "Release v1.1.0: New features and fixes"
+git push origin v1.1.0
+
+# 4. Create GitHub release from tag (optional)
+gh release create v1.1.0 --notes "Release notes here"
+```
+
+### Branch Protection Rules
+
+- **`main`**: Cannot be deleted, requires 1 approval, requires CI, linear history
+- **`dev`**: Cannot be deleted, requires CI, no force push
+- **Feature branches**: No restrictions, delete after merge
+
+### Running Tests Locally
+
+```bash
+# Run all tests
+make test
+
+# Run with coverage
+pytest --cov=src --cov-report=term-missing
+
+# Run specific test file
+pytest tests/test_storage_backend.py -v
+
+# Run tests matching pattern
+pytest -k "test_user" -v
+```
+
+### Code Quality
+
+```bash
+# Format code
+ruff format src/ tests/
+
+# Lint code
+ruff check src/ tests/
+
+# Type checking (optional)
+mypy src/
+```
+
+For more details, see [.github/SETUP_GUIDE.md](.github/SETUP_GUIDE.md).
 
 ## Status & Roadmap
 
