@@ -2,7 +2,7 @@
 
 import os
 from typing import Optional
-from fastapi import APIRouter, HTTPException, status, Depends, Header, Request, Response
+from fastapi import APIRouter, HTTPException, status, Depends, Header, Request, Response, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ValidationError, EmailStr, Field
@@ -299,16 +299,16 @@ async def change_password(
 async def validate_login_form(
     request: Request,
     response: Response,
-    username_or_email: str = None,
-    password: str = None,
+    username_or_email: str = Form(),
+    password: str = Form(),
     db: Session = Depends(get_db),
 ):
     """Validate login form and return errors or success."""
     try:
         # Validate inputs
         validated = ValidatedLoginRequest(
-            username_or_email=username_or_email or "",
-            password=password or "",
+            username_or_email=username_or_email,
+            password=password,
         )
         
         # If validation passed, try to authenticate
@@ -334,7 +334,7 @@ async def validate_login_form(
             response.headers["HX-Redirect"] = "/projects"
             return Response(status_code=200, headers=response.headers)
             
-        except ValueError:
+        except ValueError as e:
             # Invalid credentials
             return templates.TemplateResponse("fragments/error-alert.html", {
                 "request": request,
@@ -355,22 +355,22 @@ async def validate_login_form(
 async def validate_register_form(
     request: Request,
     response: Response,
-    username: str = None,
-    email: str = None,
-    display_name: str = None,
-    password: str = None,
-    password_confirm: str = None,
+    username: str = Form(),
+    email: str = Form(),
+    display_name: str = Form(None),
+    password: str = Form(),
+    password_confirm: str = Form(),
     db: Session = Depends(get_db),
 ):
     """Validate registration form and return errors or success."""
     try:
         # Validate inputs
         validated = ValidatedRegisterRequest(
-            username=username or "",
-            email=email or "",
+            username=username,
+            email=email,
             display_name=display_name,
-            password=password or "",
-            password_confirm=password_confirm or "",
+            password=password,
+            password_confirm=password_confirm,
         )
         
         # Check if username/email already exists
