@@ -428,3 +428,16 @@ async def validate_register_form(
             "message": f"Server error: {str(e)}",
             "errors": {},
         })
+
+
+@router.post("/logout")
+async def logout(request: Request):
+    """Logout endpoint - clear authentication cookie and redirect to login."""
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        domain=None
+    )
+    logger.info("User logged out successfully")
+    return response
