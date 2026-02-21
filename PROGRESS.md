@@ -7,10 +7,10 @@
 
 ## Summary
 
-✅ **Auth complete** – JWT, password plugin, and endpoints ready for MVP.  
-✅ **Storage complete** – LocalStorageBackend filesystem plugin and app integration working.  
-📍 **Next** – API endpoints (projects, models, keys).  
-🎯 **Estimated MVP** completion: Feb 22-23
+✅ **Auth complete** – JWT, password plugin, and 3 endpoints ready for MVP.  
+✅ **Storage complete** – LocalStorageBackend filesystem plugin working.  
+✅ **API endpoints complete** – Projects CRUD, Models upload/list, API Keys management.  
+🎯 **Estimated MVP** completion: Feb 22-23 (on track)
 
 ---
 
@@ -95,15 +95,49 @@
   - `backend/plugins/storage_local.py` – LocalStorageBackend implementation
   - `tests/test_storage_backend.py` (13 tests)
 
-### Phase 3e: API Endpoints
-**T034-T038** (in progress)
-- Projects CRUD endpoints
-- Models upload/download
-- API keys management
-- **Dependency**: Services + Auth + Storage must be complete ✅
+### Phase 3e: API Endpoints ✅
+**Completed**: T034-T038
+- **Projects CRUD** (T034-T035):
+  - `POST /api/v1/projects` – Create project (201)
+  - `GET /api/v1/projects` – List user's projects (paginated)
+  - `GET /api/v1/projects/{id}` – Get project details
+  - `PATCH /api/v1/projects/{id}` – Update project
+  - `DELETE /api/v1/projects/{id}` – Delete project (cascades to models)
+- **Models endpoints** (T036-T037):
+  - `POST /api/v1/projects/{id}/models` – Upload .stl/.3mf/.obj/.gcode (max 10MB)
+  - `GET /api/v1/projects/{id}/models` – List project models
+  - `GET /api/v1/models/{id}` – Get model metadata
+- **API Keys** (T038):
+  - `POST /api/v1/keys` – Create API key (secret shown only once)
+  - `GET /api/v1/keys` – List user's keys
+  - `DELETE /api/v1/keys/{id}` – Revoke key
+- **Features**:
+  - Ownership validation on all operations
+  - Bearer token auth required
+  - Pagination support (skip/limit)
+  - File validation (size, type)
+  - Storage backend integration
+  - Pydantic request/response models
+- **Test coverage**: 52 unit tests, all passing
+- **Status**: Full API surface ready ✅
+- **Files created**:
+  - `backend/api/projects.py` – Projects endpoints
+  - `backend/api/models.py` – Models endpoints
+  - `backend/api/keys.py` – API Keys endpoints
+  - `backend/storage.py` – Storage initialization/DI
 
 ### Phase 3f: Observability
-**T039-T040** (1 day)
+**T039-T040** (next - 1 day)
+- Structured logging setup
+- Plugin health check endpoint (/api/v1/health/plugins)
+- Request tracing (optional, for debugging)
+
+### Phase 4: Integration & Polish (after observability)
+**T041-T045** (2-3 days)
+- Dependency injection wiring review
+- Pydantic schema consolidation
+- Thumbnail handling
+- Frontend UI (minimal)
 - Structured logging
 - Plugin health check endpoint
 
