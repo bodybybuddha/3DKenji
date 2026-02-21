@@ -47,6 +47,7 @@ def create_app() -> FastAPI:
             logger.error(f"Failed to initialize theme manager: {e}")
 
         # Determine if initial setup is required
+        session = None
         try:
             session = get_session_factory()()
             admin_exists = session.execute(
@@ -57,10 +58,11 @@ def create_app() -> FastAPI:
             logger.error(f"Failed to determine setup state: {e}")
             app.state.setup_required = False
         finally:
-            try:
-                session.close()
-            except Exception:
-                pass
+            if session is not None:
+                try:
+                    session.close()
+                except Exception:
+                    pass
 
     @app.middleware("http")
     async def setup_guard(request, call_next):
