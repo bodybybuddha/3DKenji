@@ -32,7 +32,7 @@ class PluginManager:
         Args:
             plugins_dir: Path to plugins directory. If None, uses backend/plugins/.
         """
-        self.plugins_dir = plugins_dir or Path(__file__).parent.parent.parent / "plugins"
+        self.plugins_dir = plugins_dir or Path(__file__).parent.parent / "plugins"
         self.plugins: Dict[str, KeajiPlugin] = {}
         self.auth_providers: List[AuthProvider] = []
         self.storage_backends: Dict[str, StorageBackend] = {}
