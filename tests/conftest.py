@@ -9,8 +9,12 @@ from pathlib import Path
 import httpx
 import pytest
 
+# Use absolute path for test database so subprocess can find it
+project_root = Path(__file__).resolve().parents[1]
+test_db_path = project_root / "test.db"
+
 # MUST set DATABASE_URL before any app modules load
-os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+os.environ["DATABASE_URL"] = f"sqlite:///{test_db_path}"
 
 # Initialize database tables at module import time
 from backend.db.base import Base
@@ -22,13 +26,19 @@ Base.metadata.create_all(_engine)
 
 @pytest.fixture(scope="session", autouse=True)
 def _start_api_server():
-    project_root = Path(__file__).resolve().parents[1]
+    """Start API server for contract tests with proper test database."""
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         _, port = sock.getsockname()
     base_url = f"http://127.0.0.1:{port}"
     os.environ["API_BASE_URL"] = base_url
+    
+    # Prepare environment for subprocess with test database
+    env = os.environ.copy()
+    env["DATABASE_URL"] = f"sqlite:///{test_db_path}"
+    env["ENABLE_FILE_LOGGING"] = "false"
+    
     cmd = [
         sys.executable,
         "-m",
@@ -42,6 +52,7 @@ def _start_api_server():
     process = subprocess.Popen(
         cmd, 
         cwd=project_root,
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True
