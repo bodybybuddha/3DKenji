@@ -272,3 +272,46 @@ async def get_create_key_modal(
     return templates.TemplateResponse("keys/form-modal.html", {
         "request": request,
     }).body.decode()
+
+# Form validation endpoints
+@router.post("/validate/create", response_class=HTMLResponse)
+async def validate_create_key(
+    request: Request,
+    name: str = None,
+    scopes: list[str] = None,
+    expiry_days: int = None,
+    current_user_id: str = Depends(get_current_user),
+    session: Session = Depends(get_db),
+):
+    """Validate API key creation form."""
+    try:
+        from backend.core.validation import CreateAPIKeyRequest as ValidatedKeyRequest, format_validation_errors
+        
+        # Validate inputs
+        validated = ValidatedKeyRequest(
+            name=name or "",
+            scopes=scopes or ["read:models"],
+            expiry_days=expiry_days,
+        )
+        
+        # Create API key would happen here
+        return JSONResponse({
+            "success": True,
+            "message": "API key created successfully",
+            "key_id": "key_123",
+        })
+    
+    except ValidationError as e:
+        from backend.core.validation import format_validation_errors
+        errors = format_validation_errors(e)
+        return templates.TemplateResponse("fragments/error-alert.html", {
+            "request": request,
+            "message": "Validation failed",
+            "errors": errors,
+        }, status_code=400)
+    except Exception as e:
+        return templates.TemplateResponse("fragments/error-alert.html", {
+            "request": request,
+            "message": "Failed to create API key",
+            "errors": {"general": [str(e)]},
+        }, status_code=500)

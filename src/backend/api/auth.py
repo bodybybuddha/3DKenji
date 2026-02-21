@@ -1,14 +1,28 @@
 """Authentication API endpoints."""
 
+import os
 from typing import Optional
-from fastapi import APIRouter, HTTPException, status, Depends, Header
-from pydantic import BaseModel, EmailStr, Field
+from fastapi import APIRouter, HTTPException, status, Depends, Header, Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, ValidationError, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from backend.db import get_db
 from backend.core.auth import create_access_token, decode_token
+from backend.core.validation import (
+    LoginRequest as ValidatedLoginRequest,
+    RegisterRequest as ValidatedRegisterRequest,
+    format_validation_errors,
+)
 from backend.plugins.auth_password import PasswordAuthProvider
 from backend.services.user_service import UserService
+
+# Initialize templates for HTML responses
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend")
+TEMPLATES_DIR = os.path.join(FRONTEND_DIR, "templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -279,3 +293,114 @@ async def change_password(
         display_name=updated_identity.display_name,
     )
 
+
+# Form validation endpoints for HTMX
+@router.post("/validate/login", response_class=HTMLResponse)
+async def validate_login_form(
+    request: Request,
+    username_or_email: str = None,
+    password: str = None,
+    db: Session = Depends(get_db),
+):
+    """Validate login form and return errors or success."""
+    try:
+        # Validate inputs
+        validated = ValidatedLoginRequest(
+            username_or_email=username_or_email or "",
+            password=password or "",
+        )
+        
+        # If validation passed, try to authenticate
+        auth_provider = PasswordAuthProvider(db)
+        try:
+            auth_result = await auth_provider.authenticate(
+                credentials={"username": validated.username_or_email, "password": validated.password}
+            )
+            
+            # Create JWT token
+            token = create_access_token(auth_result.user_id, auth_result.username)
+            
+            return JSONResponse({
+                "success": True,
+                "redirect": "/projects",
+                "token": token.access_token,
+            })
+        except ValueError:
+            # Invalid credentials
+            return templates.TemplateResponse("fragments/error-alert.html", {
+                "request": request,
+                "message": "Invalid username/email or password",
+                "errors": {},
+            })
+    
+    except ValidationError as e:
+        errors = format_validation_errors(e)
+        return templates.TemplateResponse("fragments/error-alert.html", {
+            "request": request,
+            "message": "Validation failed",
+            "errors": errors,
+        })
+
+
+@router.post("/validate/register", response_class=HTMLResponse)
+async def validate_register_form(
+    request: Request,
+    username: str = None,
+    email: str = None,
+    display_name: str = None,
+    password: str = None,
+    password_confirm: str = None,
+    db: Session = Depends(get_db),
+):
+    """Validate registration form and return errors or success."""
+    try:
+        # Validate inputs
+        validated = ValidatedRegisterRequest(
+            username=username or "",
+            email=email or "",
+            display_name=display_name,
+            password=password or "",
+            password_confirm=password_confirm or "",
+        )
+        
+        # Check if username/email already exists
+        user_service = UserService(db)
+        if user_service.get_user_by_username(validated.username):
+            return templates.TemplateResponse("fragments/error-alert.html", {
+                "request": request,
+                "message": "Validation failed",
+                "errors": {"username": ["Username already exists"]},
+            })
+        
+        if user_service.get_user_by_email(validated.email):
+            return templates.TemplateResponse("fragments/error-alert.html", {
+                "request": request,
+                "message": "Validation failed",
+                "errors": {"email": ["Email already registered"]},
+            })
+        
+        # If validation passed, create user
+        auth_provider = PasswordAuthProvider(db)
+        user_identity = await auth_provider.create_user(
+            username=validated.username,
+            email=validated.email,
+            display_name=validated.display_name or validated.username,
+            password=validated.password,
+        )
+        
+        # Create JWT token
+        token = create_access_token(user_identity.user_id, user_identity.username)
+        
+        return JSONResponse({
+            "success": True,
+            "redirect": "/projects",
+            "token": token.access_token,
+        })
+    
+    except ValidationError as e:
+        errors = format_validation_errors(e)
+        return templates.TemplateResponse("fragments/error-alert.html", {
+            "request": request,
+            "message": "Validation failed",
+            "errors": errors,
+        })

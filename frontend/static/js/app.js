@@ -209,6 +209,102 @@
          */
         isValidEmail(email) {
             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        },
+
+        /**
+         * Validate username format
+         */
+        isValidUsername(username) {
+            return /^[a-zA-Z0-9_-]{3,32}$/.test(username);
+        },
+
+        /**
+         * Validate password strength
+         */
+        isValidPassword(password) {
+            return (
+                password.length >= 8 &&
+                /[A-Z]/.test(password) &&
+                /[a-z]/.test(password) &&
+                /\d/.test(password)
+            );
+        },
+
+        /**
+         * Display field-level errors from validation response
+         */
+        displayFieldErrors(form, errors) {
+            // Clear all existing errors
+            form.querySelectorAll('.form-feedback').forEach(el => el.remove());
+            form.querySelectorAll('.is-invalid').forEach(field => {
+                field.classList.remove('is-invalid');
+            });
+
+            // Display new errors
+            Object.entries(errors).forEach(([field, messages]) => {
+                const input = form.querySelector(`[name="${field}"]`);
+                if (input) {
+                    const group = input.closest('.form-group') || input.closest('div');
+                    if (group) {
+                        group.classList.add('is-invalid');
+                        const feedback = document.createElement('div');
+                        feedback.className = 'form-feedback';
+                        feedback.innerHTML = messages.map(msg => `<div>${msg}</div>`).join('');
+                        group.appendChild(feedback);
+                    }
+                }
+            });
+        },
+
+        /**
+         * Setup real-time validation on form fields
+         */
+        setupRealTimeValidation(form) {
+            form.querySelectorAll('[data-validate]').forEach(field => {
+                const validateType = field.getAttribute('data-validate');
+                
+                field.addEventListener('input', () => {
+                    this.validateField(field, validateType);
+                });
+                
+                field.addEventListener('blur', () => {
+                    this.validateField(field, validateType);
+                });
+            });
+        },
+
+        /**
+         * Validate a single field
+         */
+        validateField(field, type) {
+            const group = field.closest('.form-group') || field.closest('div');
+            let isValid = true;
+            let message = '';
+
+            switch (type) {
+                case 'email':
+                    isValid = !field.value || this.isValidEmail(field.value);
+                    message = 'Invalid email format';
+                    break;
+                case 'username':
+                    isValid = !field.value || this.isValidUsername(field.value);
+                    message = 'Username must be 3-32 characters (letters, numbers, _, -)';
+                    break;
+                case 'password':
+                    isValid = !field.value || this.isValidPassword(field.value);
+                    message = 'Password must contain uppercase, lowercase, and number (8+ chars)';
+                    break;
+                case 'url':
+                    isValid = !field.value || /^https?:\/\/.+/.test(field.value);
+                    message = 'Invalid URL format';
+                    break;
+            }
+
+            if (field.value && !isValid) {
+                this.showError(group, message);
+            } else {
+                this.clearError(group);
+            }
         }
     };
 

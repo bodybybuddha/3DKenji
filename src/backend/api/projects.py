@@ -4,13 +4,14 @@ import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from backend.api.auth import get_current_user
 from backend.db import get_db
+from backend.core.validation import CreateProjectRequest as ValidatedProjectRequest, format_validation_errors
 from backend.services.project_service import ProjectDTO, ProjectService
 
 # Initialize templates for HTML responses
@@ -348,3 +349,51 @@ async def get_create_project_modal(
         "request": request,
         "project": None,
     }).body.decode()
+
+# Form validation endpoints
+@router.post("/validate/create", response_class=HTMLResponse)
+async def validate_create_project(
+    request: Request,
+    name: str = None,
+    description: str = None,
+    visibility: str = None,
+    current_user_id: str = Depends(get_current_user),
+    session: Session = Depends(get_db),
+):
+    """Validate project creation form."""
+    try:
+        # Validate inputs
+        validated = ValidatedProjectRequest(
+            name=name or "",
+            description=description,
+            visibility=visibility or "private",
+        )
+        
+        # Create project
+        service = ProjectService(session)
+        project_dto = service.create_project(
+            owner_id=current_user_id,
+            title=validated.name,
+            description=validated.description,
+            custom_metadata={"visibility": validated.visibility},
+        )
+        
+        return JSONResponse({
+            "success": True,
+            "message": "Project created successfully",
+            "project_id": project_dto.id,
+        })
+    
+    except ValidationError as e:
+        errors = format_validation_errors(e)
+        return templates.TemplateResponse("fragments/error-alert.html", {
+            "request": request,
+            "message": "Validation failed",
+            "errors": errors,
+        }, status_code=400)
+    except Exception as e:
+        return templates.TemplateResponse("fragments/error-alert.html", {
+            "request": request,
+            "message": "Failed to create project",
+            "errors": {"general": [str(e)]},
+        }, status_code=500)
