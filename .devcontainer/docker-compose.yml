@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: kenji
+      POSTGRES_PASSWORD: kenji
+      POSTGRES_DB: kenji
+    volumes:
+      - ../data/db_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  backend:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      - ${HOME}/.gitconfig:/home/vscode/.gitconfig
+      - ${HOME}/.ssh:/home/vscode/.ssh:ro
+      - venv_data:/workspace/.venv
+    environment:
+      DATABASE_URL: postgres://kenji:kenji@db:5432/kenji
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+volumes:
+  db_data:
+  venv_data:

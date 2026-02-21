@@ -1,0 +1,11 @@
+title: 3DKenji
+description: Self-hosted knowledge keeper for 3D printing projects
+theme: jekyll-theme-minimal
+logo: /assets/logo.png
+show_downloads: true
+github:
+  is_project_page: true
+  repository_url: https://github.com/yourusername/3dkenji
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap

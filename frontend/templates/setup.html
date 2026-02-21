@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Setup - 3DKenji{% endblock %}
+
+{% block navbar %}
+<!-- No navbar on setup page -->
+{% endblock %}
+
+{% block footer %}
+<!-- No footer on setup page -->
+{% endblock %}
+
+{% block content %}
+<div
+    style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: var(--bg-primary); padding: var(--spacing-lg);">
+    <div class="card" style="max-width: 500px; width: 100%;">
+        <div class="card-header">
+            <h1 style="text-align: center; margin: 0;">3DKenji</h1>
+            <p style="text-align: center; color: var(--text-secondary); margin: var(--spacing-sm) 0 0 0;">First-Time
+                Setup</p>
+        </div>
+
+        <div class="card-body">
+            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
+                Welcome! Let's set up your 3DKenji instance. Please create an admin account to continue.
+            </p>
+
+            <form id="setup-form" hx-post="/setup" hx-swap="innerHTML swap:1s">
+                <!-- Username -->
+                <div class="form-group">
+                    <label for="username" class="form-label required">Admin Username</label>
+                    <input type="text" id="username" name="username" class="form-input" required placeholder="admin"
+                        minlength="3" maxlength="32" aria-describedby="username-description">
+                    <small id="username-description" style="color: var(--text-tertiary);">3-32 characters, alphanumeric
+                        and underscore</small>
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="email" class="form-label required">Admin Email</label>
+                    <input type="email" id="email" name="email" class="form-input" required
+                        placeholder="admin@example.local" aria-describedby="email-description">
+                    <small id="email-description" style="color: var(--text-tertiary);">Your admin account email</small>
+                </div>
+
+                <!-- Password -->
+                <div class="form-group">
+                    <label for="password" class="form-label required">Password</label>
+                    <input type="password" id="password" name="password" class="form-input" required minlength="8"
+                        aria-describedby="password-description">
+                    <small id="password-description" style="color: var(--text-tertiary);">At least 8 characters</small>
+                </div>
+
+                <!-- Confirm Password -->
+                <div class="form-group">
+                    <label for="password_confirm" class="form-label required">Confirm Password</label>
+                    <input type="password" id="password_confirm" name="password_confirm" class="form-input" required
+                        minlength="8">
+                </div>
+
+                <!-- Theme Preference -->
+                <div class="form-group">
+                    <label for="theme" class="form-label">Default Theme</label>
+                    <select id="theme" name="theme" class="form-select">
+                        <option value="dark" selected>Dark Mode (Default)</option>
+                        <option value="light">Light Mode</option>
+                    </select>
+                </div>
+
+                <!-- Submit -->
+                <div style="display: flex; gap: var(--spacing-md); margin-top: var(--spacing-xl);">
+                    <button type="submit" class="btn btn-primary btn-block">
+                        Create Admin Account &rarr;
+                    </button>
+                </div>
+            </form>
+
+            <!-- Help text -->
+            <hr style="margin: var(--spacing-lg) 0;">
+            <p style="font-size: 0.875rem; color: var(--text-tertiary); text-align: center;">
+                This is the first-time setup screen. Only shown when no admin account exists.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Form validation
+    document.getElementById('setup-form').addEventListener('submit', function (e) {
+        const password = document.getElementById('password').value;
+        const confirm = document.getElementById('password_confirm').value;
+
+        if (password !== confirm) {
+            e.preventDefault();
+            HTMXHelper.showToast('Passwords do not match!', 'danger');
+            return false;
+        }
+
+        // Basic password strength check
+        if (password.length < 8) {
+            e.preventDefault();
+            HTMXHelper.showToast('Password must be at least 8 characters long', 'warning');
+            return false;
+        }
+    });
+
+    // After HTMX form submission, show success message
+    document.addEventListener('htmx:afterSwap', function () {
+        const success = document.querySelector('.alert-success');
+        if (success) {
+            HTMXHelper.showToast('Admin account created successfully! Redirecting...', 'success', 2000);
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 2000);
+        }
+    });
+</script>
+{% endblock %}

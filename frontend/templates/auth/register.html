@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Register - 3DKenji{% endblock %}
+
+{% block navbar %}
+<!-- Minimal navbar for register page -->
+<nav class="navbar" style="background-color: var(--bg-secondary); border-bottom: 1px solid var(--border-color);">
+    <div class="container">
+        <div class="navbar-brand">
+            <a href="/" class="navbar-brand-link">
+                <strong>3DKenji</strong>
+            </a>
+        </div>
+        <div>
+            <a href="/login" class="btn btn-secondary btn-sm">Sign In</a>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block footer %}
+{% endblock %}
+
+{% block content %}
+<div class="auth-container"
+    style="display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 60px); background-color: var(--bg-primary); padding: var(--spacing-lg);">
+    <div class="card auth-card" style="max-width: 450px; width: 100%;">
+        <div class="card-body">
+            <h1 style="text-align: center; margin: 0 0 var(--spacing-lg) 0; font-size: 1.75rem;">Create Account</h1>
+
+            {% if error %}
+            <div class="alert alert-danger" role="alert">
+                <div class="alert-content">
+                    <p class="alert-message">{{ error }}</p>
+                </div>
+                <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+            </div>
+            {% endif %}
+
+            <form hx-post="/register" hx-swap="innerHTML" id="register-form">
+                <!-- Username -->
+                <div class="form-group">
+                    <label for="username" class="form-label required">Username</label>
+                    <input type="text" id="username" name="username" class="form-input" required
+                        placeholder="your_username" minlength="3" maxlength="32" />
+                    <small style="color: var(--text-tertiary);">3-32 characters, letters, numbers, underscores</small>
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="email" class="form-label required">Email</label>
+                    <input type="email" id="email" name="email" class="form-input" required
+                        placeholder="you@example.com" />
+                </div>
+
+                <!-- Display Name -->
+                <div class="form-group">
+                    <label for="display_name" class="form-label">Display Name</label>
+                    <input type="text" id="display_name" name="display_name" class="form-input"
+                        placeholder="Your Full Name" />
+                    <small style="color: var(--text-tertiary);">Optional - how you'll appear to others</small>
+                </div>
+
+                <!-- Password -->
+                <div class="form-group">
+                    <label for="password" class="form-label required">Password</label>
+                    <input type="password" id="password" name="password" class="form-input" required minlength="8"
+                        placeholder="••••••••" />
+                    <small style="color: var(--text-tertiary);">At least 8 characters</small>
+                </div>
+
+                <!-- Confirm Password -->
+                <div class="form-group">
+                    <label for="password_confirm" class="form-label required">Confirm Password</label>
+                    <input type="password" id="password_confirm" name="password_confirm" class="form-input" required
+                        minlength="8" placeholder="••••••••" />
+                </div>
+
+                <!-- Terms -->
+                <div class="form-group"
+                    style="display: flex; align-items: flex-start; gap: var(--spacing-sm); margin-bottom: var(--spacing-lg);">
+                    <input type="checkbox" id="terms" name="terms" class="form-checkbox" required
+                        style="margin-top: 2px;" />
+                    <label for="terms"
+                        style="margin-bottom: 0; font-weight: normal; cursor: pointer; font-size: 0.875rem;">
+                        I agree to the Terms of Service and Privacy Policy
+                    </label>
+                </div>
+
+                <!-- Submit -->
+                <button type="submit" class="btn btn-primary btn-block" style="margin-bottom: var(--spacing-md);">
+                    Create Account →
+                </button>
+            </form>
+
+            <hr style="margin: var(--spacing-lg) 0;" />
+
+            <!-- Login Link -->
+            <p style="text-align: center; margin: 0; color: var(--text-secondary); font-size: 0.875rem;">
+                Already have an account?
+                <a href="/login" style="color: var(--color-primary); font-weight: 600;">Sign in here</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('register-form').addEventListener('submit', function (e) {
+        const password = document.getElementById('password').value;
+        const confirm = document.getElementById('password_confirm').value;
+
+        if (password !== confirm) {
+            e.preventDefault();
+            HTMXHelper.showToast('Passwords do not match!', 'danger');
+            return false;
+        }
+    });
+
+    document.getElementById('register-form').addEventListener('htmx:beforeSwap', function (evt) {
+        if (evt.detail.xhr.status === 409) {
+            HTMXHelper.showToast('Username or email already exists', 'danger');
+            evt.detail.shouldSwap = false;
+        } else if (evt.detail.xhr.status === 201) {
+            HTMXHelper.showToast('Account created! Logging you in...', 'success', 2000);
+            setTimeout(() => {
+                window.location.href = '/projects';
+            }, 1000);
+        }
+    });
+</script>
+{% endblock %}

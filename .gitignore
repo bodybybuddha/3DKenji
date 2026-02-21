@@ -1,0 +1,42 @@
+/.venv
+/.cache
+__pycache__/
+.pytest_cache/
+/data/db_data
+/data/logs/*
+
+.DS_Store
+
+# Ignore venv and virtualenv wrapper files
+venv/
+env/
+ENV/
+
+# Docker
+**/node_modules/
+**/dist/
+
+# macOS
+.DS_Store
+
+# Local env files
+.env
+.env.*
+
+# Python/tool caches and build artifacts
+.python-version
+.tox/
+.mypy_cache/
+.ruff_cache/
+pip-wheel-metadata/
+*.egg-info/
+.coverage
+coverage.xml
+htmlcov/
+build/
+
+
+
+# PR helper files
+PR_DESCRIPTION.md
+create_pr.sh

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project_id }} - 3DKenji{% endblock %}
+
+{% block content %}
+<div class="container" style="padding: var(--spacing-2xl) var(--spacing-lg);">
+    <!-- Breadcrumb -->
+    <div style="margin-bottom: var(--spacing-lg);">
+        <a href="/projects" style="color: var(--color-primary);">← Back to Projects</a>
+    </div>
+
+    <!-- Project Header -->
+    <div class="section-header">
+        <div id="project-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h1 id="project-name">{{ project_id }}</h1>
+                <p class="section-description" id="project-description">Loading project details...</p>
+            </div>
+            <div class="flex gap-md">
+                <button class="btn btn-secondary" hx-get="/projects/{{ project_id }}/edit-modal" hx-target="body"
+                    hx-swap="beforeend">
+                    Edit
+                </button>
+                <button class="btn btn-danger" hx-delete="/api/v1/projects/{{ project_id }}"
+                    hx-confirm="Are you sure you want to delete this project?">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-3" style="gap: var(--spacing-2xl); margin-top: var(--spacing-2xl);">
+        <!-- Models Section -->
+        <div style="grid-column: 1 / 3;">
+            <div class="card">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0;">3D Models</h3>
+                    <button class="btn btn-sm btn-primary" hx-get="/projects/{{ project_id }}/upload-modal"
+                        hx-target="body" hx-swap="beforeend">
+                        + Upload Model
+                    </button>
+                </div>
+
+                <div id="models-list" class="card-body">
+                    <p
+                        style="color: var(--text-secondary); text-align: center; padding: var(--spacing-lg) 0; margin: 0;">
+                        Loading models...
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Project Info Section -->
+        <div>
+            <div class="card card-compact">
+                <div class="card-header">
+                    <h4 style="margin: 0;">Info</h4>
+                </div>
+                <div class="card-body stack-md">
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Created</p>
+                        <p id="created-at" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Models</p>
+                        <p id="model-count" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Total Size</p>
+                        <p id="total-size" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Load project details
+    htmx.ajax('GET', '/api/v1/projects/{{ project_id }}?format=html', '#project-header');
+    // Load project models
+    htmx.ajax('GET', '/api/v1/projects/{{ project_id }}/models?format=html', '#models-list');
+</script>
+{% endblock %}
