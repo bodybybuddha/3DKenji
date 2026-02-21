@@ -31,6 +31,9 @@ def create_app() -> FastAPI:
         # Initialize theme manager
         try:
             plugin_manager = PluginManager()
+            # First load all plugins
+            await plugin_manager.load_plugins(app, {})
+            # Then initialize theme manager with loaded plugins
             app.state.theme_manager = ThemeManager(plugin_manager)
             await app.state.theme_manager.load_themes()
             logger.info("Theme manager initialized")
