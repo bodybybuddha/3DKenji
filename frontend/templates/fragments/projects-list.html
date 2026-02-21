@@ -1,10 +1,10 @@
 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: var(--spacing-lg);">
-  {% for project in projects %}
+    {% for project in projects %}
     {% include "fragments/project-card.html" %}
-  {% empty %}
+    {% empty %}
     <div style="grid-column: 1 / -1; padding: var(--spacing-xl); text-align: center; color: var(--text-secondary);">
-      <p style="margin: 0 0 var(--spacing-md) 0;">📦 No projects yet</p>
-      <p style="margin: 0;">Create your first project to get started.</p>
+        <p style="margin: 0 0 var(--spacing-md) 0;">📦 No projects yet</p>
+        <p style="margin: 0;">Create your first project to get started.</p>
     </div>
-  {% endfor %}
+    {% endfor %}
 </div>
