@@ -7,9 +7,9 @@
 
 ## Summary
 
-✅ **Services complete** – All CRUD operations with 30 passing tests.  
-🔄 **Current focus** – Auth middleware and password auth plugin.  
-📍 **Next milestone** – Complete auth (T024-T029) for MVP readiness.
+✅ **Auth foundation ready** – JWT utilities and password plugin complete.  
+🔄 **Current focus** – Auth endpoints (login/logout/register).  
+📍 **Next milestone** – Complete auth (endpoints) then move to storage & API endpoints for MVP.
 
 ---
 
@@ -67,13 +67,15 @@
 ## In Progress 🔄
 
 ### Phase 3c: Auth & Security
-**Next**: T024-T029 (2-3 days)
-- Core auth middleware (T024)
-- Password auth plugin (T025)
-- GitHub OAuth plugin (T026) – optional for MVP
-- Google OAuth plugin (T027) – optional for MVP
-- Auth endpoints (T028-T029)
-- **Dependency**: Services complete ✅
+**Completed**: T024-T025
+- JWT token utilities (creation, validation, decode)  
+- PasswordAuthProvider plugin with async interface
+- Integration with UserService for password verification
+- **Files created**:
+  - `backend/core/auth.py` – JWT token handling
+  - `backend/plugins/auth_password.py` – PasswordAuthProvider
+
+**Next**: T028-T029 (Auth endpoints: login, register, password change)
 
 ### Phase 3d: Storage
 **T030-T033** (1-2 days)
