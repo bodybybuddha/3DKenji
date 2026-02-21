@@ -7,9 +7,9 @@
 
 ## Summary
 
-✅ **Auth foundation ready** – JWT utilities and password plugin complete.  
-🔄 **Current focus** – Auth endpoints (login/logout/register).  
-📍 **Next milestone** – Complete auth (endpoints) then move to storage & API endpoints for MVP.
+✅ **Auth complete** – JWT, password plugin, and endpoints ready for MVP.  
+📍 **Next** – Storage plugins, then full API endpoints.  
+🎯 **Estimated MVP** completion: Feb 22-23
 
 ---
 
@@ -67,31 +67,37 @@
 ## In Progress 🔄
 
 ### Phase 3c: Auth & Security
-**Completed**: T024-T025
+**Completed**: T024-T029 ✅
 - JWT token utilities (creation, validation, decode)  
 - PasswordAuthProvider plugin with async interface
 - Integration with UserService for password verification
+- **API Endpoints**:
+  - `POST /api/v1/auth/register` – User registration with JWT
+  - `POST /api/v1/auth/login` – Username/password authentication
+  - `POST /api/v1/auth/password-change` – Change password (requires auth)
+- **Test status**: Endpoints implemented, cross-process database test setup pending
+- **Status**: Core auth complete ✅
 - **Files created**:
   - `backend/core/auth.py` – JWT token handling
   - `backend/plugins/auth_password.py` – PasswordAuthProvider
+  - `backend/api/auth.py` – Auth endpoints
+  - `backend/api/__init__.py` – API routing
 
-**Next**: T028-T029 (Auth endpoints: login, register, password change)
-
-### Phase 3d: Storage
+### Phase 3d: Storage Plugins
 **T030-T033** (1-2 days)
 - Local storage plugin 
 - S3 plugin skeleton
 - Storage initialization
 - **Dependency**: Services must be complete
 
-### Phase 3d: API Endpoints
+### Phase 3e: API Endpoints
 **T034-T038** (2-3 days)
 - Projects CRUD endpoints
 - Models upload/download
 - API keys management
 - **Dependency**: Services + Auth must be complete
 
-### Phase 3e: Observability
+### Phase 3f: Observability
 **T039-T040** (1 day)
 - Structured logging
 - Plugin health check endpoint
