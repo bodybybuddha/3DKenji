@@ -14,7 +14,6 @@ import hashlib
 from backend.api.auth import get_current_user
 from backend.db import get_db
 from backend.models.api_key import APIKey
-from backend.services.user_service import UserService
 from sqlalchemy import select
 
 # Initialize templates for HTML responses
@@ -288,7 +287,7 @@ async def validate_create_key(
         from backend.core.validation import CreateAPIKeyRequest as ValidatedKeyRequest, format_validation_errors
         
         # Validate inputs
-        validated = ValidatedKeyRequest(
+        ValidatedKeyRequest(
             name=name or "",
             scopes=scopes or ["read:models"],
             expiry_days=expiry_days,

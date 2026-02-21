@@ -7,7 +7,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.api.auth import get_current_user
@@ -176,7 +176,7 @@ async def get_admin_metrics(
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get performance metrics as HTML."""
-    return f"""
+    return """
     <div style="padding: var(--spacing-lg);">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-lg);">
             <div style="background: var(--bg-secondary); padding: var(--spacing-lg); border-radius: 4px; text-align: center;">
@@ -388,7 +388,7 @@ async def get_upload_plugin_modal(
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get the upload plugin modal form."""
-    return f"""
+    return """
     <div id="upload-plugin-modal" class="modal" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
       <div class="card" style="max-width: 500px; width: 90%;">
         <div style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">

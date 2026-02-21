@@ -4,7 +4,6 @@ import logging
 import os
 from fastapi import APIRouter, HTTPException, Request, Depends, Form
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
@@ -47,7 +46,7 @@ def create_theme_router(theme_manager):
                 media_type="text/css",
                 headers={"Cache-Control": "public, max-age=3600"}
             )
-        except ValueError as e:
+        except ValueError:
             return StreamingResponse(
                 iter([":root {}"]),  # Empty CSS on error
                 media_type="text/css",
@@ -219,7 +218,4 @@ async def admin_logs(request: Request):
 async def admin_health(request: Request):
     """Admin system health page."""
     return templates.TemplateResponse("admin/health.html", {"request": request})
-
-
-from fastapi import HTTPException
 
