@@ -2,8 +2,9 @@
 /.cache
 __pycache__/
 .pytest_cache/
-/data/db_data
-/data/logs/*
+/data/
+!/data/.gitkeep
+/src/frontend
 
 .DS_Store
 
