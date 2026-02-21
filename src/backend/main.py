@@ -1,11 +1,16 @@
 from fastapi import Depends, FastAPI, HTTPException, status
 
+from backend.api import auth_router
+
 
 def require_auth() -> None:
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
 def create_app() -> FastAPI:
     app = FastAPI(title="3D Kenji API", version="0.1.0")
+
+    # Register auth routes
+    app.include_router(auth_router, prefix="/api/v1")
 
     @app.get("/api/v1/health")
     async def health():

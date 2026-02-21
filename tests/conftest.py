@@ -9,10 +9,21 @@ from pathlib import Path
 import httpx
 import pytest
 
+# MUST set DATABASE_URL before any app modules load
+os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+
+# Initialize database tables at module import time
+from backend.db.base import Base
+from backend.db import get_engine
+
+_engine = get_engine()
+Base.metadata.create_all(_engine)
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _start_api_server():
     project_root = Path(__file__).resolve().parents[1]
+    
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         _, port = sock.getsockname()

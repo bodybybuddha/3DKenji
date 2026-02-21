@@ -8,9 +8,11 @@ from sqlalchemy.pool import NullPool
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "sqlite:///./test.db"
-)
+
+def get_database_url() -> str:
+    """Get the database URL, allowing for override at runtime."""
+    return os.environ.get("DATABASE_URL", "sqlite:///./test.db")
+
 
 # Create engine lazily on first use to handle dialect loading issues
 _engine = None
@@ -21,10 +23,11 @@ def get_engine():
     """Get or create the SQLAlchemy engine."""
     global _engine
     if _engine is None:
-        logger.info(f"Creating engine with DATABASE_URL: {DATABASE_URL}")
-        pool_class = NullPool if "sqlite" in DATABASE_URL else None
+        database_url = get_database_url()
+        logger.info(f"Creating engine with DATABASE_URL: {database_url}")
+        pool_class = NullPool if "sqlite" in database_url else None
         _engine = create_engine(
-            DATABASE_URL,
+            database_url,
             poolclass=pool_class,
             echo=os.environ.get("SQL_ECHO", "false").lower() == "true",
         )
