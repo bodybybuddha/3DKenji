@@ -39,9 +39,15 @@ def _start_api_server():
         "--port",
         str(port),
     ]
-    process = subprocess.Popen(cmd, cwd=project_root)
+    process = subprocess.Popen(
+        cmd, 
+        cwd=project_root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
     try:
-        for _ in range(30):
+        for i in range(30):
             try:
                 resp = httpx.get(f"{base_url}/api/v1/health", timeout=1.0)
                 if resp.status_code == 200:
@@ -49,8 +55,15 @@ def _start_api_server():
                     return
             except httpx.HTTPError:
                 pass
+            # Check if process died
+            if process.poll() is not None:
+                stdout, stderr = process.communicate()
+                raise RuntimeError(f"API server died. Stdout: {stdout}, Stderr: {stderr}")
             time.sleep(0.2)
-        raise RuntimeError("API server did not start in time")
+        # If we get here, server didn't respond in time
+        process.terminate()
+        stdout, stderr = process.communicate(timeout=2)
+        raise RuntimeError(f"API server did not start in time. Stdout: {stdout}, Stderr: {stderr}")
     finally:
         if process.poll() is None:
             process.send_signal(signal.SIGTERM)
