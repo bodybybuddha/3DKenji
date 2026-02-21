@@ -37,7 +37,7 @@
             </div>
             {% endif %}
 
-            <form hx-post="/register" hx-swap="innerHTML" id="register-form">
+            <form hx-post="/api/v1/auth/validate/register" hx-swap="innerHTML" hx-target="#register-form" id="register-form">
                 <!-- Username -->
                 <div class="form-group">
                     <label for="username" class="form-label required">Username</label>

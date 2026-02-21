@@ -2,7 +2,7 @@
 
 import os
 from typing import Optional
-from fastapi import APIRouter, HTTPException, status, Depends, Header, Request
+from fastapi import APIRouter, HTTPException, status, Depends, Header, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ValidationError, EmailStr, Field
@@ -295,9 +295,10 @@ async def change_password(
 
 
 # Form validation endpoints for HTMX
-@router.post("/validate/login", response_class=HTMLResponse)
+@router.post("/validate/login")
 async def validate_login_form(
     request: Request,
+    response: Response,
     username_or_email: str = None,
     password: str = None,
     db: Session = Depends(get_db),
@@ -320,11 +321,19 @@ async def validate_login_form(
             # Create JWT token
             token = create_access_token(auth_result.user_id, auth_result.username)
             
-            return JSONResponse({
-                "success": True,
-                "redirect": "/projects",
-                "token": token.access_token,
-            })
+            # Set token as cookie
+            response.set_cookie(
+                key="access_token",
+                value=token.access_token,
+                httponly=True,
+                max_age=3600 * 24 * 7,  # 7 days
+                samesite="lax"
+            )
+            
+            # Use HX-Redirect header for HTMX
+            response.headers["HX-Redirect"] = "/projects"
+            return Response(status_code=200, headers=response.headers)
+            
         except ValueError:
             # Invalid credentials
             return templates.TemplateResponse("fragments/error-alert.html", {
@@ -342,9 +351,10 @@ async def validate_login_form(
         })
 
 
-@router.post("/validate/register", response_class=HTMLResponse)
+@router.post("/validate/register")
 async def validate_register_form(
     request: Request,
+    response: Response,
     username: str = None,
     email: str = None,
     display_name: str = None,
@@ -391,11 +401,18 @@ async def validate_register_form(
         # Create JWT token
         token = create_access_token(user_identity.user_id, user_identity.username)
         
-        return JSONResponse({
-            "success": True,
-            "redirect": "/projects",
-            "token": token.access_token,
-        })
+        # Set token as cookie
+        response.set_cookie(
+            key="access_token",
+            value=token.access_token,
+            httponly=True,
+            max_age=3600 * 24 * 7,  # 7 days
+            samesite="lax"
+        )
+        
+        # Use HX-Redirect header for HTMX
+        response.headers["HX-Redirect"] = "/projects"
+        return Response(status_code=200, headers=response.headers)
     
     except ValidationError as e:
         errors = format_validation_errors(e)
