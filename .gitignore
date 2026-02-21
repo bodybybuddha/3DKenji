@@ -36,3 +36,7 @@ htmlcov/
 build/
 
 
+
+# PR helper files
+PR_DESCRIPTION.md
+create_pr.sh
