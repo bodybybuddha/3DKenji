@@ -65,6 +65,42 @@ class KeajiPlugin(ABC):
         pass
 
 
+class ThemePlugin(KeajiPlugin):
+    """Pluggable theme interface for UI theming."""
+
+    theme_name: str  # "dark", "light", "high-contrast"
+    is_default: bool = False  # True if this is the default theme
+    capabilities = ["theme"]
+
+    @abstractmethod
+    async def get_css_variables(self) -> dict[str, str]:
+        """
+        Return CSS variables as a dictionary.
+
+        Example:
+            {
+                "--color-primary": "#3b82f6",
+                "--color-success": "#10b981",
+                "--bg-primary": "#1f2937",
+                "--text-primary": "#f3f4f6",
+            }
+
+        Returns:
+            Dict mapping CSS variable names to their values.
+        """
+        pass
+
+    @abstractmethod
+    async def get_css(self) -> str:
+        """
+        Return complete CSS for this theme including :root variables.
+
+        Returns:
+            CSS string ready to be served or embedded.
+        """
+        pass
+
+
 class AuthProvider(KeajiPlugin):
     """Pluggable authentication strategy interface."""
 

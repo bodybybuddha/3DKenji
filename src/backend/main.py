@@ -1,11 +1,16 @@
 import asyncio
+import os
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.staticfiles import StaticFiles
 
 from backend.api import auth_router, projects_router, models_router, keys_router, health_router
+from backend.api.frontend import router as frontend_router, create_theme_router
 from backend.storage import initialize_storage
 from backend.logging_config import logger
+from backend.core.plugins import PluginManager
+from backend.themes import ThemeManager
 import backend.storage as storage_module
 
 
@@ -14,7 +19,7 @@ def require_auth() -> None:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="3D Kenji API", version="0.1.0")
+    app = FastAPI(title="3D Kenji API", version="1.0.0")
 
     # Initialize storage backend on startup
     @app.on_event("startup")
@@ -22,6 +27,15 @@ def create_app() -> FastAPI:
         logger.info("3D Kenji API starting up")
         await initialize_storage(app)
         logger.info("Storage backend initialized")
+        
+        # Initialize theme manager
+        try:
+            plugin_manager = PluginManager()
+            app.state.theme_manager = ThemeManager(plugin_manager)
+            await app.state.theme_manager.load_themes()
+            logger.info("Theme manager initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize theme manager: {e}")
 
     # Register API routes
     app.include_router(auth_router, prefix="/api/v1")
@@ -30,7 +44,32 @@ def create_app() -> FastAPI:
     app.include_router(keys_router, prefix="/api/v1")
     app.include_router(health_router, prefix="/api/v1")
     
+    # Register theme routes
+    try:
+        # Create theme router after app is set up
+        def on_startup_theme():
+            theme_router = create_theme_router(app.state.theme_manager)
+            app.include_router(theme_router)
+        
+        # Register theme routes if theme manager available
+        @app.on_event("startup")
+        async def setup_theme_routes():
+            if hasattr(app.state, 'theme_manager'):
+                theme_router = create_theme_router(app.state.theme_manager)
+                app.include_router(theme_router)
+    except Exception as e:
+        logger.warning(f"Failed to set up theme routes: {e}")
+    
+    # Register frontend routes
+    app.include_router(frontend_router)
+    
     logger.info("API routes registered")
+
+    # Mount static files
+    static_dir = os.path.join(os.path.dirname(__file__), "..", "frontend", "static")
+    if os.path.exists(static_dir):
+        app.mount("/static", StaticFiles(directory=static_dir), name="static")
+        logger.info(f"Static files mounted from {static_dir}")
 
     @app.get("/api/v1/projects")
     async def list_projects_placeholder():

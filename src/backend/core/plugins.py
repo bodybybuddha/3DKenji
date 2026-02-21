@@ -15,6 +15,7 @@ from .plugin_interfaces import (
     MediaProcessor,
     MetadataHandler,
     StorageBackend,
+    ThemePlugin,
     Viewer,
 )
 
@@ -38,6 +39,7 @@ class PluginManager:
         self.media_processors: Dict[str, List[MediaProcessor]] = {}
         self.viewers: Dict[str, Viewer] = {}
         self.metadata_handlers: List[MetadataHandler] = []
+        self.theme_plugins: Dict[str, ThemePlugin] = {}
 
     async def load_plugins(self, app: FastAPI, config: dict) -> None:
         """
@@ -109,6 +111,10 @@ class PluginManager:
                                 self.viewers[plugin_instance.viewer_type] = (
                                     plugin_instance
                                 )
+                            elif isinstance(plugin_instance, ThemePlugin):
+                                self.theme_plugins[plugin_instance.theme_name] = (
+                                    plugin_instance
+                                )
                             elif isinstance(plugin_instance, MetadataHandler):
                                 self.metadata_handlers.append(plugin_instance)
 
@@ -154,6 +160,30 @@ class PluginManager:
     def get_viewer(self, viewer_type: str) -> Optional[Viewer]:
         """Get viewer by type."""
         return self.viewers.get(viewer_type)
+
+    def get_by_type(self, plugin_type: str) -> List[KeajiPlugin]:
+        """
+        Get all plugins of a given type.
+        
+        Args:
+            plugin_type: Type of plugin ("theme", "auth", "storage", etc.)
+        
+        Returns:
+            List of plugins matching the type.
+        """
+        if plugin_type == "theme":
+            return list(self.theme_plugins.values())
+        elif plugin_type == "auth":
+            return self.auth_providers
+        elif plugin_type == "storage":
+            return list(self.storage_backends.values())
+        elif plugin_type == "viewer":
+            return list(self.viewers.values())
+        elif plugin_type == "metadata":
+            return self.metadata_handlers
+        else:
+            # Return all plugins matching the capability
+            return [p for p in self.plugins.values() if plugin_type in p.capabilities]
 
     async def health_check(self) -> dict:
         """Get health status of all plugins."""

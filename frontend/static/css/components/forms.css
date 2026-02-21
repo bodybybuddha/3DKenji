@@ -1,0 +1,144 @@
+/* Form component styles */
+
+.form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.form-label.required::after {
+  content: " *";
+  color: var(--color-danger);
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 0.875rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background-color: var(--bg-primary);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.form-select {
+  cursor: pointer;
+  appearance: none;
+  padding-right: var(--spacing-xl);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%d1d5db'%3E%3Cpath d='M7 8l6 6 6-6' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--spacing-md) center;
+  background-size: 1.25em;
+  padding-right: calc(var(--spacing-xl) + var(--spacing-sm));
+}
+
+/* Form validation states */
+
+.form-group.is-invalid .form-input,
+.form-group.is-invalid .form-textarea,
+.form-group.is-invalid .form-select {
+  border-color: var(--color-danger);
+}
+
+.form-group.is-invalid .form-input:focus,
+.form-group.is-invalid .form-textarea:focus,
+.form-group.is-invalid .form-select:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.form-feedback {
+  margin-top: var(--spacing-xs);
+  font-size: 0.75rem;
+  color: var(--color-danger);
+}
+
+.form-group.is-valid .form-feedback {
+  color: var(--color-success);
+}
+
+/* Form layout */
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.form-row.grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.form-row.grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 640px) {
+  .form-row,
+  .form-row.grid-2,
+  .form-row.grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Checkbox and radio styles */
+
+.form-checkbox,
+.form-radio {
+  margin-right: var(--spacing-sm);
+  cursor: pointer;
+}
+
+.form-checkbox + .form-label,
+.form-radio + .form-label {
+  display: inline;
+  margin-bottom: 0;
+  cursor: pointer;
+  font-weight: normal;
+}
+
+/* Fieldset */
+
+fieldset {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+legend {
+  padding: 0 var(--spacing-sm);
+  color: var(--text-primary);
+  font-weight: 500;
+}
