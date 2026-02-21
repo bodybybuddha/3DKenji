@@ -15,7 +15,8 @@ from backend.logging_config import logger
 from backend.core.plugins import PluginManager
 from backend.themes import ThemeManager
 import backend.storage as storage_module
-from backend.db import get_session_factory
+from backend.db import get_session_factory, get_engine
+from backend.db.base import Base
 from backend.models.user import User
 
 
@@ -31,6 +32,15 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     async def startup():
         logger.info("3D Kenji API starting up")
+        
+        # Create database tables if they don't exist
+        try:
+            engine = get_engine()
+            Base.metadata.create_all(bind=engine)
+            logger.info("Database tables initialized")
+        except Exception as e:
+            logger.error(f"Failed to create database tables: {e}")
+        
         await initialize_storage(app)
         logger.info("Storage backend initialized")
         

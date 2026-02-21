@@ -1,12 +1,15 @@
 """Authentication API endpoints."""
 
 import os
+import logging
 from typing import Optional
-from fastapi import APIRouter, HTTPException, status, Depends, Header, Request, Response
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, HTTPException, status, Depends, Header, Request, Form
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ValidationError, EmailStr, Field
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from backend.db import get_db
 from backend.core.auth import create_access_token, decode_token
@@ -298,17 +301,17 @@ async def change_password(
 @router.post("/validate/login")
 async def validate_login_form(
     request: Request,
-    response: Response,
-    username_or_email: str = None,
-    password: str = None,
+    username_or_email: str = Form(),
+    password: str = Form(),
     db: Session = Depends(get_db),
 ):
     """Validate login form and return errors or success."""
+    logger.info(f"Login form submitted: username_or_email={username_or_email}")
     try:
         # Validate inputs
         validated = ValidatedLoginRequest(
-            username_or_email=username_or_email or "",
-            password=password or "",
+            username_or_email=username_or_email,
+            password=password,
         )
         
         # If validation passed, try to authenticate
@@ -321,7 +324,8 @@ async def validate_login_form(
             # Create JWT token
             token = create_access_token(auth_result.user_id, auth_result.username)
             
-            # Set token as cookie
+            # Create redirect response with cookie
+            response = RedirectResponse(url="/projects", status_code=302)
             response.set_cookie(
                 key="access_token",
                 value=token.access_token,
@@ -329,12 +333,9 @@ async def validate_login_form(
                 max_age=3600 * 24 * 7,  # 7 days
                 samesite="lax"
             )
+            return response
             
-            # Use HX-Redirect header for HTMX
-            response.headers["HX-Redirect"] = "/projects"
-            return Response(status_code=200, headers=response.headers)
-            
-        except ValueError:
+        except ValueError as e:
             # Invalid credentials
             return templates.TemplateResponse("fragments/error-alert.html", {
                 "request": request,
@@ -354,23 +355,23 @@ async def validate_login_form(
 @router.post("/validate/register")
 async def validate_register_form(
     request: Request,
-    response: Response,
-    username: str = None,
-    email: str = None,
-    display_name: str = None,
-    password: str = None,
-    password_confirm: str = None,
+    username: str = Form(),
+    email: str = Form(),
+    display_name: str = Form(None),
+    password: str = Form(),
+    password_confirm: str = Form(),
     db: Session = Depends(get_db),
 ):
     """Validate registration form and return errors or success."""
+    logger.info(f"Register form submitted: username={username}, email={email}")
     try:
         # Validate inputs
         validated = ValidatedRegisterRequest(
-            username=username or "",
-            email=email or "",
+            username=username,
+            email=email,
             display_name=display_name,
-            password=password or "",
-            password_confirm=password_confirm or "",
+            password=password,
+            password_confirm=password_confirm,
         )
         
         # Check if username/email already exists
@@ -401,7 +402,8 @@ async def validate_register_form(
         # Create JWT token
         token = create_access_token(user_identity.user_id, user_identity.username)
         
-        # Set token as cookie
+        # Create redirect response with cookie
+        response = RedirectResponse(url="/projects", status_code=302)
         response.set_cookie(
             key="access_token",
             value=token.access_token,
@@ -409,15 +411,33 @@ async def validate_register_form(
             max_age=3600 * 24 * 7,  # 7 days
             samesite="lax"
         )
-        
-        # Use HX-Redirect header for HTMX
-        response.headers["HX-Redirect"] = "/projects"
-        return Response(status_code=200, headers=response.headers)
+        return response
     
     except ValidationError as e:
         errors = format_validation_errors(e)
+        logger.error(f"Validation error in register: {errors}")
         return templates.TemplateResponse("fragments/error-alert.html", {
             "request": request,
             "message": "Validation failed",
             "errors": errors,
         })
+    except Exception as e:
+        logger.error(f"Unexpected error in register: {type(e).__name__}: {str(e)}", exc_info=True)
+        return templates.TemplateResponse("fragments/error-alert.html", {
+            "request": request,
+            "message": f"Server error: {str(e)}",
+            "errors": {},
+        })
+
+
+@router.post("/logout")
+async def logout(request: Request):
+    """Logout endpoint - clear authentication cookie and redirect to login."""
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        domain=None
+    )
+    logger.info("User logged out successfully")
+    return response
