@@ -1,6 +1,6 @@
 """User model."""
 
-from sqlalchemy import Column, String, Text
+from sqlalchemy import Column, String, Text, Boolean
 from sqlalchemy.orm import relationship
 
 from backend.db.base import BaseModel
@@ -16,6 +16,8 @@ class User(BaseModel):
     email = Column(String(255), unique=True, nullable=False, index=True)
     display_name = Column(String(255), nullable=False)
     password_hash = Column(Text, nullable=False)  # Hashed password for local auth
+    is_admin = Column(Boolean, nullable=False, default=False)
+    is_active = Column(Boolean, nullable=False, default=True)
 
     # Relationships
     projects = relationship("Project", back_populates="owner")

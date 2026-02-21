@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from backend.api.auth import get_current_user
 from backend.db import get_db
+from backend.models.user import User
+from sqlalchemy import select
 
 # Initialize templates for HTML responses
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend")
@@ -56,8 +58,23 @@ async def require_admin(
     current_user_id: str = Depends(get_current_user),
     session: Session = Depends(get_db),
 ) -> str:
-    """Verify user is admin. For MVP, only check if authenticated."""
-    # TODO: Add actual admin role checking from database
+    """Verify user is admin and active."""
+    user = session.execute(
+        select(User).where(User.id == current_user_id)
+    ).scalar_one_or_none()
+
+    if not user or not user.is_active:  # type: ignore[attr-defined]
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not active",
+        )
+
+    if not user.is_admin:  # type: ignore[attr-defined]
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+
     return current_user_id
 
 

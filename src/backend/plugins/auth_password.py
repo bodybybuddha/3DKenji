@@ -107,7 +107,7 @@ class PasswordAuthProvider(AuthProvider):
             # Verify user still exists
             user_dto = self.user_service.get_user_by_id(token_payload.user_id)
             
-            if not user_dto:
+            if not user_dto or not user_dto.is_active:
                 return None
 
             return UserIdentity(

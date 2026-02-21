@@ -95,6 +95,39 @@ class RegisterRequest(BaseModel):
         return v
 
 
+class SetupRequest(BaseModel):
+    """First-time setup validation."""
+    username: str = Field(..., min_length=3, max_length=32)
+    email: str = Field(...)
+    password: str = Field(...)
+    password_confirm: str = Field(...)
+    theme: Optional[str] = Field("dark")
+
+    @validator("username")
+    def validate_username_field(cls, v):
+        return validate_username(v)
+
+    @validator("email")
+    def validate_email_field(cls, v):
+        return validate_email(v)
+
+    @validator("password")
+    def validate_password_field(cls, v):
+        return validate_password(v)
+
+    @validator("password_confirm")
+    def validate_password_match(cls, v, values):
+        if "password" in values and v != values["password"]:
+            raise ValueError("Passwords do not match")
+        return v
+
+    @validator("theme")
+    def validate_theme(cls, v):
+        if v not in ["dark", "light"]:
+            raise ValueError("Theme must be 'dark' or 'light'")
+        return v
+
+
 class CreateProjectRequest(BaseModel):
     """Project creation form validation."""
     name: str = Field(..., min_length=1, max_length=255)

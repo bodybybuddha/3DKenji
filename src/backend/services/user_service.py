@@ -20,6 +20,8 @@ class UserDTO:
     username: str
     email: str
     display_name: str
+    is_admin: bool
+    is_active: bool
     created_at: str
     updated_at: str
 
@@ -32,7 +34,13 @@ class UserService:
         self.session = session
 
     def create_user(
-        self, username: str, email: str, display_name: str, password: str
+        self,
+        username: str,
+        email: str,
+        display_name: str,
+        password: str,
+        is_admin: bool = False,
+        is_active: bool = True,
     ) -> UserDTO:
         """Create a new user with password.
         
@@ -72,6 +80,8 @@ class UserService:
             email=email,
             display_name=display_name,
             password_hash=password_hash,
+            is_admin=is_admin,
+            is_active=is_active,
         )
 
         self.session.add(user)
@@ -140,6 +150,9 @@ class UserService:
         ).scalar_one_or_none()
         
         if not user:
+            return None
+
+        if not user.is_active:  # type: ignore[attr-defined]
             return None
 
         if self._verify_password(password, user.password_hash):  # type: ignore[arg-type]
@@ -276,6 +289,8 @@ class UserService:
             username=user.username,  # type: ignore[arg-type]
             email=user.email,  # type: ignore[arg-type]
             display_name=user.display_name,  # type: ignore[arg-type]
+            is_admin=bool(user.is_admin),  # type: ignore[attr-defined]
+            is_active=bool(user.is_active),  # type: ignore[attr-defined]
             created_at=user.created_at.isoformat(),
             updated_at=user.updated_at.isoformat(),
         )

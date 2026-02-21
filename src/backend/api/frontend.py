@@ -2,10 +2,15 @@
 
 import logging
 import os
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import APIRouter, HTTPException, Request, Depends, Form
+from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError
+
+from backend.core.validation import SetupRequest, format_validation_errors
+from backend.db import get_db
+from backend.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +79,74 @@ async def home(request: Request):
 @router.get("/setup", response_class=HTMLResponse)
 async def setup(request: Request):
     """Setup/first-time configuration page."""
+    if not getattr(request.app.state, "setup_required", False):
+        return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("setup.html", {"request": request})
+
+
+@router.post("/setup", response_class=HTMLResponse)
+async def setup_submit(
+    request: Request,
+    username: str = Form(""),
+    email: str = Form(""),
+    password: str = Form(""),
+    password_confirm: str = Form(""),
+    theme: str = Form("dark"),
+    session=Depends(get_db),
+):
+    """Handle first-time setup form submission."""
+    if not getattr(request.app.state, "setup_required", False):
+        return RedirectResponse(url="/login", status_code=303)
+
+    try:
+        validated = SetupRequest(
+            username=username,
+            email=email,
+            password=password,
+            password_confirm=password_confirm,
+            theme=theme,
+        )
+        
+        user_service = UserService(session)
+        user_service.create_user(
+            username=validated.username,
+            email=validated.email,
+            display_name=validated.username,
+            password=validated.password,
+            is_admin=True,
+            is_active=True,
+        )
+
+        request.app.state.setup_required = False
+
+        return templates.TemplateResponse(
+            "fragments/success-alert.html",
+            {
+                "request": request,
+                "message": "Admin account created. Redirecting to login...",
+            },
+        )
+    except ValidationError as e:
+        errors = format_validation_errors(e)
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {
+                "request": request,
+                "message": "Validation failed",
+                "errors": errors,
+            },
+            status_code=400,
+        )
+    except ValueError as e:
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {
+                "request": request,
+                "message": str(e),
+                "errors": {"general": [str(e)]},
+            },
+            status_code=400,
+        )
 
 
 @router.get("/login", response_class=HTMLResponse)

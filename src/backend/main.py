@@ -3,7 +3,9 @@ import os
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import select
 
 from backend.api import auth_router, projects_router, models_router, keys_router, health_router
 from backend.api.admin import router as admin_router
@@ -13,6 +15,8 @@ from backend.logging_config import logger
 from backend.core.plugins import PluginManager
 from backend.themes import ThemeManager
 import backend.storage as storage_module
+from backend.db import get_session_factory
+from backend.models.user import User
 
 
 def require_auth() -> None:
@@ -21,6 +25,7 @@ def require_auth() -> None:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="3D Kenji API", version="1.0.0")
+    app.state.setup_required = False
 
     # Initialize storage backend on startup
     @app.on_event("startup")
@@ -40,6 +45,37 @@ def create_app() -> FastAPI:
             logger.info("Theme manager initialized")
         except Exception as e:
             logger.error(f"Failed to initialize theme manager: {e}")
+
+        # Determine if initial setup is required
+        try:
+            session = get_session_factory()()
+            admin_exists = session.execute(
+                select(User).where(User.is_admin.is_(True))
+            ).scalar_one_or_none()
+            app.state.setup_required = admin_exists is None
+        except Exception as e:
+            logger.error(f"Failed to determine setup state: {e}")
+            app.state.setup_required = False
+        finally:
+            try:
+                session.close()
+            except Exception:
+                pass
+
+    @app.middleware("http")
+    async def setup_guard(request, call_next):
+        if getattr(app.state, "setup_required", False):
+            path = request.url.path
+            if (
+                path.startswith("/setup")
+                or path.startswith("/static/")
+                or path.startswith("/api/v1/theme/css")
+                or path.startswith("/api/v1/theme/list")
+                or path.startswith("/api/v1/theme/variables")
+            ):
+                return await call_next(request)
+            return RedirectResponse(url="/setup", status_code=303)
+        return await call_next(request)
 
     # Register API routes
     app.include_router(auth_router, prefix="/api/v1")
