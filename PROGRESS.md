@@ -79,8 +79,6 @@ Total Project Completion                   50/50 ✅
 
 ---
 
-## In Progress 🔄
-
 ### Phase 3b: Services ✅
 **Completed**: T021-T023 + comprehensive tests
 - `UserService` – CRUD + password hashing (bcrypt) + auth verification
@@ -88,16 +86,48 @@ Total Project Completion                   50/50 ✅
 - `ModelService` – CRUD + storage integration + permission checking
 - **Test coverage**: 30 unit tests, all passing
 - **Status**: Business logic layer ready
-- **Files created**:
-  - `backend/src/services/user_service.py`
-  - `backend/src/services/project_service.py`
-  - `backend/src/services/model_service.py`
-  - `backend/src/services/__init__.py`
-  - `tests/services_test.py` (30 tests)
 
 ---
 
-## In Progress 🔄
+## Next: Phase 6 - Web UI Frontend 🚀
+
+**Starting**: February 24, 2026  
+**Target completion**: March 11, 2026 (3 weeks)  
+**Total tasks**: 30 (T051-T080)  
+
+### Phase 6 Overview
+
+**Structure**:
+- Phase 6A: Theme System & Base Templates (T051-T055)
+- Phase 6B: HTML Pages & Templates (T056-T060)
+- Phase 6C: HTMX Interactions (T061-T065)
+- Phase 6D: Styling & Responsive Design (T066-T070)
+- Phase 6E: Testing & Deployment (T071-T075)
+- **Phase 6F: Admin Interface (T076-T080)** ← NEW
+
+**Key Features**:
+- ✅ FastAPI + Jinja2 templates (no new dependencies)
+- ✅ HTMX for interactive elements (CDN, 13KB)
+- ✅ Dark mode by default with light mode option
+- ✅ CSS variables for pluggable theming
+- ✅ Admin interface for system management
+- ✅ First-time setup bootstrap (no manual DB init)
+- ✅ User CRUD, plugin manager, logs viewer, system health
+
+**Admin Interface (Phase 6F)**:
+- T076: First-time setup flow with admin account creation
+- T077: Admin dashboard and navigation
+- T078: User management interface (CRUD)
+- T079: Plugin manager and global settings
+- T080: Logs viewer and system health monitoring
+
+**Ensures MVP is production-ready with**:
+- Automatic initial setup
+- System observability
+- User administration
+- Plugin/configuration management
+
+---
 
 ### Phase 3c: Auth & Security
 **Completed**: T024-T029 ✅
