@@ -3,6 +3,38 @@
 **Input**: Design documents from `/Users/jtaylor/Documents/projects/3DKenji/specs/001-title-3d-kenji/`
 **Prerequisites**: `plan.md`, `research.md`, `data-model.md`, `contracts/`
 
+---
+
+## Progress Tracking
+
+### Completed ✅
+- **T001-T004** (Phase 1: Setup) – 2026-02-21
+  - Initial project structure, Docker, devcontainer, CI skeleton
+  - Commit: b163c0c
+- **T005-T009** (Phase 2: Contract Tests) – 2026-02-21
+  - Contract tests for projects, models, keys, auth
+  - Tests auto-start API server
+  - Commit: 82cdf55
+- **T015-T016** (Phase 3a: Plugin Framework) – 2026-02-21
+  - PluginManager class implementation
+  - Plugin base interfaces (AuthProvider, StorageBackend, MediaProcessor, Viewer, MetadataHandler)
+  - Commit: cef8753
+- **T017-T020** (Phase 3a: Data Models & Migrations) – 2026-02-21
+  - SQLAlchemy models: User, Project, Model, APIKey
+  - Alembic migrations setup with initial schema
+  - Commit: e8b2926
+
+### In Progress 🔄
+- **T021-T023** – Services layer (UserService, ProjectService, ModelService)
+
+### Not Started ⭕
+- **T024-T029** – Auth middleware and password plugin
+- **T030-T033** – Storage plugins and configuration
+- **T034-T038** – API endpoints (projects, models, keys)
+- **T039-T050** – Observability, docs, release
+
+---
+
 ## Execution Flow (summary)
 - TDD-first: contract tests -> integration tests -> implementation
 - Numbered tasks (T001...) with [P] when safe to run in parallel (different files)
