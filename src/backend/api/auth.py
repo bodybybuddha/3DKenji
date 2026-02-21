@@ -1,12 +1,15 @@
 """Authentication API endpoints."""
 
 import os
+import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException, status, Depends, Header, Request, Response, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ValidationError, EmailStr, Field
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from backend.db import get_db
 from backend.core.auth import create_access_token, decode_token
@@ -304,6 +307,7 @@ async def validate_login_form(
     db: Session = Depends(get_db),
 ):
     """Validate login form and return errors or success."""
+    logger.info(f"Login form submitted: username_or_email={username_or_email}")
     try:
         # Validate inputs
         validated = ValidatedLoginRequest(
@@ -363,6 +367,7 @@ async def validate_register_form(
     db: Session = Depends(get_db),
 ):
     """Validate registration form and return errors or success."""
+    logger.info(f"Register form submitted: username={username}, email={email}")
     try:
         # Validate inputs
         validated = ValidatedRegisterRequest(
@@ -416,8 +421,16 @@ async def validate_register_form(
     
     except ValidationError as e:
         errors = format_validation_errors(e)
+        logger.error(f"Validation error in register: {errors}")
         return templates.TemplateResponse("fragments/error-alert.html", {
             "request": request,
             "message": "Validation failed",
             "errors": errors,
+        })
+    except Exception as e:
+        logger.error(f"Unexpected error in register: {type(e).__name__}: {str(e)}", exc_info=True)
+        return templates.TemplateResponse("fragments/error-alert.html", {
+            "request": request,
+            "message": f"Server error: {str(e)}",
+            "errors": {},
         })
