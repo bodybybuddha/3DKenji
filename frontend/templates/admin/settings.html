@@ -1,0 +1,62 @@
+{% extends "admin/base.html" %}
+
+{% block admin_content %}
+<div>
+  <h2>Settings</h2>
+  <p class="section-description">Configure system-wide settings</p>
+
+  <div style="max-width: 800px;">
+    <!-- API Settings -->
+    <div class="card" style="margin-bottom: var(--spacing-lg);">
+      <div style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color);">
+        <h3>API Configuration</h3>
+      </div>
+      <form hx-post="/api/v1/admin/settings/api" hx-swap="outerHTML">
+        <div style="padding: var(--spacing-lg); display: grid; gap: var(--spacing-md);">
+          <div>
+            <label>API Title</label>
+            <input type="text" name="api_title" placeholder="API Title" value="" class="form-control" />
+          </div>
+          <div>
+            <label>API Version</label>
+            <input type="text" name="api_version" placeholder="v1.0.0" value="" class="form-control" />
+          </div>
+          <div>
+            <label>Max Upload Size (MB)</label>
+            <input type="number" name="max_upload_mb" value="512" class="form-control" />
+          </div>
+        </div>
+        <div style="padding: var(--spacing-lg); border-top: 1px solid var(--border-color); text-align: right;">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Storage Settings -->
+    <div class="card" style="margin-bottom: var(--spacing-lg);">
+      <div style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color);">
+        <h3>Storage Configuration</h3>
+      </div>
+      <form hx-post="/api/v1/admin/settings/storage" hx-swap="outerHTML">
+        <div style="padding: var(--spacing-lg); display: grid; gap: var(--spacing-md);">
+          <div>
+            <label>Storage Type</label>
+            <select name="storage_type" class="form-control">
+              <option value="local">Local Filesystem</option>
+              <option value="s3">AWS S3</option>
+              <option value="gcs">Google Cloud Storage</option>
+            </select>
+          </div>
+          <div>
+            <label>Storage Path</label>
+            <input type="text" name="storage_path" placeholder="/data/models" class="form-control" />
+          </div>
+        </div>
+        <div style="padding: var(--spacing-lg); border-top: 1px solid var(--border-color); text-align: right;">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

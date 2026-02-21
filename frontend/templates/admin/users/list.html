@@ -1,0 +1,27 @@
+{% extends "admin/base.html" %}
+
+{% block admin_content %}
+<div>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+    <div>
+      <h2>Users</h2>
+      <p class="section-description">Manage system users and permissions</p>
+    </div>
+    <button class="btn btn-primary" hx-get="/admin/users/create-modal" hx-target="body" hx-swap="beforeend">
+      + Add User
+    </button>
+  </div>
+
+  <!-- Users Table -->
+  <div id="users-table" class="card">
+    <div style="padding: var(--spacing-lg); text-align: center;">
+      <p style="color: var(--text-secondary); margin: 0;">Loading users...</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Load users list
+  htmx.ajax('GET', '/api/v1/admin/users?format=html', '#users-table');
+</script>
+{% endblock %}
