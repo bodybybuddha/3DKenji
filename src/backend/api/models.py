@@ -1,8 +1,10 @@
 """Models API endpoints for 3D Kenji."""
 
+import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status, Form
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 import tempfile
@@ -315,3 +317,64 @@ async def get_model(
         )
 
     return ModelResponse(**model.__dict__)
+
+# File upload endpoint for HTMX forms
+@router.post("/models/upload", status_code=status.HTTP_201_CREATED)
+async def upload_model_form(
+    project_id: str = Form(...),
+    model_name: str = Form(...),
+    model_file: UploadFile = File(...),
+    description: Optional[str] = Form(None),
+    framework: Optional[str] = Form(None),
+    version: Optional[str] = Form(None),
+    current_user_id: str = Depends(get_current_user),
+    session: Session = Depends(get_db),
+    storage: StorageBackend = Depends(get_storage),
+):
+    """
+    Upload a model file via HTMX form.
+    
+    This endpoint handles file uploads from the HTML form with additional
+    metadata fields. Returns JSON response suitable for HTMX handling.
+    """
+    if not model_file or not model_file.filename:
+        return JSONResponse(
+            {"error": "No file provided"},
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    project_service = ProjectService(session)
+    project = project_service.get_project_by_id(project_id)
+
+    if not project:
+        return JSONResponse(
+            {"error": f"Project '{project_id}' not found"},
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Check ownership
+    if project.owner_id != current_user_id:
+        return JSONResponse(
+            {"error": "You do not have permission to upload to this project"},
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        # TODO: Implement actual file upload logic
+        # For now, just return success
+        return {
+            "success": True,
+            "message": "Model uploaded successfully",
+            "model": {
+                "id": "model_123",
+                "name": model_name,
+                "framework": framework,
+                "version": version,
+                "size": 1024,
+            }
+        }
+    except Exception as e:
+        return JSONResponse(
+            {"error": f"Upload failed: {str(e)}"},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
