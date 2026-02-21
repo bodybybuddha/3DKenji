@@ -27,6 +27,10 @@ dependencies = [
   "pluggy>=1.6.0",
 ]
 
+[project.entry-points."3dkenji.plugins"]
+# Built-in plugins will be registered here
+# Example: password_auth = "backend.plugins.auth_password:PasswordAuthProvider"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["*"]
