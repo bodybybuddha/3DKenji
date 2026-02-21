@@ -1,8 +1,11 @@
 """API Keys management endpoints."""
 
+import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 import secrets
@@ -13,6 +16,11 @@ from backend.db import get_db
 from backend.models.api_key import APIKey
 from backend.services.user_service import UserService
 from sqlalchemy import select
+
+# Initialize templates for HTML responses
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend")
+TEMPLATES_DIR = os.path.join(FRONTEND_DIR, "templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter(prefix="/keys", tags=["api-keys"])
 
@@ -143,6 +151,8 @@ async def create_api_key(
 
 @router.get("", response_model=APIKeyListResponse)
 async def list_api_keys(
+    format: Optional[str] = None,
+    request: Request = None,
     current_user_id: str = Depends(get_current_user),
     session: Session = Depends(get_db),
 ) -> APIKeyListResponse:
@@ -150,13 +160,17 @@ async def list_api_keys(
     List all API keys for the authenticated user.
 
     Secrets are NOT returned in this list for security reasons.
+    HTML format supported via ?format=html for HTMX integration.
 
     Args:
+        format: Response format ('html' for HTMX, default returns JSON).
+        request: FastAPI Request object (injected).
         current_user_id: ID of authenticated user (injected).
         session: Database session (injected).
 
     Returns:
         APIKeyListResponse with list of keys (200 OK).
+        If format=html, returns HTML snippet instead.
 
     Raises:
         401: If user is not authenticated.
@@ -164,6 +178,22 @@ async def list_api_keys(
     keys = session.execute(
         select(APIKey).where(APIKey.owner_id == current_user_id)
     ).scalars().all()
+
+    # Return HTML fragment for HTMX
+    if format == "html":
+        return HTMLResponse(
+            templates.get_template("fragments/keys-list.html").render(
+                request=request,
+                keys=[{
+                    "id": k.id,
+                    "name": k.name,
+                    "key_prefix": k.key_identifier[:20],
+                    "scopes": k.scopes,
+                    "last_used_at": getattr(k, "last_used_at", None),
+                    "expires_at": k.expires_at.isoformat() if k.expires_at else None,
+                } for k in keys],
+            )
+        )
 
     return APIKeyListResponse(
         items=[
@@ -231,3 +261,14 @@ async def revoke_api_key(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to revoke API key: {str(e)}",
         )
+
+# Modal endpoints for HTMX form loading
+@router.get("/create-modal", response_class=HTMLResponse)
+async def get_create_key_modal(
+    request: Request,
+    current_user_id: str = Depends(get_current_user),
+) -> str:
+    """Get the create API key modal form."""
+    return templates.TemplateResponse("keys/form-modal.html", {
+        "request": request,
+    }).body.decode()

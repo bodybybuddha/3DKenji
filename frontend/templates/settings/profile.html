@@ -4,148 +4,150 @@
 
 {% block content %}
 <div class="container" style="padding: var(--spacing-2xl) var(--spacing-lg); max-width: 800px;">
-  <div class="section-header">
-    <h1>Profile Settings</h1>
-    <p class="section-description">Manage your account and preferences</p>
-  </div>
-
-  <div class="grid grid-1" style="gap: var(--spacing-2xl); margin-top: var(--spacing-2xl);">
-    <!-- Profile Information -->
-    <div class="card">
-      <div class="card-header">
-        <h3 style="margin: 0;">Basic Information</h3>
-      </div>
-      <form hx-post="/settings/profile" hx-swap="outerHTML" id="profile-form" class="card-body">
-        <div class="form-group">
-          <label for="username" class="form-label">Username</label>
-          <input type="text" id="username" name="username" class="form-input" disabled
-            placeholder="Loading..." />
-          <small style="color: var(--text-tertiary);">Cannot be changed</small>
-        </div>
-
-        <div class="form-group">
-          <label for="email" class="form-label required">Email</label>
-          <input type="email" id="email" name="email" class="form-input" required placeholder="your@email.com" />
-        </div>
-
-        <div class="form-group">
-          <label for="display_name" class="form-label">Display Name</label>
-          <input type="text" id="display_name" name="display_name" class="form-input" placeholder="Your Full Name" />
-        </div>
-
-        <div style="display: flex; gap: var(--spacing-md);">
-          <button type="submit" class="btn btn-primary">Save Changes</button>
-          <button type="reset" class="btn btn-secondary">Cancel</button>
-        </div>
-      </form>
+    <div class="section-header">
+        <h1>Profile Settings</h1>
+        <p class="section-description">Manage your account and preferences</p>
     </div>
 
-    <!-- Change Password -->
-    <div class="card">
-      <div class="card-header">
-        <h3 style="margin: 0;">Change Password</h3>
-      </div>
-      <form hx-post="/settings/password" hx-swap="outerHTML" id="password-form" class="card-body">
-        <div class="form-group">
-          <label for="current_password" class="form-label required">Current Password</label>
-          <input type="password" id="current_password" name="current_password" class="form-input" required />
+    <div class="grid grid-1" style="gap: var(--spacing-2xl); margin-top: var(--spacing-2xl);">
+        <!-- Profile Information -->
+        <div class="card">
+            <div class="card-header">
+                <h3 style="margin: 0;">Basic Information</h3>
+            </div>
+            <form hx-post="/settings/profile" hx-swap="outerHTML" id="profile-form" class="card-body">
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" id="username" name="username" class="form-input" disabled
+                        placeholder="Loading..." />
+                    <small style="color: var(--text-tertiary);">Cannot be changed</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="email" class="form-label required">Email</label>
+                    <input type="email" id="email" name="email" class="form-input" required
+                        placeholder="your@email.com" />
+                </div>
+
+                <div class="form-group">
+                    <label for="display_name" class="form-label">Display Name</label>
+                    <input type="text" id="display_name" name="display_name" class="form-input"
+                        placeholder="Your Full Name" />
+                </div>
+
+                <div style="display: flex; gap: var(--spacing-md);">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="reset" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
         </div>
 
-        <div class="form-group">
-          <label for="new_password" class="form-label required">New Password</label>
-          <input type="password" id="new_password" name="new_password" class="form-input" required
-            minlength="8" />
-          <small style="color: var(--text-tertiary);">At least 8 characters</small>
+        <!-- Change Password -->
+        <div class="card">
+            <div class="card-header">
+                <h3 style="margin: 0;">Change Password</h3>
+            </div>
+            <form hx-post="/settings/password" hx-swap="outerHTML" id="password-form" class="card-body">
+                <div class="form-group">
+                    <label for="current_password" class="form-label required">Current Password</label>
+                    <input type="password" id="current_password" name="current_password" class="form-input" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="new_password" class="form-label required">New Password</label>
+                    <input type="password" id="new_password" name="new_password" class="form-input" required
+                        minlength="8" />
+                    <small style="color: var(--text-tertiary);">At least 8 characters</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="new_password_confirm" class="form-label required">Confirm New Password</label>
+                    <input type="password" id="new_password_confirm" name="new_password_confirm" class="form-input"
+                        required minlength="8" />
+                </div>
+
+                <div style="display: flex; gap: var(--spacing-md);">
+                    <button type="submit" class="btn btn-primary">Update Password</button>
+                    <button type="reset" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
         </div>
 
-        <div class="form-group">
-          <label for="new_password_confirm" class="form-label required">Confirm New Password</label>
-          <input type="password" id="new_password_confirm" name="new_password_confirm" class="form-input" required
-            minlength="8" />
+        <!-- Theme & Preferences -->
+        <div class="card">
+            <div class="card-header">
+                <h3 style="margin: 0;">Preferences</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label for="theme" class="form-label">Theme</label>
+                    <div style="display: flex; gap: var(--spacing-md);">
+                        <button class="btn btn-secondary" onclick="ThemeManager.loadTheme('dark'); return false;">
+                            🌙 Dark Mode
+                        </button>
+                        <button class="btn btn-secondary" onclick="ThemeManager.loadTheme('light'); return false;">
+                            ☀️ Light Mode
+                        </button>
+                    </div>
+                    <small style="color: var(--text-tertiary); display: block; margin-top: var(--spacing-sm);">
+                        Your preference is saved automatically
+                    </small>
+                </div>
+            </div>
         </div>
 
-        <div style="display: flex; gap: var(--spacing-md);">
-          <button type="submit" class="btn btn-primary">Update Password</button>
-          <button type="reset" class="btn btn-secondary">Cancel</button>
+        <!-- Danger Zone -->
+        <div class="card" style="border-color: var(--color-danger);">
+            <div class="card-header" style="border-bottom-color: var(--color-danger);">
+                <h3 style="margin: 0; color: var(--color-danger);">Danger Zone</h3>
+            </div>
+            <div class="card-body">
+                <p style="color: var(--text-secondary); margin-bottom: var(--spacing-md);">
+                    These actions cannot be undone. Please be careful.
+                </p>
+                <button class="btn btn-danger" hx-delete="/settings/account"
+                    hx-confirm="Are you sure you want to delete your account and all associated data? This cannot be undone.">
+                    Delete Account
+                </button>
+            </div>
         </div>
-      </form>
     </div>
-
-    <!-- Theme & Preferences -->
-    <div class="card">
-      <div class="card-header">
-        <h3 style="margin: 0;">Preferences</h3>
-      </div>
-      <div class="card-body">
-        <div class="form-group">
-          <label for="theme" class="form-label">Theme</label>
-          <div style="display: flex; gap: var(--spacing-md);">
-            <button class="btn btn-secondary" onclick="ThemeManager.loadTheme('dark'); return false;">
-              🌙 Dark Mode
-            </button>
-            <button class="btn btn-secondary" onclick="ThemeManager.loadTheme('light'); return false;">
-              ☀️ Light Mode
-            </button>
-          </div>
-          <small style="color: var(--text-tertiary); display: block; margin-top: var(--spacing-sm);">
-            Your preference is saved automatically
-          </small>
-        </div>
-      </div>
-    </div>
-
-    <!-- Danger Zone -->
-    <div class="card" style="border-color: var(--color-danger);">
-      <div class="card-header" style="border-bottom-color: var(--color-danger);">
-        <h3 style="margin: 0; color: var(--color-danger);">Danger Zone</h3>
-      </div>
-      <div class="card-body">
-        <p style="color: var(--text-secondary); margin-bottom: var(--spacing-md);">
-          These actions cannot be undone. Please be careful.
-        </p>
-        <button class="btn btn-danger" hx-delete="/settings/account"
-          hx-confirm="Are you sure you want to delete your account and all associated data? This cannot be undone.">
-          Delete Account
-        </button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <script>
-  // Load user profile data
-  htmx.ajax('GET', '/api/v1/users/me?format=json', {
-    handler: function(response) {
-      const user = JSON.parse(response);
-      document.getElementById('username').value = user.username;
-      document.getElementById('email').value = user.email;
-      document.getElementById('display_name').value = user.display_name || '';
-    }
-  });
+    // Load user profile data
+    htmx.ajax('GET', '/api/v1/users/me?format=json', {
+        handler: function (response) {
+            const user = JSON.parse(response);
+            document.getElementById('username').value = user.username;
+            document.getElementById('email').value = user.email;
+            document.getElementById('display_name').value = user.display_name || '';
+        }
+    });
 
-  // Form submission handlers
-  document.getElementById('profile-form').addEventListener('htmx:beforeSwap', function(evt) {
-    if (evt.detail.xhr.status === 200) {
-      HTMXHelper.showToast('Profile updated successfully!', 'success');
-    }
-  });
+    // Form submission handlers
+    document.getElementById('profile-form').addEventListener('htmx:beforeSwap', function (evt) {
+        if (evt.detail.xhr.status === 200) {
+            HTMXHelper.showToast('Profile updated successfully!', 'success');
+        }
+    });
 
-  document.getElementById('password-form').addEventListener('submit', function(e) {
-    const newPass = document.getElementById('new_password').value;
-    const confirm = document.getElementById('new_password_confirm').value;
+    document.getElementById('password-form').addEventListener('submit', function (e) {
+        const newPass = document.getElementById('new_password').value;
+        const confirm = document.getElementById('new_password_confirm').value;
 
-    if (newPass !== confirm) {
-      e.preventDefault();
-      HTMXHelper.showToast('Passwords do not match!', 'danger');
-      return false;
-    }
-  });
+        if (newPass !== confirm) {
+            e.preventDefault();
+            HTMXHelper.showToast('Passwords do not match!', 'danger');
+            return false;
+        }
+    });
 
-  document.getElementById('password-form').addEventListener('htmx:beforeSwap', function(evt) {
-    if (evt.detail.xhr.status === 200) {
-      HTMXHelper.showToast('Password updated successfully!', 'success');
-      document.getElementById('password-form').reset();
-    }
-  });
+    document.getElementById('password-form').addEventListener('htmx:beforeSwap', function (evt) {
+        if (evt.detail.xhr.status === 200) {
+            HTMXHelper.showToast('Password updated successfully!', 'success');
+            document.getElementById('password-form').reset();
+        }
+    });
 </script>
 {% endblock %}

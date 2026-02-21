@@ -2,26 +2,26 @@
 
 {% block admin_content %}
 <div>
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
-    <div>
-      <h2>Plugins</h2>
-      <p class="section-description">Manage plugins and extensions</p>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+        <div>
+            <h2>Plugins</h2>
+            <p class="section-description">Manage plugins and extensions</p>
+        </div>
+        <button class="btn btn-primary" hx-get="/admin/plugins/upload-modal" hx-target="body" hx-swap="beforeend">
+            + Upload Plugin
+        </button>
     </div>
-    <button class="btn btn-primary" hx-get="/admin/plugins/upload-modal" hx-target="body" hx-swap="beforeend">
-      + Upload Plugin
-    </button>
-  </div>
 
-  <!-- Plugins List -->
-  <div id="plugins-list" class="card">
-    <div style="padding: var(--spacing-lg); text-align: center;">
-      <p style="color: var(--text-secondary); margin: 0;">Loading plugins...</p>
+    <!-- Plugins List -->
+    <div id="plugins-list" class="card">
+        <div style="padding: var(--spacing-lg); text-align: center;">
+            <p style="color: var(--text-secondary); margin: 0;">Loading plugins...</p>
+        </div>
     </div>
-  </div>
 </div>
 
 <script>
-  // Load plugins list
-  htmx.ajax('GET', '/api/v1/admin/plugins?format=html', '#plugins-list');
+    // Load plugins list
+    htmx.ajax('GET', '/api/v1/admin/plugins?format=html', '#plugins-list');
 </script>
 {% endblock %}

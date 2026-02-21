@@ -1,0 +1,22 @@
+<table style="width: 100%; border-collapse: collapse;">
+  <thead style="border-bottom: 2px solid var(--border-color);">
+    <tr>
+      <th style="padding: var(--spacing-md); text-align: left; font-weight: 600;">Name</th>
+      <th style="padding: var(--spacing-md); text-align: left; font-weight: 600;">Scopes</th>
+      <th style="padding: var(--spacing-md); text-align: left; font-weight: 600;">Last Used</th>
+      <th style="padding: var(--spacing-md); text-align: left; font-weight: 600;">Expires</th>
+      <th style="padding: var(--spacing-md); text-align: right; font-weight: 600;">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for key in keys %}
+      {% include "fragments/api-key-item.html" %}
+    {% empty %}
+      <tr>
+        <td colspan="5" style="padding: var(--spacing-xl); text-align: center; color: var(--text-secondary);">
+          🔑 No API keys yet. Create one to access the API.
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

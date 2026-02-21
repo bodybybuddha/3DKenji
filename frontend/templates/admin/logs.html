@@ -2,35 +2,37 @@
 
 {% block admin_content %}
 <div>
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
-    <div>
-      <h2>Logs</h2>
-      <p class="section-description">System and application logs</p>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+        <div>
+            <h2>Logs</h2>
+            <p class="section-description">System and application logs</p>
+        </div>
+        <div style="display: flex; gap: var(--spacing-md);">
+            <select id="log-level-filter" hx-get="/admin/logs" hx-include="[id='log-level-filter']"
+                hx-target="#logs-list" class="form-control" style="width: 150px;">
+                <option value="">All Levels</option>
+                <option value="debug">Debug</option>
+                <option value="info">Info</option>
+                <option value="warning">Warning</option>
+                <option value="error">Error</option>
+            </select>
+            <button class="btn btn-secondary" hx-post="/api/v1/admin/logs/clear"
+                hx-confirm="Are you sure you want to clear all logs?">
+                Clear Logs
+            </button>
+        </div>
     </div>
-    <div style="display: flex; gap: var(--spacing-md);">
-      <select id="log-level-filter" hx-get="/admin/logs" hx-include="[id='log-level-filter']" hx-target="#logs-list" class="form-control" style="width: 150px;">
-        <option value="">All Levels</option>
-        <option value="debug">Debug</option>
-        <option value="info">Info</option>
-        <option value="warning">Warning</option>
-        <option value="error">Error</option>
-      </select>
-      <button class="btn btn-secondary" hx-post="/api/v1/admin/logs/clear" hx-confirm="Are you sure you want to clear all logs?">
-        Clear Logs
-      </button>
-    </div>
-  </div>
 
-  <!-- Logs List -->
-  <div id="logs-list" class="card">
-    <div style="padding: var(--spacing-lg); text-align: center;">
-      <p style="color: var(--text-secondary); margin: 0;">Loading logs...</p>
+    <!-- Logs List -->
+    <div id="logs-list" class="card">
+        <div style="padding: var(--spacing-lg); text-align: center;">
+            <p style="color: var(--text-secondary); margin: 0;">Loading logs...</p>
+        </div>
     </div>
-  </div>
 </div>
 
 <script>
-  // Load logs
-  htmx.ajax('GET', '/api/v1/admin/logs?format=html', '#logs-list');
+    // Load logs
+    htmx.ajax('GET', '/api/v1/admin/logs?format=html', '#logs-list');
 </script>
 {% endblock %}

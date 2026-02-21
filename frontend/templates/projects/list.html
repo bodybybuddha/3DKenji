@@ -4,28 +4,28 @@
 
 {% block content %}
 <div class="container" style="padding: var(--spacing-2xl) var(--spacing-lg);">
-  <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-    <div>
-      <h1>Projects</h1>
-      <p class="section-description">Manage your 3D printing projects</p>
+    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1>Projects</h1>
+            <p class="section-description">Manage your 3D printing projects</p>
+        </div>
+        <button class="btn btn-primary" hx-get="/projects/create-modal" hx-target="body" hx-swap="beforeend">
+            + New Project
+        </button>
     </div>
-    <button class="btn btn-primary" hx-get="/projects/create-modal" hx-target="body" hx-swap="beforeend">
-      + New Project
-    </button>
-  </div>
 
-  <!-- Projects Grid -->
-  <div id="projects-list" class="grid grid-3" style="margin-top: var(--spacing-2xl);">
-    <div style="grid-column: 1 / -1; text-align: center; padding: var(--spacing-2xl);">
-      <p style="color: var(--text-secondary); margin: 0;">
-        Loading projects...
-      </p>
+    <!-- Projects Grid -->
+    <div id="projects-list" class="grid grid-3" style="margin-top: var(--spacing-2xl);">
+        <div style="grid-column: 1 / -1; text-align: center; padding: var(--spacing-2xl);">
+            <p style="color: var(--text-secondary); margin: 0;">
+                Loading projects...
+            </p>
+        </div>
     </div>
-  </div>
 </div>
 
 <!-- HTMX to load projects -->
 <script>
-  htmx.ajax('GET', '/api/v1/projects?format=html', '#projects-list');
+    htmx.ajax('GET', '/api/v1/projects?format=html', '#projects-list');
 </script>
 {% endblock %}

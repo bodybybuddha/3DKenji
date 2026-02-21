@@ -1,88 +1,96 @@
-<div id="user-form-modal" class="modal" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
-  <div class="card" style="max-width: 500px; width: 90%;">
-    <div style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-      <h2 id="user-modal-title" style="margin: 0;">Add User</h2>
-      <button hx-on="click: this.closest('#user-form-modal').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">
-        ×
-      </button>
+<div id="user-form-modal" class="modal"
+    style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
+    <div class="card" style="max-width: 500px; width: 90%;">
+        <div
+            style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+            <h2 id="user-modal-title" style="margin: 0;">Add User</h2>
+            <button hx-on="click: this.closest('#user-form-modal').remove()"
+                style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">
+                ×
+            </button>
+        </div>
+
+        <form id="user-form" hx-post="/api/v1/admin/users" hx-swap="outerHTML">
+            <div style="padding: var(--spacing-lg); display: grid; gap: var(--spacing-md);">
+                <input type="hidden" name="user_id" id="user_id" />
+
+                <div>
+                    <label for="user_username">Username *</label>
+                    <input type="text" id="user_username" name="username" placeholder="johndoe" required
+                        class="form-control" />
+                </div>
+
+                <div>
+                    <label for="user_email">Email *</label>
+                    <input type="email" id="user_email" name="email" placeholder="john@example.com" required
+                        class="form-control" />
+                </div>
+
+                <div>
+                    <label for="user_display_name">Display Name</label>
+                    <input type="text" id="user_display_name" name="display_name" placeholder="John Doe"
+                        class="form-control" />
+                </div>
+
+                <div id="password-group">
+                    <label for="user_password">Password *</label>
+                    <input type="password" id="user_password" name="password" placeholder="••••••••" required
+                        class="form-control" />
+                </div>
+
+                <div>
+                    <label for="user_role">Role *</label>
+                    <select id="user_role" name="role" required class="form-control">
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                        <option value="moderator">Moderator</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="display: flex; align-items: center; gap: var(--spacing-sm);">
+                        <input type="checkbox" id="user_active" name="is_active" checked />
+                        <span>Active</span>
+                    </label>
+                </div>
+            </div>
+
+            <div
+                style="padding: var(--spacing-lg); border-top: 1px solid var(--border-color); display: flex; gap: var(--spacing-md); justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="this.closest('#user-form-modal').remove();">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary" id="user-submit-btn">
+                    Add User
+                </button>
+            </div>
+        </form>
     </div>
-
-    <form id="user-form" hx-post="/api/v1/admin/users" hx-swap="outerHTML">
-      <div style="padding: var(--spacing-lg); display: grid; gap: var(--spacing-md);">
-        <input type="hidden" name="user_id" id="user_id" />
-
-        <div>
-          <label for="user_username">Username *</label>
-          <input type="text" id="user_username" name="username" placeholder="johndoe" required class="form-control" />
-        </div>
-
-        <div>
-          <label for="user_email">Email *</label>
-          <input type="email" id="user_email" name="email" placeholder="john@example.com" required class="form-control" />
-        </div>
-
-        <div>
-          <label for="user_display_name">Display Name</label>
-          <input type="text" id="user_display_name" name="display_name" placeholder="John Doe" class="form-control" />
-        </div>
-
-        <div id="password-group">
-          <label for="user_password">Password *</label>
-          <input type="password" id="user_password" name="password" placeholder="••••••••" required class="form-control" />
-        </div>
-
-        <div>
-          <label for="user_role">Role *</label>
-          <select id="user_role" name="role" required class="form-control">
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-            <option value="moderator">Moderator</option>
-          </select>
-        </div>
-
-        <div>
-          <label style="display: flex; align-items: center; gap: var(--spacing-sm);">
-            <input type="checkbox" id="user_active" name="is_active" checked />
-            <span>Active</span>
-          </label>
-        </div>
-      </div>
-
-      <div style="padding: var(--spacing-lg); border-top: 1px solid var(--border-color); display: flex; gap: var(--spacing-md); justify-content: flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="this.closest('#user-form-modal').remove();">
-          Cancel
-        </button>
-        <button type="submit" class="btn btn-primary" id="user-submit-btn">
-          Add User
-        </button>
-      </div>
-    </form>
-  </div>
 </div>
 
 <script>
-// Check if we're editing
-const userId = document.getElementById('user_id').value;
-if (userId) {
-  document.getElementById('user-modal-title').textContent = 'Edit User';
-  document.getElementById('user-submit-btn').textContent = 'Save Changes';
-  document.getElementById('user-form').setAttribute('hx-put', '/api/v1/admin/users/' + userId);
-  
-  // Make password optional for edit
-  document.getElementById('user_password').removeAttribute('required');
-  document.getElementById('password-group').innerHTML = `
+    // Check if we're editing
+    const userId = document.getElementById('user_id').value;
+    if (userId) {
+        document.getElementById('user-modal-title').textContent = 'Edit User';
+        document.getElementById('user-submit-btn').textContent = 'Save Changes';
+        document.getElementById('user-form').setAttribute('hx-put', '/api/v1/admin/users/' + userId);
+
+        // Make password optional for edit
+        document.getElementById('user_password').removeAttribute('required');
+        document.getElementById('password-group').innerHTML = `
     <label for="user_password">Password (leave empty to keep current)</label>
     <input type="password" id="user_password" name="password" placeholder="••••••••" class="form-control" />
   `;
-}
+    }
 
-document.getElementById('user-form').addEventListener('htmx:afterRequest', function(event) {
-  if (event.detail.xhr.status === 200 || event.detail.xhr.status === 201) {
-    HTMXHelper.showToast('User ' + (userId ? 'updated' : 'created') + ' successfully', 'success');
-    setTimeout(() => {
-      document.getElementById('user-form-modal').remove();
-      htmx.ajax('GET', '/admin/users', 'body');
-    }, 1500);
-  }
-});
+    document.getElementById('user-form').addEventListener('htmx:afterRequest', function (event) {
+        if (event.detail.xhr.status === 200 || event.detail.xhr.status === 201) {
+            HTMXHelper.showToast('User ' + (userId ? 'updated' : 'created') + ' successfully', 'success');
+            setTimeout(() => {
+                document.getElementById('user-form-modal').remove();
+                htmx.ajax('GET', '/admin/users', 'body');
+            }, 1500);
+        }
+    });
 </script>

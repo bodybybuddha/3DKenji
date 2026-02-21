@@ -1,0 +1,36 @@
+<tr hx-target="nearest tr">
+  <td style="padding: var(--spacing-md);">
+    <div>
+      <div style="font-weight: 600;">{{ key.name }}</div>
+      <div style="font-size: 0.875rem; color: var(--text-secondary);">{{ key.key_prefix }}...</div>
+    </div>
+  </td>
+  <td style="padding: var(--spacing-md); font-size: 0.875rem;">
+    <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-xs);">
+      {% for scope in key.scopes %}
+      <span style="background: var(--bg-secondary); padding: var(--spacing-xs) var(--spacing-sm); border-radius: 4px;">
+        {{ scope }}
+      </span>
+      {% endfor %}
+    </div>
+  </td>
+  <td style="padding: var(--spacing-md); font-size: 0.875rem; color: var(--text-secondary);">
+    {% if key.last_used_at %}
+      {{ key.last_used_at | timeago }}
+    {% else %}
+      Never used
+    {% endif %}
+  </td>
+  <td style="padding: var(--spacing-md); font-size: 0.875rem; color: var(--text-secondary);">
+    {% if key.expires_at %}
+      {{ key.expires_at | dateformat }}
+    {% else %}
+      Never
+    {% endif %}
+  </td>
+  <td style="padding: var(--spacing-md); text-align: right;">
+    <button class="btn btn-sm btn-danger" hx-delete="/api/v1/keys/{{ key.id }}" hx-confirm="Are you sure?" hx-target="nearest tr" hx-swap="swap 1s" title="Revoke">
+      🗑️
+    </button>
+  </td>
+</tr>

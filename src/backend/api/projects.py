@@ -1,14 +1,22 @@
 """Projects API endpoints for 3D Kenji."""
 
+import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.api.auth import get_current_user
 from backend.db import get_db
 from backend.services.project_service import ProjectDTO, ProjectService
+
+# Initialize templates for HTML responses
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend")
+TEMPLATES_DIR = os.path.join(FRONTEND_DIR, "templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -99,8 +107,10 @@ async def create_project(
 
 @router.get("", response_model=ProjectListResponse)
 async def list_projects(
+    format: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
+    request: Request = None,
     current_user_id: str = Depends(get_current_user),
     session: Session = Depends(get_db),
 ) -> ProjectListResponse:
@@ -108,15 +118,19 @@ async def list_projects(
     List projects owned by the authenticated user.
 
     Pagination is supported via skip and limit parameters.
+    HTML format supported via ?format=html for HTMX integration.
 
     Args:
+        format: Response format ('html' for HTMX, default returns JSON).
         skip: Number of projects to skip (default 0).
         limit: Maximum projects to return (default 100, max 1000).
+        request: FastAPI Request object (injected).
         current_user_id: ID of authenticated user (injected).
         session: Database session (injected).
 
     Returns:
         ProjectListResponse with items, total, skip, limit (200 OK).
+        If format=html, returns HTML snippet instead.
 
     Raises:
         401: If user is not authenticated.
@@ -131,6 +145,15 @@ async def list_projects(
 
     service = ProjectService(session)
     projects = service.list_user_projects(owner_id=current_user_id, skip=skip, limit=limit)
+
+    # Return HTML fragment for HTMX
+    if format == "html":
+        return HTMLResponse(
+            templates.get_template("fragments/projects-list.html").render(
+                request=request,
+                projects=[p.__dict__ for p in projects],
+            )
+        )
 
     return ProjectListResponse(
         items=[ProjectResponse(**p.__dict__) for p in projects],
@@ -289,3 +312,39 @@ async def delete_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project '{project_id}' not found",
         )
+
+# Modal endpoints for HTMX form loading
+@router.get("/{project_id}/edit-modal", response_class=HTMLResponse)
+async def get_edit_project_modal(
+    project_id: str,
+    request: Request,
+    current_user_id: str = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> str:
+    """
+    Get the edit project modal form.
+    
+    Returns HTML for the edit project form modal.
+    """
+    service = ProjectService(session)
+    project = service.get_project_by_id(project_id)
+    
+    if not project or project.owner_id != current_user_id:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    return templates.TemplateResponse("projects/form-modal.html", {
+        "request": request,
+        "project": project.__dict__,
+    }).body.decode()
+
+
+@router.get("/create-modal", response_class=HTMLResponse)
+async def get_create_project_modal(
+    request: Request,
+    current_user_id: str = Depends(get_current_user),
+) -> str:
+    """Get the create project modal form."""
+    return templates.TemplateResponse("projects/form-modal.html", {
+        "request": request,
+        "project": None,
+    }).body.decode()
