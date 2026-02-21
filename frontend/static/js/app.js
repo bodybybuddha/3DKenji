@@ -249,7 +249,11 @@
                         group.classList.add('is-invalid');
                         const feedback = document.createElement('div');
                         feedback.className = 'form-feedback';
-                        feedback.innerHTML = messages.map(msg => `<div>${msg}</div>`).join('');
+                        messages.forEach((msg) => {
+                            const item = document.createElement('div');
+                            item.textContent = msg;
+                            feedback.appendChild(item);
+                        });
                         group.appendChild(feedback);
                     }
                 }
@@ -262,11 +266,11 @@
         setupRealTimeValidation(form) {
             form.querySelectorAll('[data-validate]').forEach(field => {
                 const validateType = field.getAttribute('data-validate');
-                
+
                 field.addEventListener('input', () => {
                     this.validateField(field, validateType);
                 });
-                
+
                 field.addEventListener('blur', () => {
                     this.validateField(field, validateType);
                 });
@@ -278,6 +282,9 @@
          */
         validateField(field, type) {
             const group = field.closest('.form-group') || field.closest('div');
+            if (!group) {
+                return;
+            }
             let isValid = true;
             let message = '';
 

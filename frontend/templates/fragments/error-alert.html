@@ -5,18 +5,18 @@
         {% if errors %}
         <ul style="margin: var(--spacing-md) 0 0 0; padding-left: var(--spacing-lg);">
             {% for field, messages in errors.items() %}
-                <li style="margin: var(--spacing-xs) 0;">
-                    <strong>{{ field }}:</strong>
-                    {% if messages | length == 1 %}
-                        {{ messages[0] }}
-                    {% else %}
-                        <ul style="margin: var(--spacing-xs) 0 0 var(--spacing-md);">
-                            {% for msg in messages %}
-                            <li>{{ msg }}</li>
-                            {% endfor %}
-                        </ul>
-                    {% endif %}
-                </li>
+            <li style="margin: var(--spacing-xs) 0;">
+                <strong>{{ field }}:</strong>
+                {% if messages | length == 1 %}
+                {{ messages[0] }}
+                {% else %}
+                <ul style="margin: var(--spacing-xs) 0 0 var(--spacing-md);">
+                    {% for msg in messages %}
+                    <li>{{ msg }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </li>
             {% endfor %}
         </ul>
         {% endif %}
@@ -25,8 +25,10 @@
 </div>
 
 <script>
-// Make error alert dismissible
-document.querySelector('.alert-close').addEventListener('click', function() {
-    this.closest('.alert').remove();
-});
+    // Make error alert dismissible
+    document.querySelectorAll('.alert-close').forEach((button) => {
+        button.addEventListener('click', function () {
+            this.closest('.alert').remove();
+        });
+    });
 </script>

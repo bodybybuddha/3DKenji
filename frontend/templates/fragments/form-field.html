@@ -1,53 +1,37 @@
 <!-- Form field with error display -->
 <div class="form-group">
+    {% set field_errors = errors.get(field_name, []) if errors else [] %}
     <label for="{{ field_name }}">{{ label }}</label>
     {% if field_type == 'textarea' %}
-        <textarea
-            id="{{ field_name }}"
-            name="{{ field_name }}"
-            class="form-control{% if field_name in errors %} is-invalid{% endif %}"
-            placeholder="{{ placeholder or '' }}"
-            rows="{{ rows or 4 }}"
-            {% if required %}required{% endif %}
-            {% if data_field %}data-field="{{ data_field }}"{% endif %}>{{ value or '' }}</textarea>
+    <textarea id="{{ field_name }}" name="{{ field_name }}"
+        class="form-control{% if field_errors %} is-invalid{% endif %}" placeholder="{{ placeholder or '' }}"
+        rows="{{ rows or 4 }}" {% if required %}required{% endif %} {% if data_field %}data-field="{{ data_field }}" {%
+        endif %}>{{ value or '' }}</textarea>
     {% elif field_type == 'select' %}
-        <select
-            id="{{ field_name }}"
-            name="{{ field_name }}"
-            class="form-control{% if field_name in errors %} is-invalid{% endif %}"
-            {% if required %}required{% endif %}>
-            <option value="">-- Select {{ label }} --</option>
-            {% for opt_value, opt_label in options %}
-            <option value="{{ opt_value }}" {% if value == opt_value %}selected{% endif %}>{{ opt_label }}</option>
-            {% endfor %}
-        </select>
+    <select id="{{ field_name }}" name="{{ field_name }}"
+        class="form-control{% if field_errors %} is-invalid{% endif %}" {% if required %}required{% endif %}>
+        <option value="">-- Select {{ label }} --</option>
+        {% for opt_value, opt_label in options %}
+        <option value="{{ opt_value }}" {% if value==opt_value %}selected{% endif %}>{{ opt_label }}</option>
+        {% endfor %}
+    </select>
     {% elif field_type == 'checkbox' %}
-        <label style="display: flex; align-items: center; gap: var(--spacing-sm);">
-            <input
-                type="checkbox"
-                id="{{ field_name }}"
-                name="{{ field_name }}"
-                class="form-control"
-                value="on"
-                {% if value %}checked{% endif %} />
-            <span>{{ checkbox_label or label }}</span>
-        </label>
+    <label style="display: flex; align-items: center; gap: var(--spacing-sm);">
+        <input type="checkbox" id="{{ field_name }}" name="{{ field_name }}" class="form-control" value="on" {% if value
+            %}checked{% endif %} />
+        <span>{{ checkbox_label or label }}</span>
+    </label>
     {% else %}
-        <input
-            type="{{ field_type or 'text' }}"
-            id="{{ field_name }}"
-            name="{{ field_name }}"
-            class="form-control{% if field_name in errors %} is-invalid{% endif %}"
-            placeholder="{{ placeholder or '' }}"
-            value="{{ value or '' }}"
-            {% if required %}required{% endif %}
-            {% if data_field %}data-field="{{ data_field }}"{% endif %} />
+    <input type="{{ field_type or 'text' }}" id="{{ field_name }}" name="{{ field_name }}"
+        class="form-control{% if field_errors %} is-invalid{% endif %}" placeholder="{{ placeholder or '' }}"
+        value="{{ value or '' }}" {% if required %}required{% endif %} {% if data_field %}data-field="{{ data_field }}"
+        {% endif %} />
     {% endif %}
-    {% if field_name in errors %}
-        <div class="form-feedback" style="color: var(--danger); font-size: 0.875rem; margin-top: var(--spacing-xs);">
-            {% for error in errors[field_name] %}
-            <div>{{ error }}</div>
-            {% endfor %}
-        </div>
+    {% if field_errors %}
+    <div class="form-feedback" style="color: var(--danger); font-size: 0.875rem; margin-top: var(--spacing-xs);">
+        {% for error in field_errors %}
+        <div>{{ error }}</div>
+        {% endfor %}
+    </div>
     {% endif %}
 </div>

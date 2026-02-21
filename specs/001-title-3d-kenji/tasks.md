@@ -23,15 +23,26 @@
   - SQLAlchemy models: User, Project, Model, APIKey
   - Alembic migrations setup with initial schema
   - Commit: e8b2926
+- **T021-T023** (Phase 3b: Services) – 2026-02-21
+  - UserService, ProjectService, ModelService complete
+- **T024-T029** (Phase 3c: Auth & Security) – 2026-02-21
+  - JWT auth, password plugin, auth endpoints
+- **T030-T033** (Phase 3d: Storage) – 2026-02-21
+  - LocalStorageBackend and storage wiring
+- **T034-T038** (Phase 3e: API Endpoints) – 2026-02-21
+  - Projects, models, keys endpoints implemented
+- **T039-T040** (Phase 3f: Observability) – 2026-02-21
+  - JSON logging + health checks
+- **T041-T045** (Phase 4: Integration & Polish) – 2026-02-21
+  - DI wiring, schemas, thumbnails, log rotation
+- **T046-T050** (Phase 5: Docs & Release) – 2026-02-21
+  - Docs updates, changelog, release prep
 
 ### In Progress 🔄
-- **T021-T023** – Services layer (UserService, ProjectService, ModelService)
+- None
 
 ### Not Started ⭕
-- **T024-T029** – Auth middleware and password plugin
-- **T030-T033** – Storage plugins and configuration
-- **T034-T038** – API endpoints (projects, models, keys)
-- **T039-T050** – Observability, docs, release
+- None
 
 ---
 
