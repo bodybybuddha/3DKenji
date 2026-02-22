@@ -260,8 +260,8 @@ class TestAPIKeyUsageValidation:
                 json={"name": "Test Project"}
             )
             
-            # Should be forbidden if scopes are enforced
-            assert response.status_code in [201, 403]
+            # Should be forbidden when scopes are enforced
+            assert response.status_code == 403
 
 
 class TestAPIKeyListValidation:

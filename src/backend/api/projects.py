@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
-from backend.api.auth import get_current_user
+from backend.api.auth import get_current_user, require_scopes
 from backend.db import get_db
 from backend.core.validation import CreateProjectRequest as ValidatedProjectRequest, format_validation_errors, sanitize_text_input
 from backend.services.project_service import ProjectDTO, ProjectService
@@ -71,7 +71,7 @@ async def create_project(
     description: Optional[str] = Form(None),
     visibility: Optional[str] = Form("private"),
     tags: Optional[str] = Form(None),
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
     session: Session = Depends(get_db),
 ):
     """
@@ -187,7 +187,7 @@ async def list_projects(
     skip: int = 0,
     limit: int = 100,
     request: Request = None,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
     session: Session = Depends(get_db),
 ) -> ProjectListResponse:
     """
@@ -242,7 +242,7 @@ async def list_projects(
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: str,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
     session: Session = Depends(get_db),
 ) -> ProjectResponse:
     """
@@ -286,7 +286,7 @@ async def get_project(
 async def update_project(
     project_id: str,
     request: UpdateProjectRequest,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
     session: Session = Depends(get_db),
 ) -> ProjectResponse:
     """
@@ -360,7 +360,7 @@ async def update_project(
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(
     project_id: str,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
     session: Session = Depends(get_db),
 ) -> None:
     """

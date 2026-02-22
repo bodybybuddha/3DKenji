@@ -2,12 +2,16 @@
 
 import os
 import logging
-from typing import Optional
+import hashlib
+from datetime import datetime
+from typing import Optional, Callable
+
 from fastapi import APIRouter, HTTPException, status, Depends, Header, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ValidationError, EmailStr, Field
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +25,7 @@ from backend.core.validation import (
 )
 from backend.plugins.auth_password import PasswordAuthProvider
 from backend.services.user_service import UserService
+from backend.models.api_key import APIKey
 
 # Initialize templates for HTML responses
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend")
@@ -115,36 +120,66 @@ def get_bearer_token(
     )
 
 
+async def _get_user_id_from_jwt(db: Session, token: str) -> str:
+    """Validate a JWT token and return the user ID."""
+    token_payload = decode_token(token)
+    auth_provider = PasswordAuthProvider(db)
+
+    user_identity = await auth_provider.validate_token(token)
+    if not user_identity:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return token_payload.user_id
+
+
+def _get_user_id_from_api_key(
+    db: Session,
+    token: str,
+    required_scopes: Optional[list[str]] = None,
+) -> str:
+    """Validate an API key and return the owning user ID."""
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    api_key = db.execute(
+        select(APIKey).where(APIKey.key_hash == token_hash, APIKey.revoked.is_(False))
+    ).scalar_one_or_none()
+
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if api_key.expires_at and api_key.expires_at <= datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="API key has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if required_scopes:
+        key_scopes = set(api_key.scopes or [])
+        missing_scopes = [scope for scope in required_scopes if scope not in key_scopes]
+        if missing_scopes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="API key does not have required scope",
+            )
+
+    return api_key.owner_id
+
+
 async def get_current_user(
     db: Session = Depends(get_db),
     token: str = Depends(get_bearer_token),
 ) -> str:
-    """Extract and validate current user from JWT token.
-    
-    Args:
-        db: Database session
-        token: Bearer token from header or cookie
-        
-    Returns:
-        User ID
-        
-    Raises:
-        HTTPException: If token is invalid or expired
-    """
+    """Extract and validate current user from JWT token."""
     try:
-        token_payload = decode_token(token)
-        auth_provider = PasswordAuthProvider(db)
-        
-        # Validate token and ensure user still exists
-        user_identity = await auth_provider.validate_token(token)
-        if not user_identity:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        
-        return token_payload.user_id
+        return await _get_user_id_from_jwt(db, token)
     except HTTPException:
         raise
     except Exception as e:
@@ -153,6 +188,20 @@ async def get_current_user(
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
+
+
+def require_scopes(required_scopes: Optional[list[str]] = None) -> Callable:
+    """Dependency factory that accepts JWTs or API keys with optional scopes."""
+    async def _dependency(
+        db: Session = Depends(get_db),
+        token: str = Depends(get_bearer_token),
+    ) -> str:
+        if "." in token:
+            return await _get_user_id_from_jwt(db, token)
+
+        return _get_user_id_from_api_key(db, token, required_scopes)
+
+    return _dependency
 
 
 # Endpoint implementations
