@@ -10,7 +10,7 @@ RUN python -m pip install --no-cache-dir --upgrade pip && \
 WORKDIR /workspace
 
 # Copy project metadata and source into the image
-COPY pyproject.toml uv.lock Makefile pytest.ini /workspace/
+COPY pyproject.toml Makefile pytest.ini /workspace/
 # COPY src /workspace/app/src. - shouldn't need of this with volume mount
 
 ENV PATH="/workspace/.venv/bin:$PATH"

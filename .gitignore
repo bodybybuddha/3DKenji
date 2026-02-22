@@ -5,6 +5,8 @@ __pycache__/
 /data/
 !/data/.gitkeep
 /src/frontend
+/backend
+/frontend
 
 .DS_Store
 
