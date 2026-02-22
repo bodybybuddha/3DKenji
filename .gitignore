@@ -4,7 +4,6 @@ __pycache__/
 .pytest_cache/
 /data/
 !/data/.gitkeep
-/src/frontend
 /backend
 /frontend
 

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Projects - 3DKenji{% endblock %}
+
+{% block content %}
+<div class="container" style="padding: var(--spacing-2xl) var(--spacing-lg);">
+    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1>Projects</h1>
+            <p class="section-description">Manage your 3D printing projects</p>
+        </div>
+        <button class="btn btn-primary" hx-get="/projects/create-modal" hx-target="body" hx-swap="beforeend">
+            + New Project
+        </button>
+    </div>
+
+    <!-- Projects Grid -->
+    <div id="projects-list" class="grid grid-3" style="margin-top: var(--spacing-2xl);">
+        <div style="grid-column: 1 / -1; text-align: center; padding: var(--spacing-2xl);">
+            <p style="color: var(--text-secondary); margin: 0;">
+                Loading projects...
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- HTMX to load projects -->
+<script>
+    // Load projects with error handling
+    htmx.ajax('GET', '/api/v1/projects?format=html', {
+        target: '#projects-list',
+        swap: 'innerHTML'
+    });
+
+    // Handle HTMX errors
+    document.body.addEventListener('htmx:responseError', function (evt) {
+        if (evt.detail.target && evt.detail.target.id === 'projects-list') {
+            const errorHtml = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: var(--spacing-2xl);">
+                    <p style="color: var(--color-danger); margin: 0 0 var(--spacing-md) 0;">
+                        ⚠️ Failed to load projects
+                    </p>
+                    <p style="color: var(--text-secondary); margin: 0 0 var(--spacing-md) 0;">
+                        There was an error connecting to the server.
+                    </p>
+                    <button class="btn btn-secondary" onclick="location.reload()">
+                        Retry
+                    </button>
+                </div>
+            `;
+            document.getElementById('projects-list').innerHTML = errorHtml;
+        }
+    });
+
+    // Handle timeout
+    document.body.addEventListener('htmx:timeout', function (evt) {
+        if (evt.detail.target && evt.detail.target.id === 'projects-list') {
+            const errorHtml = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: var(--spacing-2xl);">
+                    <p style="color: var(--color-danger); margin: 0 0 var(--spacing-md) 0;">
+                        ⏱️ Request timed out
+                    </p>
+                    <p style="color: var(--text-secondary); margin: 0 0 var(--spacing-md) 0;">
+                        The server is taking too long to respond.
+                    </p>
+                    <button class="btn btn-secondary" onclick="location.reload()">
+                        Retry
+                    </button>
+                </div>
+            `;
+            document.getElementById('projects-list').innerHTML = errorHtml;
+        }
+    });
+</script>
+{% endblock %}
