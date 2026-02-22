@@ -1,5 +1,39 @@
 # Bug Tracking
 
+## Fixed (2026-02-22 - Round 4)
+
+### ✅ Bug #10: Duplicate root-level /backend and /frontend directories
+**Status**: Fixed  
+**Severity**: Medium  
+**Component**: Project Structure
+
+**Description**: 
+The project had duplicate `/backend` and `/frontend` directories at the root level, alongside the canonical source code in `/src/backend` and `/src/frontend`. This created confusion about which directories contained the actual source code.
+
+**Root Causes**:
+1. Vestigial directories that should have been removed during project restructuring
+2. `pyproject.toml` explicitly specifies `[tool.setuptools.packages.find] where = ["src"]`, indicating `/src` is the canonical location
+3. No `.gitignore` rules to prevent these root-level directories from being accidentally committed
+
+**Fix**:
+- **Deletion**: Removed root-level `/backend` and `/frontend` directories entirely (3,895 lines deleted)
+- **Prevention**: Added `/backend` and `/frontend` to `.gitignore` to prevent accidental re-creation
+- **Verification**: Confirmed `pyproject.toml` specifies `/src` as the source directory
+
+**Files Modified**:
+- Deleted: `/backend/`
+- Deleted: `/frontend/`
+- Modified: [.gitignore](.gitignore)
+
+**Branch**: `bug/duplicate-root-directories` (merged to `dev`)
+
+**Result**:
+- ✅ Project structure is now clean with only `/src/backend` and `/src/frontend` as canonical source
+- ✅ No confusion about which directories contain actual code
+- ✅ Future changes won't accidentally re-create root-level directories
+
+---
+
 ## Fixed (2026-02-22 - Round 3)
 
 ### ✅ Bug #9: Logs page filtering not working
