@@ -1,42 +1,42 @@
 # Bug Tracking
 
-## Open Issues (2026-02-22 - Discovered via Validation Testing)
+## Recently Resolved (2026-02-22)
 
-### 🔴 Bug #16: XSS vulnerability in API key names
-**Status**: Open  
+### ✅ Bug #16: XSS vulnerability in API key names
+**Status**: ~~Open~~ **RESOLVED**  
 **Severity**: High (Security)  
-**Component**: Backend/API Keys
+**Component**: Backend/API Keys  
+**Resolved In**: Commit 19276a4
 
 **Description**: API key names accept unescaped HTML/JavaScript including `<script>` tags. This could allow stored XSS attacks.
 
 **Test Evidence**: `tests/validation/test_api_key_validation.py::TestAPIKeyCreationValidation::test_invalid_key_names`
 - Input: `<script>alert('xss')</script>`
 - Expected: Rejected (400) or sanitized
-- Actual: Accepted (201) with script tags intact
+- ~~Actual: Accepted (201) with script tags intact~~
 
-**Impact**: Medium - API keys are typically only viewed by the owner, but could affect admin interfaces
-
-**Recommended Fix**: Sanitize or reject names containing HTML/script tags in `src/backend/api/keys.py`
+**Resolution**: Added `sanitize_text_input()` validation function that rejects HTML tags and JavaScript. API key creation now returns 400 Bad Request with error message "API key name cannot contain HTML tags". Test now passes ✅
 
 ---
 
-### 🔴 Bug #17: XSS vulnerability in user display names
-**Status**: Open  
+### ✅ Bug #17: XSS vulnerability in user display names
+**Status**: ~~Open~~ **RESOLVED**  
 **Severity**: High (Security)  
-**Component**: Backend/Auth
+**Component**: Backend/Auth  
+**Resolved In**: Commit 19276a4
 
 **Description**: User display names accept unescaped HTML/JavaScript. Display names appear throughout the UI and could execute malicious scripts.
 
 **Test Evidence**: `tests/validation/test_auth_validation.py::TestRegistrationValidation::test_xss_in_display_name`
 - Input: `<script>alert('XSS')</script>`
 - Expected: Rejected or sanitized
-- Actual: Accepted with script tags intact
+- ~~Actual: Accepted with script tags intact~~
 
-**Impact**: High - Display names shown across the application to all users
-
-**Recommended Fix**: Add HTML escaping/sanitization in `src/backend/api/auth.py` registration endpoint
+**Resolution**: Applied `sanitize_text_input()` to display_name field during registration. Returns 400 Bad Request with error message "Display name cannot contain HTML tags". Test now passes ✅
 
 ---
+
+## Open Issues (2026-02-22 - Discovered via Validation Testing)
 
 ### 🟡 Bug #18: Duplicate username/email returns 422 instead of 400/409
 **Status**: Open  
