@@ -109,6 +109,26 @@
     color: var(--color-primary);
 }
 
+.dropdown-logout-btn {
+    display: block;
+    width: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    color: var(--text-primary);
+    text-align: left;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    border-radius: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+}
+
+.dropdown-logout-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--color-primary);
+}
+
 .dropdown-menu hr {
     margin: var(--spacing-xs) 0;
     border-color: var(--border-color);

@@ -73,10 +73,14 @@ class TokenResponse(BaseModel):
 
 
 # Dependency functions
-def get_bearer_token(authorization: Optional[str] = Header(None)) -> str:
-    """Extract bearer token from Authorization header.
+def get_bearer_token(
+    request: Request,
+    authorization: Optional[str] = Header(None)
+) -> str:
+    """Extract bearer token from Authorization header or cookie.
     
     Args:
+        request: FastAPI Request object
         authorization: Authorization header value
         
     Returns:
@@ -85,22 +89,29 @@ def get_bearer_token(authorization: Optional[str] = Header(None)) -> str:
     Raises:
         HTTPException: If token is missing or invalid format
     """
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header missing",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    # First try Authorization header
+    if authorization:
+        parts = authorization.split()
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            return parts[1]
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authorization header format",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
     
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header format",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    # Then try cookie
+    token = request.cookies.get("access_token")
+    if token:
+        return token
     
-    return parts[1]
+    # No token found
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authorization required",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 async def get_current_user(
@@ -111,7 +122,7 @@ async def get_current_user(
     
     Args:
         db: Database session
-        token: Bearer token from header
+        token: Bearer token from header or cookie
         
     Returns:
         User ID

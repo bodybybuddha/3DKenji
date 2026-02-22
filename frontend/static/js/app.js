@@ -84,7 +84,13 @@
         toggle() {
             const current = this.getCurrent();
             const next = current === 'dark' ? 'light' : 'dark';
+            console.log(`Theme toggle: ${current} -> ${next}`);
             this.loadTheme(next);
+
+            // Provide visual feedback
+            if (window.HTMXHelper) {
+                HTMXHelper.showToast(`Switched to ${next} theme`, 'success', 1500);
+            }
         }
     };
 
@@ -336,10 +342,43 @@
         }
     };
 
+    /**
+     * Dropdown Menu Helper
+     */
+    const DropdownHelper = {
+        init() {
+            // Handle user menu dropdown
+            const menuBtn = document.getElementById('user-menu-btn');
+            const menu = document.getElementById('user-menu');
+
+            if (menuBtn && menu) {
+                menuBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    menu.classList.toggle('is-open');
+                });
+
+                // Close on click outside
+                document.addEventListener('click', (e) => {
+                    if (!menu.contains(e.target) && !menuBtn.contains(e.target)) {
+                        menu.classList.remove('is-open');
+                    }
+                });
+
+                // Close when clicking menu items
+                menu.querySelectorAll('a').forEach(link => {
+                    link.addEventListener('click', () => {
+                        menu.classList.remove('is-open');
+                    });
+                });
+            }
+        }
+    };
+
     // Initialize on DOM ready
     document.addEventListener('DOMContentLoaded', () => {
         ThemeManager.init();
         HTMXHelper.init();
+        DropdownHelper.init();
     });
 
     // Expose to global scope for use in templates/scripts

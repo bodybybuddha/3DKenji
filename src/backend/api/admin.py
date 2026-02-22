@@ -290,11 +290,21 @@ async def get_admin_logs(
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get system logs as HTML."""
-    logs = [
+    # Sample logs with different levels
+    all_logs = [
         {"timestamp": "2026-02-21 14:32:15", "level": "INFO", "module": "api.projects", "message": "Project created by user_123"},
         {"timestamp": "2026-02-21 14:31:42", "level": "INFO", "module": "api.keys", "message": "API key generated"},
         {"timestamp": "2026-02-21 14:30:18", "level": "WARNING", "module": "storage", "message": "Storage usage above 80%"},
+        {"timestamp": "2026-02-21 14:29:05", "level": "DEBUG", "module": "api.auth", "message": "Token validation successful"},
+        {"timestamp": "2026-02-21 14:28:33", "level": "ERROR", "module": "storage", "message": "Failed to connect to storage backend"},
+        {"timestamp": "2026-02-21 14:27:12", "level": "INFO", "module": "api.models", "message": "Model uploaded: cube.stl"},
     ]
+    
+    # Filter logs by level if specified
+    if level:
+        logs = [log for log in all_logs if log["level"].lower() == level.lower()]
+    else:
+        logs = all_logs
     
     return f"""
     <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">

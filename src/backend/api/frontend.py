@@ -6,8 +6,10 @@ from fastapi import APIRouter, HTTPException, Request, Depends, Form
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
+from sqlalchemy.orm import Session
 
 from backend.core.validation import SetupRequest, format_validation_errors
+from backend.core.auth import decode_token
 from backend.db import get_db
 from backend.services.user_service import UserService
 
@@ -19,6 +21,33 @@ TEMPLATES_DIR = os.path.join(FRONTEND_DIR, "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter(tags=["frontend"])
+
+
+# Helper functions for authentication
+async def get_optional_user(request: Request, session: Session):
+    """
+    Extract user from JWT cookie if present.
+    Returns None if no token or token is invalid.
+    """
+    try:
+        token = request.cookies.get("access_token")
+        if not token:
+            return None
+        
+        # Decode token
+        payload = decode_token(token)
+        
+        # Load user from database
+        user_service = UserService(session)
+        user = user_service.get_user_by_id(payload.user_id)
+        
+        if not user:
+            return None
+        
+        return user
+    except Exception as e:
+        logger.debug(f"Failed to get user from cookie: {e}")
+        return None
 
 
 # Theme router - separated for clarity
@@ -70,9 +99,10 @@ def create_theme_router(theme_manager):
 
 # HTML routes
 @router.get("/", response_class=HTMLResponse)
-async def home(request: Request):
+async def home(request: Request, session: Session = Depends(get_db)):
     """Home/landing page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    user = await get_optional_user(request, session)
+    return templates.TemplateResponse("index.html", {"request": request, "user": user})
 
 
 @router.get("/setup", response_class=HTMLResponse)
@@ -149,73 +179,111 @@ async def setup_submit(
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
+async def login_page(request: Request, session: Session = Depends(get_db)):
     """Login page."""
-    return templates.TemplateResponse("auth/login.html", {"request": request})
+    user = await get_optional_user(request, session)
+    # Redirect to projects if already logged in
+    if user:
+        return RedirectResponse(url="/projects", status_code=303)
+    return templates.TemplateResponse("auth/login.html", {"request": request, "user": None})
 
 
 @router.get("/register", response_class=HTMLResponse)
-async def register_page(request: Request):
+async def register_page(request: Request, session: Session = Depends(get_db)):
     """Registration page."""
-    return templates.TemplateResponse("auth/register.html", {"request": request})
+    user = await get_optional_user(request, session)
+    # Redirect to projects if already logged in
+    if user:
+        return RedirectResponse(url="/projects", status_code=303)
+    return templates.TemplateResponse("auth/register.html", {"request": request, "user": None})
 
 
 @router.get("/projects", response_class=HTMLResponse)
-async def projects_page(request: Request):
+async def projects_page(request: Request, session: Session = Depends(get_db)):
     """Projects list page."""
-    return templates.TemplateResponse("projects/list.html", {"request": request})
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("projects/list.html", {"request": request, "user": user})
 
 
 @router.get("/project/{project_id}", response_class=HTMLResponse)
-async def project_detail(request: Request, project_id: str):
+async def project_detail(request: Request, project_id: str, session: Session = Depends(get_db)):
     """Project detail page."""
-    return templates.TemplateResponse("projects/detail.html", {"request": request, "project_id": project_id})
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("projects/detail.html", {"request": request, "project_id": project_id, "user": user})
 
 
 @router.get("/keys", response_class=HTMLResponse)
-async def api_keys_page(request: Request):
+async def api_keys_page(request: Request, session: Session = Depends(get_db)):
     """API keys management page."""
-    return templates.TemplateResponse("keys/list.html", {"request": request})
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("keys/list.html", {"request": request, "user": user})
 
 
 @router.get("/settings/profile", response_class=HTMLResponse)
-async def profile_settings(request: Request):
+async def profile_settings(request: Request, session: Session = Depends(get_db)):
     """User profile settings page."""
-    return templates.TemplateResponse("settings/profile.html", {"request": request})
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("settings/profile.html", {"request": request, "user": user})
 
 
 @router.get("/admin", response_class=HTMLResponse)
-async def admin_dashboard(request: Request):
+async def admin_dashboard(request: Request, session: Session = Depends(get_db)):
     """Admin dashboard page."""
-    return templates.TemplateResponse("admin/dashboard.html", {"request": request})
+    user = await get_optional_user(request, session)
+    if not user or not user.is_admin:
+        return RedirectResponse(url="/projects", status_code=303)
+    return templates.TemplateResponse("admin/dashboard.html", {"request": request, "user": user})
 
 
 @router.get("/admin/users", response_class=HTMLResponse)
-async def admin_users(request: Request):
+async def admin_users(request: Request, session: Session = Depends(get_db)):
     """Admin users management page."""
-    return templates.TemplateResponse("admin/users/list.html", {"request": request})
+    user = await get_optional_user(request, session)
+    if not user or not user.is_admin:
+        return RedirectResponse(url="/projects", status_code=303)
+    return templates.TemplateResponse("admin/users/list.html", {"request": request, "user": user})
 
 
 @router.get("/admin/plugins", response_class=HTMLResponse)
-async def admin_plugins(request: Request):
+async def admin_plugins(request: Request, session: Session = Depends(get_db)):
     """Admin plugins manager page."""
-    return templates.TemplateResponse("admin/plugins/list.html", {"request": request})
+    user = await get_optional_user(request, session)
+    if not user or not user.is_admin:
+        return RedirectResponse(url="/projects", status_code=303)
+    return templates.TemplateResponse("admin/plugins/list.html", {"request": request, "user": user})
 
 
 @router.get("/admin/settings", response_class=HTMLResponse)
-async def admin_settings(request: Request):
+async def admin_settings(request: Request, session: Session = Depends(get_db)):
     """Admin settings page."""
-    return templates.TemplateResponse("admin/settings.html", {"request": request})
+    user = await get_optional_user(request, session)
+    if not user or not user.is_admin:
+        return RedirectResponse(url="/projects", status_code=303)
+    return templates.TemplateResponse("admin/settings.html", {"request": request, "user": user})
 
 
 @router.get("/admin/logs", response_class=HTMLResponse)
-async def admin_logs(request: Request):
+async def admin_logs(request: Request, session: Session = Depends(get_db)):
     """Admin logs viewer page."""
-    return templates.TemplateResponse("admin/logs.html", {"request": request})
+    user = await get_optional_user(request, session)
+    if not user or not user.is_admin:
+        return RedirectResponse(url="/projects", status_code=303)
+    return templates.TemplateResponse("admin/logs.html", {"request": request, "user": user})
 
 
 @router.get("/admin/health", response_class=HTMLResponse)
-async def admin_health(request: Request):
+async def admin_health(request: Request, session: Session = Depends(get_db)):
     """Admin system health page."""
-    return templates.TemplateResponse("admin/health.html", {"request": request})
+    user = await get_optional_user(request, session)
+    if not user or not user.is_admin:
+        return RedirectResponse(url="/projects", status_code=303)
+    return templates.TemplateResponse("admin/health.html", {"request": request, "user": user})
 
