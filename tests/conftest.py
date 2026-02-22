@@ -16,6 +16,10 @@ test_db_path = project_root / "test.db"
 # MUST set DATABASE_URL before any app modules load
 os.environ["DATABASE_URL"] = f"sqlite:///{test_db_path}"
 
+# Clean up old test database
+if test_db_path.exists():
+    test_db_path.unlink()
+
 # Initialize database tables at module import time
 from backend.db.base import Base
 from backend.db import get_engine

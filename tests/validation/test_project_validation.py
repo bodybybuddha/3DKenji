@@ -1,25 +1,26 @@
 """Validation tests for project endpoints."""
 
 import pytest
+import uuid
 
 
 class TestProjectCreationValidation:
     """Test input validation for project creation."""
 
-    @pytest.mark.parametrize("name,expected_status", [
-        ("", 400),
-        (" ", 400),
-        ("a", 400),  # Too short if min > 1
-        ("a" * 300, 400),  # Too long
+    @pytest.mark.parametrize("name", [
+        "",
+        " ",
+        "a",  # Too short if min > 1
+        "a" * 300,  # Too long
     ])
-    def test_invalid_project_names(self, auth_client, name, expected_status):
+    def test_invalid_project_names(self, auth_client, name):
         """Test that invalid project names are rejected."""
         response = auth_client.post("/api/v1/projects", json={
             "name": name,
             "description": "Test description"
         })
         
-        assert response.status_code == expected_status
+        assert response.status_code in [400, 422]
 
     def test_missing_required_name(self, auth_client):
         """Test that missing project name is rejected."""

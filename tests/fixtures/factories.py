@@ -1,7 +1,7 @@
 """Test data factories for generating test data."""
 
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Generator
 import random
 import string
 
@@ -41,7 +41,7 @@ class UserFactory:
         }
 
     @classmethod
-    def build_invalid(cls, field: str) -> Dict[str, Any]:
+    def build_invalid(cls, field: str) -> Generator[tuple[str, Dict[str, Any]], None, None]:
         """Build user data with specific invalid field."""
         base = cls.build()
         

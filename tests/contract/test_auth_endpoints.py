@@ -178,9 +178,9 @@ class TestAuthEndpoints:
         reg_response = http_client.post(
             "/api/v1/auth/register",
             json={
-                "username": "testuser",
-                "email": "test@example.com",
-                "display_name": "Test User",
+                "username": "pwchange_user",
+                "email": "pwchange@example.com",
+                "display_name": "PW Change User",
                 "password": "old_password_123",
             },
         )
@@ -198,13 +198,13 @@ class TestAuthEndpoints:
         )
 
         assert response.status_code == 200
-        assert response.json()["username"] == "testuser"
+        assert response.json()["username"] == "pwchange_user"
 
         # Verify old password doesn't work
         login_response = http_client.post(
             "/api/v1/auth/login",
             json={
-                "username": "testuser",
+                "username": "pwchange_user",
                 "password": "old_password_123",
             },
         )
@@ -214,7 +214,7 @@ class TestAuthEndpoints:
         login_response = http_client.post(
             "/api/v1/auth/login",
             json={
-                "username": "testuser",
+                "username": "pwchange_user",
                 "password": "new_password_123",
             },
         )
@@ -226,9 +226,9 @@ class TestAuthEndpoints:
         reg_response = http_client.post(
             "/api/v1/auth/register",
             json={
-                "username": "testuser",
-                "email": "test@example.com",
-                "display_name": "Test User",
+                "username": "wrongpw_user",
+                "email": "wrongpw@example.com",
+                "display_name": "Wrong PW User",
                 "password": "correct_password_123",
             },
         )

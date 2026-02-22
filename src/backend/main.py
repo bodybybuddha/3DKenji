@@ -88,6 +88,8 @@ def create_app() -> FastAPI:
                 or path.startswith("/api/v1/theme/css")
                 or path.startswith("/api/v1/theme/list")
                 or path.startswith("/api/v1/theme/variables")
+                or path.startswith("/api/v1/health")
+                or path.startswith("/api/v1/auth")
             ):
                 return await call_next(request)
             return RedirectResponse(url="/setup", status_code=303)

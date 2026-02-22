@@ -3,6 +3,7 @@
 import pytest
 import httpx
 import os
+import uuid
 
 
 @pytest.fixture
@@ -14,20 +15,61 @@ def client():
 
 @pytest.fixture
 def auth_client(client):
-    """Authenticated HTTP client."""
-    # Register and login
+    """Authenticated HTTP client with unique user per test."""
+    unique_id = str(uuid.uuid4())[:8]
+    username = f"valuser_{unique_id}"
+    email = f"valuser_{unique_id}@example.com"
+    password = "SecurePass123!"
+    
+    # Try to register
     response = client.post("/api/v1/auth/register", json={
-        "username": "validationuser",
-        "email": "validation@example.com",
-        "password": "SecurePass123!",
-        "display_name": "Validation Test User"
+        "username": username,
+        "email": email,
+        "password": password,
+        "display_name": f"Validation User {unique_id}"
     })
     
     if response.status_code == 201:
         token = response.json()["access_token"]
-        client.headers["Authorization"] = f"Bearer {token}"
+    else:
+        # If registration fails, try login
+        login_response = client.post("/api/v1/auth/login", json={
+            "username": username,
+            "password": password
+        })
+        if login_response.status_code == 200:
+            token = login_response.json()["access_token"]
+        else:
+            pytest.fail(f"Failed to authenticate test user: {login_response.text}")
     
+    client.headers["Authorization"] = f"Bearer {token}"
     return client
+
+
+@pytest.fixture
+def auth_client_secondary(client):
+    """Second authenticated HTTP client for multi-user tests."""
+    unique_id = str(uuid.uuid4())[:8]
+    username = f"valuser2_{unique_id}"
+    email = f"valuser2_{unique_id}@example.com"
+    password = "SecurePass456!"
+    
+    response = client.post("/api/v1/auth/register", json={
+        "username": username,
+        "email": email,
+        "password": password,
+        "display_name": f"Validation User 2 {unique_id}"
+    })
+    
+    if response.status_code == 201:
+        token = response.json()["access_token"]
+        secondary_client = httpx.Client(
+            base_url=os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
+        )
+        secondary_client.headers["Authorization"] = f"Bearer {token}"
+        return secondary_client
+    else:
+        pytest.fail(f"Failed to create secondary test user: {response.text}")
 
 
 # Test Data Collections

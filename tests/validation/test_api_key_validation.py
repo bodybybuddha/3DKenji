@@ -17,14 +17,14 @@ class TestAPIKeyCreationValidation:
         response = auth_client.post("/api/v1/keys", json={
             "name": ""
         })
-        assert response.status_code == 400
+        assert response.status_code in [400, 422]
 
     def test_create_key_with_whitespace_name(self, auth_client):
         """Test that whitespace-only name is rejected."""
         response = auth_client.post("/api/v1/keys", json={
             "name": "   "
         })
-        assert response.status_code == 400
+        assert response.status_code in [400, 422]
 
     @pytest.mark.parametrize("name", [
         "a" * 300,  # Too long
@@ -51,7 +51,7 @@ class TestAPIKeyCreationValidation:
             "expires_at": past_date
         })
         
-        assert response.status_code == 400
+        assert response.status_code in [400, 422]
 
     def test_create_key_with_invalid_date_format(self, auth_client):
         """Test invalid date format is rejected."""

@@ -30,7 +30,7 @@ class CreateAPIKeyRequest(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255, description="Human-friendly name for the key")
     scopes: list[str] = Field(default=["read"], description="Permission scopes for the key")
-    project_ids: Optional[list[str]] = Field(None, description="Limit key to specific projects (optional)")
+    expires_at: Optional[str] = Field(None, description="ISO 8601 datetime for key expiration (optional)")
 
 
 # Response Models
@@ -41,7 +41,6 @@ class APIKeyResponse(BaseModel):
     name: str
     key_identifier: str  # Prefix, safe to show
     scopes: list[str]
-    project_ids: Optional[list[str]]
     created_at: str
     expires_at: Optional[str]
 
@@ -110,19 +109,44 @@ async def create_api_key(
     from datetime import datetime, timedelta
 
     try:
+        # Validate and parse expires_at if provided
+        expires_at_dt = None
+        if request.expires_at:
+            try:
+                expires_at_dt = datetime.fromisoformat(request.expires_at.replace('Z', '+00:00'))
+                # Validate it's in the future
+                if expires_at_dt <= datetime.utcnow():
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="expires_at must be in the future"
+                    )
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid expires_at format. Expected ISO 8601: {str(e)}"
+                )
+        else:
+            # Default: keys expire in 1 year
+            expires_at_dt = datetime.utcnow() + timedelta(days=365)
+        
+        # Validate name is not just whitespace
+        if request.name.strip() == "":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="name cannot be empty or whitespace only"
+            )
+
         identifier, secret_hash, secret = _generate_key_pair()
 
         # Create API key record
         api_key = APIKey(
             id=str(uuid.uuid4()),
             owner_id=current_user_id,
-            name=request.name,
+            name=request.name.strip(),
             key_identifier=identifier,
-            hashed_key=secret_hash,
+            key_hash=secret_hash,
             scopes=request.scopes,
-            project_ids=request.project_ids or [],
-            # Keys expire in 1 year by default (can be made configurable)
-            expires_at=datetime.utcnow() + timedelta(days=365),
+            expires_at=expires_at_dt,
         )
 
         session.add(api_key)
@@ -135,12 +159,13 @@ async def create_api_key(
             name=api_key.name,  # type: ignore[arg-type]
             key_identifier=api_key.key_identifier,  # type: ignore[arg-type]
             scopes=api_key.scopes,  # type: ignore[arg-type]
-            project_ids=api_key.project_ids,  # type: ignore[arg-type]
             created_at=api_key.created_at.isoformat(),  # type: ignore[arg-type]
             expires_at=api_key.expires_at.isoformat() if api_key.expires_at else None,  # type: ignore[arg-type]
             secret=secret,  # This is the only time it's returned!
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -201,7 +226,6 @@ async def list_api_keys(
                 name=k.name,  # type: ignore[arg-type]
                 key_identifier=k.key_identifier,  # type: ignore[arg-type]
                 scopes=k.scopes,  # type: ignore[arg-type]
-                project_ids=k.project_ids,  # type: ignore[arg-type]
                 created_at=k.created_at.isoformat(),  # type: ignore[arg-type]
                 expires_at=k.expires_at.isoformat() if k.expires_at else None,  # type: ignore[arg-type]
             )

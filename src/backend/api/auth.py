@@ -157,12 +157,14 @@ async def get_current_user(
 # Endpoint implementations
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(
+    request_obj: Request,
     request: RegisterRequest,
     db: Session = Depends(get_db),
 ) -> TokenResponse:
     """Register a new user.
     
     Args:
+        request_obj: FastAPI Request object
         request: Registration request with username, email, display_name, password
         db: Database session
         
@@ -174,6 +176,12 @@ async def register(
     """
     auth_provider = PasswordAuthProvider(db)
     
+    # Check if this is the first user (should be admin)
+    from sqlalchemy import select, func
+    from backend.models.user import User
+    user_count = db.execute(select(func.count()).select_from(User)).scalar()
+    is_first_user = user_count == 0
+    
     try:
         user_identity = await auth_provider.create_user(
             username=request.username,
@@ -181,6 +189,15 @@ async def register(
             display_name=request.display_name,
             password=request.password,
         )
+        
+        # Make first user an admin and disable setup mode
+        if is_first_user:
+            user = db.execute(select(User).where(User.id == user_identity.user_id)).scalar_one()
+            user.is_admin = True
+            db.commit()
+            request_obj.app.state.setup_required = False
+            logger.info(f"First user {user.username} created as admin, setup completed")
+            
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

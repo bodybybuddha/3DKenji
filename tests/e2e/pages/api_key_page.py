@@ -25,7 +25,7 @@ class APIKeyPage(BasePage):
         self.click_button(self.CREATE_KEY_BUTTON)
         self.wait_for_modal()
 
-    def create_key(self, name: str, expires_at: str = None):
+    def create_key(self, name: str, expires_at: str | None = None):
         """Create a new API key."""
         self.open_create_modal()
         self.fill_input(self.KEY_NAME_INPUT, name)

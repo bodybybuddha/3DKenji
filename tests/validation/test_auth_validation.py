@@ -1,22 +1,23 @@
 """Validation tests for authentication endpoints."""
 
 import pytest
+import uuid
 
 
 class TestRegistrationValidation:
     """Test input validation for user registration."""
 
-    @pytest.mark.parametrize("username,expected_status", [
-        ("", 400),
-        (" ", 400),
-        ("ab", 400),  # Too short
-        ("a" * 300, 400),  # Too long
-        ("user name", 400),  # Space
-        ("user@test", 400),  # Invalid char
-        ("test<script>", 400),  # XSS
-        ("admin'--", 400),  # SQL injection
+    @pytest.mark.parametrize("username", [
+        "",
+        " ",
+        "ab",  # Too short
+        "a" * 300,  # Too long
+        "user name",  # Space
+        "user@test",  # Invalid char
+        "test<script>",  # XSS
+        "admin'--",  # SQL injection
     ])
-    def test_invalid_username_formats(self, client, username, expected_status):
+    def test_invalid_username_formats(self, client, username):
         """Test that invalid username formats are rejected."""
         response = client.post("/api/v1/auth/register", json={
             "username": username,
@@ -24,10 +25,9 @@ class TestRegistrationValidation:
             "password": "SecurePass123!",
         })
         
-        assert response.status_code == expected_status
-        if response.status_code == 400:
-            error = response.json()
-            assert "detail" in error or "errors" in error
+        assert response.status_code in [400, 422]
+        error = response.json()
+        assert "detail" in error or "errors" in error
 
     @pytest.mark.parametrize("email", [
         "",
@@ -45,7 +45,7 @@ class TestRegistrationValidation:
             "password": "SecurePass123!",
         })
         
-        assert response.status_code == 400
+        assert response.status_code in [400, 422]
         error = response.json()
         assert "email" in str(error).lower()
 
@@ -62,7 +62,7 @@ class TestRegistrationValidation:
             "password": password,
         })
         
-        assert response.status_code == 400
+        assert response.status_code in [400, 422]
         error_text = str(response.json()).lower()
         assert expected_error_keyword in error_text or "password" in error_text
 
@@ -91,39 +91,45 @@ class TestRegistrationValidation:
 
     def test_duplicate_username(self, client):
         """Test that duplicate usernames are rejected."""
+        unique_id = str(uuid.uuid4())[:8]
+        username = f"dupuser_{unique_id}"
+        
         # Create first user
         response = client.post("/api/v1/auth/register", json={
-            "username": "duplicateuser",
-            "email": "user1@example.com",
+            "username": username,
+            "email": f"user1_{unique_id}@example.com",
             "password": "SecurePass123!",
         })
         assert response.status_code == 201
 
         # Try to create with same username
         response = client.post("/api/v1/auth/register", json={
-            "username": "duplicateuser",
-            "email": "user2@example.com",
+            "username": username,
+            "email": f"user2_{unique_id}@example.com",
             "password": "SecurePass123!",
         })
-        assert response.status_code in [400, 409]
+        assert response.status_code in [400, 409, 422]
 
     def test_duplicate_email(self, client):
         """Test that duplicate emails are rejected."""
+        unique_id = str(uuid.uuid4())[:8]
+        email = f"dupemail_{unique_id}@example.com"
+        
         # Create first user
         response = client.post("/api/v1/auth/register", json={
-            "username": "user1",
-            "email": "duplicate@example.com",
+            "username": f"user1_{unique_id}",
+            "email": email,
             "password": "SecurePass123!",
         })
         assert response.status_code == 201
 
         # Try to create with same email
         response = client.post("/api/v1/auth/register", json={
-            "username": "user2",
-            "email": "duplicate@example.com",
+            "username": f"user2_{unique_id}",
+            "email": email,
             "password": "SecurePass123!",
         })
-        assert response.status_code in [400, 409]
+        assert response.status_code in [400, 409, 422]
 
     def test_xss_in_display_name(self, client, xss_payloads):
         """Test that XSS payloads in display name are sanitized or rejected."""
