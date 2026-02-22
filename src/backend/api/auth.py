@@ -17,6 +17,7 @@ from backend.core.validation import (
     LoginRequest as ValidatedLoginRequest,
     RegisterRequest as ValidatedRegisterRequest,
     format_validation_errors,
+    sanitize_text_input,
 )
 from backend.plugins.auth_password import PasswordAuthProvider
 from backend.services.user_service import UserService
@@ -182,11 +183,20 @@ async def register(
     user_count = db.execute(select(func.count()).select_from(User)).scalar()
     is_first_user = user_count == 0
     
+    # Sanitize display_name to prevent XSS
+    try:
+        sanitized_display_name = sanitize_text_input(request.display_name, "Display name")
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    
     try:
         user_identity = await auth_provider.create_user(
             username=request.username,
             email=request.email,
-            display_name=request.display_name,
+            display_name=sanitized_display_name,
             password=request.password,
         )
         

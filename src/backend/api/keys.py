@@ -14,6 +14,7 @@ import hashlib
 from backend.api.auth import get_current_user
 from backend.db import get_db
 from backend.models.api_key import APIKey
+from backend.core.validation import sanitize_text_input
 from sqlalchemy import select
 
 # Initialize templates for HTML responses
@@ -135,6 +136,15 @@ async def create_api_key(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="name cannot be empty or whitespace only"
             )
+        
+        # Sanitize name to prevent XSS
+        try:
+            sanitized_name = sanitize_text_input(request.name.strip(), "API key name")
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
 
         identifier, secret_hash, secret = _generate_key_pair()
 
@@ -142,7 +152,7 @@ async def create_api_key(
         api_key = APIKey(
             id=str(uuid.uuid4()),
             owner_id=current_user_id,
-            name=request.name.strip(),
+            name=sanitized_name,
             key_identifier=identifier,
             key_hash=secret_hash,
             scopes=request.scopes,
