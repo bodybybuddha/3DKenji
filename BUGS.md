@@ -1,5 +1,43 @@
 # Bug Tracking
 
+## Open Issues (2026-02-22 - To Be Fixed)
+
+### 🔴 Bug #11: Add project button doesn't work
+**Status**: Open  
+**Severity**: High  
+**Component**: Frontend/Projects
+
+**Description**: The "Add project" button on the Projects page does not function. Clicking it has no effect.
+
+**Date Reported**: 2026-02-22  
+**Expected Next Steps**: Determine if issue is frontend (button handler) or backend (API endpoint) and implement fix.
+
+---
+
+### 🔴 Bug #12: Add user button doesn't work
+**Status**: Open  
+**Severity**: High  
+**Component**: Frontend/Admin
+
+**Description**: The "Add user" button in the admin panel does not function. Clicking it has no effect.
+
+**Date Reported**: 2026-02-22  
+**Expected Next Steps**: Determine if issue is frontend (button handler) or backend (API endpoint) and implement fix.
+
+---
+
+### 🔴 Bug #13: Add plugin button doesn't work
+**Status**: Open  
+**Severity**: High  
+**Component**: Frontend/Admin
+
+**Description**: The "Add plugin" button in the admin panel does not function. Clicking it has no effect.
+
+**Date Reported**: 2026-02-22  
+**Expected Next Steps**: Determine if issue is frontend (button handler) or backend (API endpoint) and implement fix.
+
+---
+
 ## Fixed (2026-02-22 - Round 4)
 
 ### ✅ Bug #10: Duplicate root-level /backend and /frontend directories
