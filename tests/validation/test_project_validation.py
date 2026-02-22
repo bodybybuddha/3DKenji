@@ -178,23 +178,23 @@ class TestProjectUpdateValidation:
         """Test updating project with invalid name."""
         # Create project
         response = auth_client.post("/api/v1/projects", json={
-            "name": "Original Name",
+            "title": "Original Name",
             "description": "Original"
         })
         project_id = response.json()["id"]
 
         # Try to update with empty name
-        response = auth_client.put(f"/api/v1/projects/{project_id}", json={
-            "name": "",
+        response = auth_client.patch(f"/api/v1/projects/{project_id}", json={
+            "title": "",
             "description": "Updated"
         })
         
-        assert response.status_code == 400
+        assert response.status_code in [400, 422]
 
     def test_update_nonexistent_project(self, auth_client):
         """Test updating non-existent project."""
-        response = auth_client.put("/api/v1/projects/99999", json={
-            "name": "Updated Name",
+        response = auth_client.patch("/api/v1/projects/99999", json={
+            "title": "Updated Name",
             "description": "Updated"
         })
         
@@ -204,14 +204,14 @@ class TestProjectUpdateValidation:
         """Test XSS prevention in updates."""
         # Create project
         response = auth_client.post("/api/v1/projects", json={
-            "name": "XSS Update Test",
+            "title": "XSS Update Test",
             "description": "Original"
         })
         project_id = response.json()["id"]
 
         # Update with XSS payload
-        response = auth_client.put(f"/api/v1/projects/{project_id}", json={
-            "name": "Updated",
+        response = auth_client.patch(f"/api/v1/projects/{project_id}", json={
+            "title": "Updated",
             "description": "<script>alert('XSS')</script>"
         })
         

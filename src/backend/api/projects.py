@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from backend.api.auth import get_current_user
 from backend.db import get_db
-from backend.core.validation import CreateProjectRequest as ValidatedProjectRequest, format_validation_errors
+from backend.core.validation import CreateProjectRequest as ValidatedProjectRequest, format_validation_errors, sanitize_text_input
 from backend.services.project_service import ProjectDTO, ProjectService
 
 # Initialize templates for HTML responses
@@ -65,9 +65,9 @@ class ProjectListResponse(BaseModel):
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_project_form(
+async def create_project(
     req: Request,
-    name: str = Form(...),
+    name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     visibility: Optional[str] = Form("private"),
     tags: Optional[str] = Form(None),
@@ -75,40 +75,88 @@ async def create_project_form(
     session: Session = Depends(get_db),
 ):
     """
-    Create a new project from form data (for HTMX forms).
+    Create a new project.
     
-    This endpoint handles form submissions from the web UI.
-    For JSON API requests, use the JSON endpoint instead.
+    Handles both form submissions (for HTMX) and JSON API requests.
+    Form field 'name' maps to 'title' internally.
+    JSON should use 'title' field directly.
     """
     try:
-        # Check content type to determine if this is form data
+        # Check content type to determine request format
         content_type = req.headers.get("content-type", "")
+        
         if "application/json" in content_type:
-            # This is a JSON request, let it be handled by the JSON endpoint
-            raise HTTPException(status_code=400, detail="Use JSON endpoint")
+            # Handle JSON request
+            body = await req.json()
+            title = body.get("title") or body.get("name")  # Support both field names
+            desc = body.get("description")
+            metadata = body.get("custom_metadata", {})
+            
+            if not title:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="title or name field is required"
+                )
+            
+            # Sanitize inputs to prevent XSS
+            try:
+                title = sanitize_text_input(title, "Project title")
+                if desc:
+                    desc = sanitize_text_input(desc, "Project description")
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(e)
+                )
+        else:
+            # Handle form request
+            if not name:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="name field is required"
+                )
+            title = name
+            desc = description
+            metadata = {
+                "visibility": visibility,
+                "tags": tags.split(",") if tags else []
+            }
         
         service = ProjectService(session)
         project_dto = service.create_project(
             owner_id=current_user_id,
-            title=name,
-            description=description,
-            custom_metadata={
-                "visibility": visibility,
-                "tags": tags.split(",") if tags else []
-            },
+            title=title,
+            description=desc,
+            custom_metadata=metadata,
         )
         
-        # Return HTML response for HTMX
-        return HTMLResponse(
-            content='<div class="alert alert-success">Project created successfully</div>',
-            status_code=201
-        )
+        # Return appropriate response based on content type
+        if "application/json" in content_type:
+            return ProjectResponse(**project_dto.__dict__)
+        else:
+            # Return HTML response for HTMX
+            return HTMLResponse(
+                content='<div class="alert alert-success">Project created successfully</div>',
+                status_code=201
+            )
+    except HTTPException:
+        raise
     except ValueError as e:
+        if "application/json" in req.headers.get("content-type", ""):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
         return HTMLResponse(
             content=f'<div class="alert alert-danger">Error: {str(e)}</div>',
             status_code=400
         )
     except Exception as e:
+        if "application/json" in req.headers.get("content-type", ""):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create project: {str(e)}"
+            )
         return HTMLResponse(
             content=f'<div class="alert alert-danger">Failed to create project: {str(e)}</div>',
             status_code=500
@@ -259,11 +307,26 @@ async def update_project(
             detail="You do not have permission to update this project",
         )
 
+    # Sanitize inputs to prevent XSS
+    sanitized_title = request.title
+    sanitized_description = request.description
+    
+    try:
+        if request.title:
+            sanitized_title = sanitize_text_input(request.title, "Project title")
+        if request.description:
+            sanitized_description = sanitize_text_input(request.description, "Project description")
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
     try:
         updated = service.update_project(
             project_id=project_id,
-            title=request.title,
-            description=request.description,
+            title=sanitized_title,
+            description=sanitized_description,
             custom_metadata=request.custom_metadata,
         )
         return ProjectResponse(**updated.__dict__)
