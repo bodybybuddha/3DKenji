@@ -171,7 +171,8 @@ class TestAPIKeyRevocationValidation:
         response = client.post("/api/v1/auth/register", json={
             "username": "otheruser",
             "email": "other@example.com",
-            "password": "SecurePass123!"
+            "password": "SecurePass123!",
+            "display_name": "Other User"
         })
         other_token = response.json()["access_token"]
         
@@ -229,7 +230,7 @@ class TestAPIKeyUsageValidation:
             "name": "Revoked Key"
         })
         key_id = response.json()["id"]
-        api_key = response.json()["key"]
+        api_key = response.json()["secret"]
 
         # Revoke it
         auth_client.delete(f"/api/v1/keys/{key_id}")
@@ -250,7 +251,7 @@ class TestAPIKeyUsageValidation:
         })
         
         if response.status_code == 201:
-            api_key = response.json()["key"]
+            api_key = response.json()["secret"]
 
             # Try to create project (write operation)
             response = client.post(
