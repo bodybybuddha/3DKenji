@@ -1,6 +1,172 @@
 # Bug Tracking
 
-## Open Issues (2026-02-22 - To Be Fixed)
+## Open Issues (2026-02-22 - Discovered via Validation Testing)
+
+### 🔴 Bug #16: XSS vulnerability in API key names
+**Status**: Open  
+**Severity**: High (Security)  
+**Component**: Backend/API Keys
+
+**Description**: API key names accept unescaped HTML/JavaScript including `<script>` tags. This could allow stored XSS attacks.
+
+**Test Evidence**: `tests/validation/test_api_key_validation.py::TestAPIKeyCreationValidation::test_invalid_key_names`
+- Input: `<script>alert('xss')</script>`
+- Expected: Rejected (400) or sanitized
+- Actual: Accepted (201) with script tags intact
+
+**Impact**: Medium - API keys are typically only viewed by the owner, but could affect admin interfaces
+
+**Recommended Fix**: Sanitize or reject names containing HTML/script tags in `src/backend/api/keys.py`
+
+---
+
+### 🔴 Bug #17: XSS vulnerability in user display names
+**Status**: Open  
+**Severity**: High (Security)  
+**Component**: Backend/Auth
+
+**Description**: User display names accept unescaped HTML/JavaScript. Display names appear throughout the UI and could execute malicious scripts.
+
+**Test Evidence**: `tests/validation/test_auth_validation.py::TestRegistrationValidation::test_xss_in_display_name`
+- Input: `<script>alert('XSS')</script>`
+- Expected: Rejected or sanitized
+- Actual: Accepted with script tags intact
+
+**Impact**: High - Display names shown across the application to all users
+
+**Recommended Fix**: Add HTML escaping/sanitization in `src/backend/api/auth.py` registration endpoint
+
+---
+
+### 🟡 Bug #18: Duplicate username/email returns 422 instead of 400/409
+**Status**: Open  
+**Severity**: Low (API Design)  
+**Component**: Backend/Auth
+
+**Description**: Attempting to register with duplicate username/email returns 422 (Unprocessable Entity) instead of more semantic 400 (Bad Request) or 409 (Conflict).
+
+**Test Evidence**: 
+- `tests/validation/test_auth_validation.py::TestRegistrationValidation::test_duplicate_username`
+- `tests/validation/test_auth_validation.py::TestRegistrationValidation::test_duplicate_email`
+
+**Expected**: 400 or 409 status code
+**Actual**: 422 status code
+
+**Impact**: Low - Functionality works but API semantics could be clearer
+
+**Recommended Fix**: Add explicit duplicate checking in `src/backend/plugins/auth_password.py` before attempting save
+
+---
+
+### 🟡 Bug #19: Very long passwords accepted without limit
+**Status**: Open  
+**Severity**: Low (DoS potential)  
+**Component**: Backend/Auth Validation
+
+**Description**: Passwords of extreme length (1000+ characters) are accepted, which could cause performance issues during bcrypt hashing.
+
+**Test Evidence**: `tests/validation/test_auth_validation.py::TestRegistrationValidation::test_invalid_password_formats`
+- Input: 1000-character password
+- Expected: 400 (rejected as too long)
+- Actual: 422 (validation error, but not clear rejection)
+
+**Impact**: Low - Could enable DoS via expensive bcrypt operations
+
+**Recommended Fix**: Add max_length constraint to password field in `src/backend/core/validation.py`
+
+---
+
+### 🟡 Bug #20: Project names with special characters not validated
+**Status**: Open  
+**Severity**: Medium  
+**Component**: Backend/Projects
+
+**Description**: Project names can contain special characters, null bytes, newlines, and other potentially problematic characters without validation.
+
+**Test Evidence**: Multiple tests in `tests/validation/test_project_validation.py::TestProjectCreationValidation`
+- Null bytes: `test\x00project` → 422
+- Newlines: `project\nname` → 422
+- Whitespace-only: `   ` → 422
+- HTML entities: `&lt;test&gt;` → 422
+
+**Expected**: Clear validation with 400 status
+**Actual**: 422 validation errors without clear messaging
+
+**Impact**: Medium - Could cause display issues, storage problems, or security vulnerabilities
+
+**Recommended Fix**: Add comprehensive name validation in `src/backend/api/projects.py`
+
+---
+
+### 🟡 Bug #21: Unicode project names return 422 validation error
+**Status**: Open  
+**Severity**: Medium (Internationalization)  
+**Component**: Backend/Projects
+
+**Description**: Project names with valid unicode characters (emoji, Chinese, Japanese) are rejected.
+
+**Test Evidence**: `tests/validation/test_project_validation.py::TestProjectCreationValidation::test_unicode_in_project_name`
+- Input: `プロジェクト 测试 🚀`
+- Expected: 201 (accepted)
+- Actual: 422 (rejected)
+
+**Impact**: Medium - Prevents international users from using native languages
+
+**Recommended Fix**: Update project name validation to allow unicode characters
+
+---
+
+### 🔴 Bug #22: API key revocation tests failing
+**Status**: Open  
+**Severity**: Medium  
+**Component**: Backend/API Keys
+
+**Description**: API key revocation functionality appears incomplete or broken based on test failures.
+
+**Test Evidence**:
+- `tests/validation/test_api_key_validation.py::TestAPIKeyRevocationValidation::test_revoke_another_users_key` - KeyError: 'id'
+- `tests/validation/test_api_key_validation.py::TestAPIKeyUsageValidation::test_use_revoked_key` - KeyError: 'id'
+
+**Impact**: Medium - Users may not be able to revoke compromised keys
+
+**Recommended Fix**: Debug revocation endpoint in `src/backend/api/keys.py`
+
+---
+
+### 🟡 Bug #23: Project update endpoint returns 405 (Method Not Allowed)
+**Status**: Open  
+**Severity**: Medium  
+**Component**: Backend/Projects
+
+**Description**: Attempting to update projects returns 405, suggesting the endpoint may not be implemented.
+
+**Test Evidence**: `tests/validation/test_project_validation.py::TestProjectUpdateValidation::test_update_nonexistent_project`
+- Request: PATCH/PUT to `/api/v1/projects/{id}`
+- Expected: 404 (not found) for invalid ID
+- Actual: 405 (method not allowed)
+
+**Impact**: Medium - Users cannot update project details
+
+**Recommended Fix**: Implement project update endpoint in `src/backend/api/projects.py`
+
+---
+
+### 🟡 Bug #24: API key scope validation missing
+**Status**: Open  
+**Severity**: Low  
+**Component**: Backend/API Keys
+
+**Description**: API keys accept arbitrary scope values without validation.
+
+**Test Evidence**: `tests/validation/test_api_key_validation.py::TestAPIKeyUsageValidation::test_use_key_with_insufficient_scope`
+
+**Impact**: Low - May confuse users with invalid scope names
+
+**Recommended Fix**: Define valid scopes and validate in `src/backend/api/keys.py`
+
+---
+
+## Open Issues (2026-02-22 - User Reported)
 
 ### 🔴 Bug #12: Add user button doesn't work
 **Status**: Open  
