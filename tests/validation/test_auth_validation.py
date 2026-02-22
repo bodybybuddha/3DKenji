@@ -60,6 +60,7 @@ class TestRegistrationValidation:
             "username": "validuser",
             "email": "valid@example.com",
             "password": password,
+            "display_name": "Valid User"
         })
         
         assert response.status_code in [400, 422]
