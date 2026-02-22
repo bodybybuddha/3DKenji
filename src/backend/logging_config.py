@@ -107,6 +107,9 @@ def get_logger(
             maxBytes=max_bytes,
             backupCount=backup_count,
         )
+        # Force a rollover on startup if a prior log exists
+        if log_path.exists() and log_path.stat().st_size > 0:
+            file_handler.doRollover()
         file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
@@ -119,7 +122,7 @@ def get_logger(
 
 # Root logger for the application
 # Use environment variable or default to relative path
-default_log_file =os.getenv("LOG_FILE", "data/logs/app.log") if os.getenv("ENABLE_FILE_LOGGING", "true").lower() in ("true", "1", "yes") else None
+default_log_file = os.getenv("LOG_FILE", "data/logs/app.log") if os.getenv("ENABLE_FILE_LOGGING", "true").lower() in ("true", "1", "yes") else None
 
 logger = get_logger(
     "3dkenji",

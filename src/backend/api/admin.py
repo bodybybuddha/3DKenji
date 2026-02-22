@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -19,6 +19,7 @@ from backend.api.auth import get_current_user
 from backend.db import get_db
 from backend.models.user import User
 from sqlalchemy import select
+from backend.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
 
@@ -275,13 +276,35 @@ async def get_admin_metrics(
 async def get_admin_users_list(
     format: Optional[str] = None,
     request: Request = None,
+    session: Session = Depends(get_db),
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get list of all users as HTML table."""
-    users = [
-        {"id": "1", "username": "admin", "email": "admin@example.com", "role": "admin", "created_at": "2026-01-01"},
-        {"id": "2", "username": "user1", "email": "user1@example.com", "role": "user", "created_at": "2026-01-15"},
-    ]
+    # Fetch users from database
+    service = UserService(session)
+    users = service.list_users(skip=0, limit=1000)
+    
+    user_rows = ""
+    for user in users:
+        role = "admin" if user.is_admin else "user"
+        created_at = user.created_at or "Unknown"
+        user_rows += f"""
+            <tr>
+                <td style="padding: var(--spacing-md);">{html.escape(user.username)}</td>
+                <td style="padding: var(--spacing-md);">{html.escape(user.email)}</td>
+                <td style="padding: var(--spacing-md);">
+                    <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
+                        {role}
+                    </span>
+                </td>
+                <td style="padding: var(--spacing-md); color: var(--text-secondary); font-size: 0.875rem;">{created_at}</td>
+                <td style="padding: var(--spacing-md); text-align: right;">
+                    <button class="btn btn-sm btn-secondary" hx-get="/api/v1/admin/users/{user.id}/edit-modal" hx-target="body" hx-swap="beforeend">
+                        Edit
+                    </button>
+                </td>
+            </tr>
+            """
     
     return f"""
     <table style="width: 100%; border-collapse: collapse;">
@@ -295,23 +318,7 @@ async def get_admin_users_list(
             </tr>
         </thead>
         <tbody>
-            {"".join(f'''
-            <tr>
-                <td style="padding: var(--spacing-md);">{user["username"]}</td>
-                <td style="padding: var(--spacing-md);">{user["email"]}</td>
-                <td style="padding: var(--spacing-md);">
-                    <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
-                        {user["role"]}
-                    </span>
-                </td>
-                <td style="padding: var(--spacing-md); color: var(--text-secondary); font-size: 0.875rem;">{user["created_at"]}</td>
-                <td style="padding: var(--spacing-md); text-align: right;">
-                    <button class="btn btn-sm btn-secondary" hx-get="/admin/users/{user["id"]}/edit-modal" hx-target="body" hx-swap="beforeend">
-                        Edit
-                    </button>
-                </td>
-            </tr>
-            ''' for user in users)}
+            {user_rows}
         </tbody>
     </table>
     """
@@ -458,15 +465,184 @@ async def get_create_user_modal(
 async def get_edit_user_modal(
     user_id: str,
     request: Request,
+    session: Session = Depends(get_db),
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get the edit user modal form."""
-    # TODO: Load user from database
-    user = {"id": user_id, "username": "user1", "email": "user1@example.com"}
+    # Load user from database
+    user = session.execute(
+        select(User).where(User.id == user_id)
+    ).scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Convert to dict for template
+    user_dict = {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "display_name": user.display_name,
+        "is_admin": user.is_admin,
+        "is_active": user.is_active,
+    }
+    
     return templates.TemplateResponse("admin/users/form-modal.html", {
         "request": request,
-        "user": user,
+        "user": user_dict,
     }).body.decode()
+
+
+@router.post("/users", response_class=HTMLResponse)
+async def create_user(
+    request: Request,
+    username: str = Form(...),
+    email: str = Form(...),
+    display_name: str = Form(...),
+    password: str = Form(...),
+    role: str = Form(...),
+    is_active: str = Form(default="true"),
+    session: Session = Depends(get_db),
+    admin_user: str = Depends(require_admin),
+) -> str:
+    """Create a new user."""
+    try:
+        # Validate role
+        if role not in ("user", "admin"):
+            raise HTTPException(status_code=400, detail="Invalid role. Must be 'user' or 'admin'")
+        
+        # Check if username already exists
+        existing_user = session.execute(
+            select(User).where(User.username == username)
+        ).scalar_one_or_none()
+        
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        
+        # Check if email already exists
+        existing_email = session.execute(
+            select(User).where(User.email == email)
+        ).scalar_one_or_none()
+        
+        if existing_email:
+            raise HTTPException(status_code=400, detail="Email already exists")
+        
+        # Create user
+        user_service = UserService(session)
+        is_admin = (role == "admin")
+        is_user_active = is_active.lower() in ("true", "on", "yes", "1")
+        user_service.create_user(
+            username=username,
+            email=email,
+            display_name=display_name,
+            password=password,
+            is_admin=is_admin,
+            is_active=is_user_active,
+        )
+
+        return templates.TemplateResponse(
+            "fragments/success-alert.html",
+            {"request": request, "message": "User created successfully"},
+            status_code=201,
+        )
+    except HTTPException as exc:
+        logger.warning("Failed to create user: %s", exc.detail)
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {"request": request, "message": str(exc.detail), "errors": {}},
+            status_code=exc.status_code,
+        )
+    except Exception as e:
+        logger.error("Failed to create user: %s", e)
+        session.rollback()
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {
+                "request": request,
+                "message": "Failed to create user",
+                "errors": {"general": [str(e)]},
+            },
+            status_code=500,
+        )
+
+
+@router.put("/users/{user_id}", response_class=HTMLResponse)
+async def update_user(
+    user_id: str,
+    request: Request,
+    username: Optional[str] = Form(None),  # Ignored, but accepted to prevent validation errors
+    email: str = Form(...),
+    display_name: str = Form(...),
+    password: Optional[str] = Form(default=""),  # Optional - empty or missing means keep current password
+    role: str = Form(...),
+    is_active: str = Form(default="true"),
+    session: Session = Depends(get_db),
+    admin_user: str = Depends(require_admin),
+) -> str:
+    """Update an existing user."""
+    try:
+        # Convert empty/None password to None (keep existing password)
+        if password == "" or password is None:
+            password = None
+        
+        # Validate role
+        if role not in ("user", "admin"):
+            raise HTTPException(status_code=400, detail="Invalid role. Must be 'user' or 'admin'")
+        
+        # Load user
+        user = session.execute(
+            select(User).where(User.id == user_id)
+        ).scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check if email is taken by another user
+        if email != user.email:
+            existing_email = session.execute(
+                select(User).where(User.email == email, User.id != user_id)
+            ).scalar_one_or_none()
+            
+            if existing_email:
+                raise HTTPException(status_code=400, detail="Email already in use")
+        
+        # Update user fields
+        user.email = email
+        user.display_name = display_name
+        user.is_admin = (role == "admin")
+        is_user_active = is_active.lower() in ("true", "on", "yes", "1")
+        user.is_active = is_user_active
+        
+        # Update password if provided
+        if password:
+            user.password_hash = UserService._hash_password(password)
+        
+        session.commit()
+        
+        return templates.TemplateResponse(
+            "fragments/success-alert.html",
+            {"request": request, "message": "User updated successfully"},
+            status_code=200,
+        )
+    except HTTPException as exc:
+        logger.warning("Failed to update user: %s", exc.detail)
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {"request": request, "message": str(exc.detail), "errors": {}},
+            status_code=exc.status_code,
+        )
+    except Exception as e:
+        logger.error("Failed to update user: %s", e)
+        session.rollback()
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {
+                "request": request,
+                "message": "Failed to update user",
+                "errors": {"general": [str(e)]},
+            },
+            status_code=500,
+        )
 
 
 @router.get("/plugins/upload-modal", response_class=HTMLResponse)

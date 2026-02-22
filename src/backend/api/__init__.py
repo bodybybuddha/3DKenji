@@ -5,5 +5,6 @@ from backend.api.projects import router as projects_router
 from backend.api.models import router as models_router
 from backend.api.keys import router as keys_router
 from backend.api.health import router as health_router
+from backend.api.users import router as users_router
 
-__all__ = ["auth_router", "projects_router", "models_router", "keys_router", "health_router"]
+__all__ = ["auth_router", "projects_router", "models_router", "keys_router", "health_router", "users_router"]

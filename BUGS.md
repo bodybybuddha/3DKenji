@@ -2,18 +2,6 @@
 
 ## Open Issues (2026-02-22 - To Be Fixed)
 
-### 🔴 Bug #11: Add project button doesn't work
-**Status**: Open  
-**Severity**: High  
-**Component**: Frontend/Projects
-
-**Description**: The "Add project" button on the Projects page does not function. Clicking it has no effect.
-
-**Date Reported**: 2026-02-22  
-**Expected Next Steps**: Determine if issue is frontend (button handler) or backend (API endpoint) and implement fix.
-
----
-
 ### 🔴 Bug #12: Add user button doesn't work
 **Status**: Open  
 **Severity**: High  
@@ -26,15 +14,126 @@
 
 ---
 
-### 🔴 Bug #13: Add plugin button doesn't work
-**Status**: Open  
+## Fixed (2026-02-22 - Round 5)
+
+### ✅ Bug #14: User profile page displaying incorrect/empty data
+**Status**: Fixed  
+**Severity**: High  
+**Component**: Frontend/Backend/Profile
+
+**Description**: The user profile page (http://localhost:8000/settings/profile) displays all appropriate fields (Username, Email, Display Name) but the data shown is completely wrong or never filled in from the backend. The fields appear to be loading placeholder data instead of actual user information.
+
+**Root Causes**:
+1. Missing `/api/v1/users/me` endpoint to fetch user data
+2. Frontend was calling non-existent API endpoint via HTMX
+3. Form fields had placeholder values but never loaded actual user data
+
+**Fix**:
+- **Created** [src/backend/api/users.py](src/backend/api/users.py) - new users API module with `/me` endpoint
+- **Updated** [src/backend/api/__init__.py](src/backend/api/__init__.py) - added users_router to exports
+- **Updated** [src/backend/main.py](src/backend/main.py) - registered users_router with `/api/v1` prefix
+- **Added** [src/backend/api/frontend.py](src/backend/api/frontend.py) - POST endpoints for `/settings/profile` and `/settings/password` to handle form submissions
+
+**Result**:
+- ✅ User profile data loads correctly from database
+- ✅ Profile fields are pre-populated with actual user information
+- ✅ Email and display name can be updated
+- ✅ Password change functionality implemented
+
+---
+
+### ✅ Bug #15: Admin User Management page - Edit button non-functional
+**Status**: Fixed  
+**Severity**: High  
+**Component**: Frontend/Admin
+
+**Description**: On the Admin User Management page (http://localhost:8000/admin/users), clicking the "Edit" button for any user has no effect. The button does not open an edit form or navigate to an edit page.
+
+**Root Causes**:
+1. Edit button had incorrect URL path (`/admin/users/{id}/edit-modal` instead of `/api/v1/admin/users/{id}/edit-modal`)
+2. Backend endpoint was loading dummy data instead of actual user from database
+3. Form template didn't pre-populate fields with user data
+4. Missing PUT endpoint to handle user updates
+
+**Fix**:
+- **Updated** [src/backend/api/admin.py](src/backend/api/admin.py#L457-L486) - `get_edit_user_modal` now loads actual user from database
+- **Updated** [src/backend/api/admin.py](src/backend/api/admin.py#L311) - fixed Edit button URL to include `/api/v1` prefix
+- **Updated** [src/frontend/templates/admin/users/form-modal.html](src/frontend/templates/admin/users/form-modal.html) - template now pre-fills form with user data using Jinja2
+- **Added** [src/backend/api/admin.py](src/backend/api/admin.py#L572-L621) - PUT `/api/v1/admin/users/{user_id}` endpoint to update users
+
+**Result**:
+- ✅ Edit button opens modal with user's actual data
+- ✅ Form fields are pre-populated correctly
+- ✅ Can update user email, display name, role, and active status
+- ✅ Password field is optional (only updates if provided)
+
+---
+
+### ✅ Bug #16: Admin User Management - Add user button doesn't work
+**Status**: Fixed  
+**Severity**: High  
+**Component**: Frontend/Admin
+
+**Description**: The "Add user" button on the Admin User Management page (http://localhost:8000/admin/users) does not work when clicked.
+
+**Root Causes**:
+1. Button had incorrect URL path (`/admin/users/create-modal` instead of `/api/v1/admin/users/create-modal`)
+2. Missing POST endpoint to handle user creation from form data
+
+**Fix**:
+- **Updated** [src/frontend/templates/admin/users/list.html](src/frontend/templates/admin/users/list.html#L10) - fixed button URL to include `/api/v1` prefix
+- **Added** [src/backend/api/admin.py](src/backend/api/admin.py#L489-L550) - POST `/api/v1/admin/users` endpoint to create new users
+- **Updated** [src/backend/api/admin.py](src/backend/api/admin.py#L12) - added Form import for form data handling
+- **Updated** [src/backend/api/admin.py](src/backend/api/admin.py#L22-L23) - added UserService and PasswordAuthProvider imports
+
+**Result**:
+- ✅ Add user button opens modal form
+- ✅ Can create new users with all fields (username, email, display name, password, role, active status)
+- ✅ Proper validation and duplicate checking
+- ✅ Password is properly hashed
+
+---
+
+### ✅ Bug #11: Add project button doesn't work
+**Status**: Fixed  
+**Severity**: High  
+**Component**: Frontend/Projects
+
+**Description**: The "Add project" button on the Projects page does not function. Clicking it has no effect.
+
+**Root Causes**:
+1. Button was calling `/projects/create-modal` which didn't exist as an endpoint
+2. POST endpoint only accepted JSON, not form data from HTMX
+
+**Fix**:
+- **Added** [src/backend/api/frontend.py](src/backend/api/frontend.py#L224-L242) - GET `/projects/create-modal` endpoint to serve project creation form
+- **Updated** [src/backend/api/projects.py](src/backend/api/projects.py#L67-L115) - POST `/api/v1/projects` now handles both form data (for web UI) and JSON (for API)
+- **Updated** [src/backend/api/projects.py](src/backend/api/projects.py#L6) - added Form import
+
+**Result**:
+- ✅ Add project button opens modal form
+- ✅ Can create projects with name, description, visibility, and tags
+- ✅ Form submission works via HTMX
+- ✅ Both API and web UI functionality supported
+
+---
+
+### ✅ Bug #13: Add plugin button doesn't work
+**Status**: Fixed  
 **Severity**: High  
 **Component**: Frontend/Admin
 
 **Description**: The "Add plugin" button in the admin panel does not function. Clicking it has no effect.
 
-**Date Reported**: 2026-02-22  
-**Expected Next Steps**: Determine if issue is frontend (button handler) or backend (API endpoint) and implement fix.
+**Root Cause**:
+1. Button had incorrect URL path (`/admin/plugins/upload-modal` instead of `/api/v1/admin/plugins/upload-modal`)
+
+**Fix**:
+- **Updated** [src/frontend/templates/admin/plugins/list.html](src/frontend/templates/admin/plugins/list.html#L10) - fixed button URL to include `/api/v1` prefix
+
+**Result**:
+- ✅ Upload plugin button opens modal form
+- ✅ Modal endpoint already existed, just needed correct URL
 
 ---
 
