@@ -99,6 +99,7 @@ class TestRegistrationValidation:
             "username": username,
             "email": f"user1_{unique_id}@example.com",
             "password": "SecurePass123!",
+            "display_name": "User 1"
         })
         assert response.status_code == 201
 
@@ -107,8 +108,9 @@ class TestRegistrationValidation:
             "username": username,
             "email": f"user2_{unique_id}@example.com",
             "password": "SecurePass123!",
+            "display_name": "User 2"
         })
-        assert response.status_code in [400, 409, 422]
+        assert response.status_code == 409  # Conflict
 
     def test_duplicate_email(self, client):
         """Test that duplicate emails are rejected."""
@@ -120,6 +122,7 @@ class TestRegistrationValidation:
             "username": f"user1_{unique_id}",
             "email": email,
             "password": "SecurePass123!",
+            "display_name": "User 1"
         })
         assert response.status_code == 201
 
@@ -128,8 +131,9 @@ class TestRegistrationValidation:
             "username": f"user2_{unique_id}",
             "email": email,
             "password": "SecurePass123!",
+            "display_name": "User 2"
         })
-        assert response.status_code in [400, 409, 422]
+        assert response.status_code == 409  # Conflict
 
     def test_xss_in_display_name(self, client, xss_payloads):
         """Test that XSS payloads in display name are sanitized or rejected."""

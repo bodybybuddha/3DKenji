@@ -209,9 +209,17 @@ async def register(
             logger.info(f"First user {user.username} created as admin, setup completed")
             
     except ValueError as e:
+        error_msg = str(e)
+        # Return 409 Conflict for duplicate username/email
+        if "already exists" in error_msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=error_msg,
+            )
+        # Return 400 Bad Request for other validation errors
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail=error_msg,
         )
 
     # Create JWT token
