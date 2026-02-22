@@ -222,6 +222,21 @@ async def projects_page(request: Request, session: Session = Depends(get_db)):
     )
 
 
+@router.get("/projects/create-modal", response_class=HTMLResponse)
+async def get_create_project_modal(
+    request: Request,
+    session: Session = Depends(get_db)
+) -> str:
+    """Get the create project modal form."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    return templates.TemplateResponse("projects/form-modal.html", {
+        "request": request,
+    }).body.decode()
+
+
 @router.get("/project/{project_id}", response_class=HTMLResponse)
 async def project_detail(request: Request, project_id: str, session: Session = Depends(get_db)):
     """Project detail page."""
@@ -247,6 +262,196 @@ async def profile_settings(request: Request, session: Session = Depends(get_db))
     if not user:
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("settings/profile.html", {"request": request, "user": user})
+
+
+@router.post("/settings/profile", response_class=HTMLResponse)
+async def update_profile(
+    request: Request,
+    email: str = Form(...),
+    display_name: str = Form(...),
+    session: Session = Depends(get_db)
+):
+    """Update user profile."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    try:
+        # Update user profile
+        user_service = UserService(session)
+        user.email = email
+        user.display_name = display_name
+        session.commit()
+        
+        # Return success message as HTML fragment
+        return HTMLResponse(
+            content='''
+            <form hx-post="/settings/profile" hx-swap="outerHTML" id="profile-form" class="card-body">
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" id="username" name="username" class="form-input" disabled
+                        value="''' + user.username + '''" />
+                    <small style="color: var(--text-tertiary);">Cannot be changed</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="email" class="form-label required">Email</label>
+                    <input type="email" id="email" name="email" class="form-input" required
+                        value="''' + user.email + '''" />
+                </div>
+
+                <div class="form-group">
+                    <label for="display_name" class="form-label">Display Name</label>
+                    <input type="text" id="display_name" name="display_name" class="form-input"
+                        value="''' + user.display_name + '''" />
+                </div>
+
+                <div style="display: flex; gap: var(--spacing-md);">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="reset" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+            <script>
+                HTMXHelper.showToast('Profile updated successfully!', 'success');
+            </script>
+            ''',
+            status_code=200
+        )
+    except Exception as e:
+        logger.error(f"Failed to update profile: {e}")
+        return HTMLResponse(
+            content=f'<div class="alert alert-danger">Failed to update profile: {str(e)}</div>',
+            status_code=400
+        )
+
+
+@router.post("/settings/password", response_class=HTMLResponse)
+async def update_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    new_password_confirm: str = Form(...),
+    session: Session = Depends(get_db)
+):
+    """Update user password."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    try:
+        # Verify current password
+        from backend.plugins.auth_password import PasswordAuthProvider
+        auth_provider = PasswordAuthProvider()
+        
+        if not auth_provider.verify_password(current_password, user.password_hash):
+            return HTMLResponse(
+                content='''
+                <form hx-post="/settings/password" hx-swap="outerHTML" id="password-form" class="card-body">
+                    <div class="alert alert-danger">Current password is incorrect</div>
+                    <div class="form-group">
+                        <label for="current_password" class="form-label required">Current Password</label>
+                        <input type="password" id="current_password" name="current_password" class="form-input" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_password" class="form-label required">New Password</label>
+                        <input type="password" id="new_password" name="new_password" class="form-input" required
+                            minlength="8" />
+                        <small style="color: var(--text-tertiary);">At least 8 characters</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_password_confirm" class="form-label required">Confirm New Password</label>
+                        <input type="password" id="new_password_confirm" name="new_password_confirm" class="form-input"
+                            required minlength="8" />
+                    </div>
+
+                    <div style="display: flex; gap: var(--spacing-md);">
+                        <button type="submit" class="btn btn-primary">Update Password</button>
+                        <button type="reset" class="btn btn-secondary">Cancel</button>
+                    </div>
+                </form>
+                ''',
+                status_code=400
+            )
+        
+        # Verify passwords match
+        if new_password != new_password_confirm:
+            return HTMLResponse(
+                content='''
+                <form hx-post="/settings/password" hx-swap="outerHTML" id="password-form" class="card-body">
+                    <div class="alert alert-danger">New passwords do not match</div>
+                    <div class="form-group">
+                        <label for="current_password" class="form-label required">Current Password</label>
+                        <input type="password" id="current_password" name="current_password" class="form-input" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_password" class="form-label required">New Password</label>
+                        <input type="password" id="new_password" name="new_password" class="form-input" required
+                            minlength="8" />
+                        <small style="color: var(--text-tertiary);">At least 8 characters</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_password_confirm" class="form-label required">Confirm New Password</label>
+                        <input type="password" id="new_password_confirm" name="new_password_confirm" class="form-input"
+                            required minlength="8" />
+                    </div>
+
+                    <div style="display: flex; gap: var(--spacing-md);">
+                        <button type="submit" class="btn btn-primary">Update Password</button>
+                        <button type="reset" class="btn btn-secondary">Cancel</button>
+                    </div>
+                </form>
+                ''',
+                status_code=400
+            )
+        
+        # Update password
+        user.password_hash = auth_provider.hash_password(new_password)
+        session.commit()
+        
+        # Return success message
+        return HTMLResponse(
+            content='''
+            <form hx-post="/settings/password" hx-swap="outerHTML" id="password-form" class="card-body">
+                <div class="form-group">
+                    <label for="current_password" class="form-label required">Current Password</label>
+                    <input type="password" id="current_password" name="current_password" class="form-input" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="new_password" class="form-label required">New Password</label>
+                    <input type="password" id="new_password" name="new_password" class="form-input" required
+                        minlength="8" />
+                    <small style="color: var(--text-tertiary);">At least 8 characters</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="new_password_confirm" class="form-label required">Confirm New Password</label>
+                    <input type="password" id="new_password_confirm" name="new_password_confirm" class="form-input"
+                        required minlength="8" />
+                </div>
+
+                <div style="display: flex; gap: var(--spacing-md);">
+                    <button type="submit" class="btn btn-primary">Update Password</button>
+                    <button type="reset" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+            <script>
+                HTMXHelper.showToast('Password updated successfully!', 'success');
+                document.getElementById('password-form').reset();
+            </script>
+            ''',
+            status_code=200
+        )
+    except Exception as e:
+        logger.error(f"Failed to update password: {e}")
+        return HTMLResponse(
+            content=f'<div class="alert alert-danger">Failed to update password: {str(e)}</div>',
+            status_code=400
+        )
 
 
 @router.get("/admin", response_class=HTMLResponse)

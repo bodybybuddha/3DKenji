@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
-from backend.api import auth_router, projects_router, models_router, keys_router, health_router
+from backend.api import auth_router, projects_router, models_router, keys_router, health_router, users_router
 from backend.api.admin import router as admin_router
 from backend.api.frontend import router as frontend_router, create_theme_router
 from backend.storage import initialize_storage
@@ -98,6 +98,7 @@ def create_app() -> FastAPI:
     app.include_router(models_router, prefix="/api/v1")
     app.include_router(keys_router, prefix="/api/v1")
     app.include_router(health_router, prefix="/api/v1")
+    app.include_router(users_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
     
     # Register theme routes

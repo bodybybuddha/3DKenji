@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -19,6 +19,8 @@ from backend.api.auth import get_current_user
 from backend.db import get_db
 from backend.models.user import User
 from sqlalchemy import select
+from backend.services.user_service import UserService
+from backend.plugins.auth_password import PasswordAuthProvider
 
 logger = logging.getLogger(__name__)
 
@@ -306,7 +308,7 @@ async def get_admin_users_list(
                 </td>
                 <td style="padding: var(--spacing-md); color: var(--text-secondary); font-size: 0.875rem;">{user["created_at"]}</td>
                 <td style="padding: var(--spacing-md); text-align: right;">
-                    <button class="btn btn-sm btn-secondary" hx-get="/admin/users/{user["id"]}/edit-modal" hx-target="body" hx-swap="beforeend">
+                    <button class="btn btn-sm btn-secondary" hx-get="/api/v1/admin/users/{user["id"]}/edit-modal" hx-target="body" hx-swap="beforeend">
                         Edit
                     </button>
                 </td>
@@ -458,15 +460,150 @@ async def get_create_user_modal(
 async def get_edit_user_modal(
     user_id: str,
     request: Request,
+    session: Session = Depends(get_db),
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get the edit user modal form."""
-    # TODO: Load user from database
-    user = {"id": user_id, "username": "user1", "email": "user1@example.com"}
+    # Load user from database
+    user = session.execute(
+        select(User).where(User.id == user_id)
+    ).scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Convert to dict for template
+    user_dict = {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "display_name": user.display_name,
+        "is_admin": user.is_admin,
+        "is_active": user.is_active,
+    }
+    
     return templates.TemplateResponse("admin/users/form-modal.html", {
         "request": request,
-        "user": user,
+        "user": user_dict,
     }).body.decode()
+
+
+@router.post("/users", response_class=HTMLResponse)
+async def create_user(
+    username: str = Form(...),
+    email: str = Form(...),
+    display_name: str = Form(...),
+    password: str = Form(...),
+    role: str = Form(...),
+    is_active: bool = Form(True),
+    session: Session = Depends(get_db),
+    admin_user: str = Depends(require_admin),
+) -> str:
+    """Create a new user."""
+    try:
+        # Check if username already exists
+        existing_user = session.execute(
+            select(User).where(User.username == username)
+        ).scalar_one_or_none()
+        
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        
+        # Check if email already exists
+        existing_email = session.execute(
+            select(User).where(User.email == email)
+        ).scalar_one_or_none()
+        
+        if existing_email:
+            raise HTTPException(status_code=400, detail="Email already exists")
+        
+        # Create user
+        user_service = UserService(session)
+        auth_provider = PasswordAuthProvider()
+        
+        # Hash password
+        password_hash = auth_provider.hash_password(password)
+        
+        # Determine if user should be admin
+        is_admin = (role == "admin")
+        
+        # Create user
+        new_user = user_service.create_user(
+            username=username,
+            email=email,
+            display_name=display_name,
+            password_hash=password_hash,
+            is_admin=is_admin,
+            is_active=is_active
+        )
+        
+        session.commit()
+        
+        return HTMLResponse(
+            content='<div class="alert alert-success">User created successfully</div>',
+            status_code=201
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create user: {e}")
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
+
+
+@router.put("/users/{user_id}", response_class=HTMLResponse)
+async def update_user(
+    user_id: str,
+    email: str = Form(...),
+    display_name: str = Form(...),
+    password: Optional[str] = Form(None),
+    role: str = Form(...),
+    is_active: bool = Form(True),
+    session: Session = Depends(get_db),
+    admin_user: str = Depends(require_admin),
+) -> str:
+    """Update an existing user."""
+    try:
+        # Load user
+        user = session.execute(
+            select(User).where(User.id == user_id)
+        ).scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check if email is taken by another user
+        if email != user.email:
+            existing_email = session.execute(
+                select(User).where(User.email == email, User.id != user_id)
+            ).scalar_one_or_none()
+            
+            if existing_email:
+                raise HTTPException(status_code=400, detail="Email already in use")
+        
+        # Update user fields
+        user.email = email
+        user.display_name = display_name
+        user.is_admin = (role == "admin")
+        user.is_active = is_active
+        
+        # Update password if provided
+        if password:
+            auth_provider = PasswordAuthProvider()
+            user.password_hash = auth_provider.hash_password(password)
+        
+        session.commit()
+        
+        return HTMLResponse(
+            content='<div class="alert alert-success">User updated successfully</div>',
+            status_code=200
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update user: {e}")
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update user: {str(e)}")
 
 
 @router.get("/plugins/upload-modal", response_class=HTMLResponse)

@@ -3,7 +3,7 @@
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, ValidationError
@@ -64,45 +64,54 @@ class ProjectListResponse(BaseModel):
     limit: int
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=ProjectResponse)
-async def create_project(
-    request: CreateProjectRequest,
+@router.post("", status_code=status.HTTP_201_CREATED)
+async def create_project_form(
+    req: Request,
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    visibility: Optional[str] = Form("private"),
+    tags: Optional[str] = Form(None),
     current_user_id: str = Depends(get_current_user),
     session: Session = Depends(get_db),
-) -> ProjectResponse:
+):
     """
-    Create a new project.
-
-    Only authenticated users can create projects. The authenticated user
-    becomes the project owner automatically.
-
-    Args:
-        request: CreateProjectRequest with title, description, metadata.
-        current_user_id: ID of authenticated user (injected).
-        session: Database session (injected).
-
-    Returns:
-        ProjectResponse with created project data (201 Created).
-
-    Raises:
-        400: If project title is empty or invalid.
-        401: If user is not authenticated.
+    Create a new project from form data (for HTMX forms).
+    
+    This endpoint handles form submissions from the web UI.
+    For JSON API requests, use the JSON endpoint instead.
     """
     try:
+        # Check content type to determine if this is form data
+        content_type = req.headers.get("content-type", "")
+        if "application/json" in content_type:
+            # This is a JSON request, let it be handled by the JSON endpoint
+            raise HTTPException(status_code=400, detail="Use JSON endpoint")
+        
         service = ProjectService(session)
         project_dto = service.create_project(
             owner_id=current_user_id,
-            title=request.title,
-            description=request.description,
-            custom_metadata=request.custom_metadata or {},
+            title=name,
+            description=description,
+            custom_metadata={
+                "visibility": visibility,
+                "tags": tags.split(",") if tags else []
+            },
         )
-        return ProjectResponse(**project_dto.__dict__)
+        
+        # Return HTML response for HTMX
+        return HTMLResponse(
+            content='<div class="alert alert-success">Project created successfully</div>',
+            status_code=201
+        )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        return HTMLResponse(
+            content=f'<div class="alert alert-danger">Error: {str(e)}</div>',
+            status_code=400
+        )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create project: {str(e)}",
+        return HTMLResponse(
+            content=f'<div class="alert alert-danger">Failed to create project: {str(e)}</div>',
+            status_code=500
         )
 
 
