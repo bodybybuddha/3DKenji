@@ -8,8 +8,8 @@
             <p class="section-description">System and application logs</p>
         </div>
         <div style="display: flex; gap: var(--spacing-md);">
-            <select id="log-level-filter" hx-get="/admin/logs" hx-include="[id='log-level-filter']"
-                hx-target="#logs-list" class="form-control" style="width: 150px;">
+            <select id="log-level-filter" name="level" hx-get="/api/v1/admin/logs" hx-trigger="change"
+                hx-target="#logs-list" hx-swap="innerHTML" class="form-control" style="width: 150px;">
                 <option value="">All Levels</option>
                 <option value="debug">Debug</option>
                 <option value="info">Info</option>
@@ -32,7 +32,10 @@
 </div>
 
 <script>
-    // Load logs
-    htmx.ajax('GET', '/api/v1/admin/logs?format=html', '#logs-list');
+    // Load logs on page load
+    htmx.ajax('GET', '/api/v1/admin/logs', {
+        target: '#logs-list',
+        swap: 'innerHTML'
+    });
 </script>
 {% endblock %}

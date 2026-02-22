@@ -78,6 +78,11 @@ class PluginManager:
                         and issubclass(obj, KeajiPlugin)
                         and obj is not KeajiPlugin
                     ):
+                        # Skip abstract base classes
+                        if inspect.isabstract(obj):
+                            logger.debug(f"Skipping abstract class: {name}")
+                            continue
+                        
                         try:
                             plugin_instance = obj()
                             plugin_config = config.get(module_name, {})
@@ -118,6 +123,11 @@ class PluginManager:
                             elif isinstance(plugin_instance, MetadataHandler):
                                 self.metadata_handlers.append(plugin_instance)
 
+                        except TypeError as e:
+                            # Plugin requires constructor arguments or is abstract
+                            logger.debug(
+                                f"Skipping plugin class {name}: {e}"
+                            )
                         except Exception as e:
                             logger.error(
                                 f"Failed to load plugin class {name}: {e}",

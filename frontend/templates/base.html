@@ -58,26 +58,28 @@
                             <div class="dropdown-menu" id="user-menu">
                                 <a href="/settings/profile">Profile Settings</a>
                                 <hr>
-                                <a href="#" onclick="ThemeManager.toggle(); return false;">Toggle Theme</a>
+                                <a href="#" onclick="event.preventDefault(); ThemeManager.toggle();">Toggle Theme</a>
                                 <hr>
-                                <form method="post" action="/api/v1/auth/logout" style="display: inline;">
-                                    <button type="submit"
-                                        style="background: none; border: none; color: inherit; cursor: pointer; padding: 0; font: inherit; text-decoration: none; padding: var(--spacing-sm) 0;">Logout</button>
-                                </form>
+                                <a href="#"
+                                    onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Logout</a>
                             </div>
                         </div>
-                    </li>
-                    {% else %}
-                    <li><a href="/login">Login</a></li>
-                    <li><a href="/register">Register</a></li>
-                    <li>
-                        <button class="btn btn-secondary btn-sm" onclick="ThemeManager.toggle(); return false();">
-                            🌙 Theme
-                        </button>
-                    </li>
-                    {% endif %}
-                </ul>
+                        <!-- Hidden logout form -->
+                        <form id="logout-form" method="post" action="/api/v1/auth/logout" style="display: none;">
+                        </form>
             </div>
+            </li>
+            {% else %}
+            <li><a href="/login">Login</a></li>
+            <li><a href="/register">Register</a></li>
+            <li>
+                <button class="btn btn-secondary btn-sm" onclick="ThemeManager.toggle();">
+                    🌙
+                </button>
+            </li>
+            {% endif %}
+            </ul>
+        </div>
         </div>
     </nav>
     {% endblock %}
