@@ -11,7 +11,8 @@ import pytest
 
 # Use absolute path for test database so subprocess can find it
 project_root = Path(__file__).resolve().parents[1]
-test_db_path = project_root / "test.db"
+test_dir = Path(__file__).resolve().parent
+test_db_path = test_dir / "test.db"
 
 # MUST set DATABASE_URL before any app modules load
 os.environ["DATABASE_URL"] = f"sqlite:///{test_db_path}"

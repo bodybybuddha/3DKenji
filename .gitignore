@@ -4,6 +4,12 @@ __pycache__/
 .pytest_cache/
 /data/
 !/data/.gitkeep
+
+# Test databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 /backend
 /frontend
 

@@ -265,7 +265,7 @@ pytest --cov=src/backend --cov-report=term-missing
 echo $DATABASE_URL
 
 # Reset test database
-rm -f test.db
+rm -f tests/test.db
 ```
 
 ### E2E Tests Fail to Start
