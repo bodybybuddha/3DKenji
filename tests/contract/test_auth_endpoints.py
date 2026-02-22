@@ -63,7 +63,7 @@ class TestAuthEndpoints:
             },
         )
 
-        assert response.status_code == 400
+        assert response.status_code == 409  # Conflict
         assert "already exists" in response.json()["detail"]
 
     def test_register_duplicate_email(self, http_client):
@@ -88,7 +88,7 @@ class TestAuthEndpoints:
             },
         )
 
-        assert response.status_code == 400
+        assert response.status_code == 409  # Conflict
         assert "already exists" in response.json()["detail"]
 
     def test_register_weak_password(self, http_client):
