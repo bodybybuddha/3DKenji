@@ -20,6 +20,7 @@ class TestDatabaseIsolation:
             username="isolated_user_1",
             email="isolated1@example.com",
             display_name="Isolated User 1",
+            password_hash="dummy_hash_1",
             is_admin=False,
             is_active=True,
         )
@@ -45,6 +46,7 @@ class TestDatabaseIsolation:
             username="isolated_user_2",
             email="isolated2@example.com",
             display_name="Isolated User 2",
+            password_hash="dummy_hash_2",
             is_admin=False,
             is_active=True,
         )
@@ -69,6 +71,7 @@ class TestDatabaseIsolation:
             username="temp_user",
             email="temp@example.com",
             display_name="Temp User",
+            password_hash="dummy_hash_3",
             is_admin=False,
             is_active=True,
         )
@@ -91,6 +94,7 @@ class TestTransactionRollback:
                 username=f"batch_{i}",
                 email=f"batch{i}@example.com",
                 display_name=f"Batch User {i}",
+                password_hash=f"dummy_hash_batch_{i}",
                 is_admin=False,
                 is_active=True,
             )
