@@ -98,9 +98,27 @@ async def create_project(
                     detail="title or name field is required"
                 )
             
+            # Validate title length and content
+            title_stripped = title.strip()
+            if not title_stripped:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Project title cannot be empty or whitespace only"
+                )
+            if len(title_stripped) < 2:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Project title must be at least 2 characters"
+                )
+            if len(title_stripped) > 255:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Project title must be at most 255 characters"
+                )
+            
             # Sanitize inputs to prevent XSS
             try:
-                title = sanitize_text_input(title, "Project title")
+                title = sanitize_text_input(title_stripped, "Project title")
                 if desc:
                     desc = sanitize_text_input(desc, "Project description")
             except ValueError as e:

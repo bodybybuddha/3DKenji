@@ -71,13 +71,13 @@ class TestProjectCreationValidation:
     def test_unicode_in_project_name(self, auth_client):
         """Test unicode support in project names."""
         response = auth_client.post("/api/v1/projects", json={
-            "name": "プロジェクト 测试 🚀",
+            "title": "プロジェクト 测试 🚀",
             "description": "Unicode test"
         })
         
         assert response.status_code == 201
         project = response.json()
-        assert "🚀" in project["name"]
+        assert "🚀" in project["title"]
 
     def test_special_characters_in_name(self, auth_client):
         """Test special character handling."""
