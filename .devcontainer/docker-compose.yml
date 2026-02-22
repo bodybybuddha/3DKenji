@@ -20,7 +20,7 @@ services:
       - ${HOME}/.ssh:/home/vscode/.ssh:ro
       - venv_data:/workspace/.venv
     environment:
-      DATABASE_URL: postgres://kenji:kenji@db:5432/kenji
+      DATABASE_URL: postgresql+psycopg://kenji:kenji@db:5432/kenji
     depends_on:
       - db
     ports:
