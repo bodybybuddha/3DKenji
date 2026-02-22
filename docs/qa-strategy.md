@@ -293,20 +293,68 @@ make test-coverage
 
 ## Test Data Management
 
-### Fixtures Strategy
+### Database Isolation Strategy
+
+**File Location:** `tests/test.db` (SQLite)  
+**Cleanup:** Automatically deleted and recreated each test session
+
+**Isolation Approach:**
+1. **Session-level database** - Created once per test run
+2. **Transaction-based isolation** - Each test runs in a transaction that's rolled back
+3. **No cross-test pollution** - Tests cannot affect each other's data
+4. **Real database behavior** - Not mocked, catches actual SQL issues
+
+**Using Database Fixtures:**
 ```python
-# tests/fixtures/factories.py
+def test_user_creation(db_session):
+    """Test with automatic transaction rollback."""
+    user = User(username="testuser", email="test@example.com")
+    db_session.add(user)
+    db_session.commit()
+    
+    # Verify user exists
+    assert db_session.query(User).filter_by(username="testuser").first()
+    
+    # Transaction automatically rolled back after test
+    # No cleanup needed - next test gets fresh database
+```
+
+**For E2E/Integration Tests:**
+- Use HTTP client fixtures (tests start API server subprocess)
+- Server uses the same test database file
+- Each test run starts with fresh database
+- No need to manually clean up data
+
+### Test Data Factories
+
+Located in `tests/fixtures/factories.py`:
+```python
 # - UserFactory: Create users with various states
 # - ProjectFactory: Create projects with relationships
 # - ModelFactory: Create models with files
 # - APIKeyFactory: Create keys with various permissions
+# - BoundaryValueFactory: Generate edge case values
+# - RandomDataFactory: Realistic test data with Faker
 ```
 
-### Database State
-- Use transactions for test isolation
-- Factory Boy or similar for fixtures
-- Seed data for E2E tests
-- Database cleanup between tests
+**Benefits:**
+- ✅ Consistent test data across tests
+- ✅ Easy to generate valid and invalid data
+- ✅ Supports boundary testing (min/max values, edge cases)
+- ✅ Generates realistic data (names, emails, dates)
+
+### Database State Management
+
+**Clean State Guarantee:**
+- Database deleted before each test session
+- Fresh schema created from models
+- Each test runs in isolated transaction
+- Automatic rollback ensures no artifacts
+
+**When to Use Each Fixture:**
+- `db_session` - Unit tests, validation tests (fast, isolated)
+- `auth_client` - API/integration tests (uses HTTP, slower)
+- `client` - Basic HTTP tests without authentication
 
 ## Monitoring & Reporting
 
