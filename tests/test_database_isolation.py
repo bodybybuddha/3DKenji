@@ -30,7 +30,7 @@ class TestDatabaseIsolation:
         # User exists in this test
         found = db_session.query(User).filter_by(username="isolated_user_1").first()
         assert found is not None
-        assert found.email == "isolated1@example.com"
+        assert str(found.email) == "isolated1@example.com"
 
         # Transaction will be rolled back after this test
 
