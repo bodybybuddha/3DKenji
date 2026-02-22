@@ -18,11 +18,28 @@
 
 # In Progress
 
-  - MVP Core Implementation (Services layer next)
-    - See specs/001-title-3d-kenji/tasks.md for detailed progress
-    - Just completed: Plugin framework (T015-T016), Data models (T017-T020)
-    - Next: Services (T021-T023), Auth middleware (T024), Password auth plugin (T025)
+  - None currently
 
-Once MVP is complete (projects + models + password auth), we can iterate on additional features (OAuth, timelapse, extended UI).
+# Next Steps
+
+With MVP v1.0.0 and QA Infrastructure v1.1.0 complete:
+
+  - **Option 1**: Feature development from specs/002-plugin-architecture/
+    - OAuth plugins (GitHub, Google)
+    - Cloud storage backends (S3, Azure)
+    - Media processors (thumbnails, previews)
+    - Advanced viewer integrations
+  
+  - **Option 2**: Additional polish and hardening
+    - Performance optimization
+    - Additional security auditing
+    - Enhanced observability/monitoring
+    - Database optimization
+  
+  - **Option 3**: Production deployment preparation
+    - Kubernetes manifests
+    - Production environment setup
+    - Deployment documentation
+    - Monitoring/alerting configuration
 
 

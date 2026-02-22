@@ -4,6 +4,45 @@ All notable changes to 3DKenji are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-22
+
+### ✨ Added - QA Infrastructure
+
+#### Testing Framework
+- **E2E Testing**: Playwright-based browser automation with 27+ test scenarios
+- **Validation Testing**: 75+ tests covering XSS, SQL injection, boundary conditions
+- **Test Utilities**: Factory pattern for test data, shared fixtures, database isolation
+- **Test Coverage**: 132+ tests total across all layers (unit, integration, validation, E2E)
+
+#### CI/CD Pipeline
+- GitHub Actions workflow for automated testing
+- Code quality checks on every push/PR
+- Branch protection rules configured
+- E2E tests run locally only (excluded from CI)
+
+#### Documentation
+- QA strategy guide with testing pyramid
+- Testing architecture diagrams
+- Quick reference command guide
+- Validation testing guide with examples
+- 200+ item manual QA checklist
+
+#### Developer Tools
+- `run-qa-tests.sh` - Comprehensive test runner script
+- Pre-commit hook for validation tests
+- New Makefile targets: test-fast, test-validation, test-e2e, test-full
+- Pytest markers for test categorization
+
+### 🔧 Fixed
+- Async storage test event loop conflicts (pytest-asyncio auto mode)
+- API key scope enforcement (403 responses for insufficient scopes)
+- Health endpoint test compatibility with structured responses
+
+### 📦 Dependencies
+- Added: playwright, pytest-playwright, pytest-asyncio, faker
+
+---
+
 ## [1.0.0] - 2026-02-21
 
 ### ✨ Features (MVP Release)
