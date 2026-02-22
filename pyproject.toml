@@ -28,6 +28,9 @@ dependencies = [
   "bcrypt==4.1.2",
   "pyjwt>=2.8.0",
   "email-validator==2.1.0",
+  "playwright>=1.40.0",
+  "pytest-playwright>=0.4.0",
+  "faker>=20.0.0",
 ]
 
 [project.entry-points."3dkenji.plugins"]
