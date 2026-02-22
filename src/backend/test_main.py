@@ -11,10 +11,13 @@ def test_hello_world():
     
 
 def test_health_endpoint():
-    client = TestClient(create_app())
-    resp = client.get("/api/v1/health")
+    with TestClient(create_app()) as client:
+        resp = client.get("/api/v1/health")
+
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    payload = resp.json()
+    assert payload["status"] == "ok"
+    assert isinstance(payload.get("components"), list)
 
 
 def test_database_connectivity():

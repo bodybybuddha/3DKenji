@@ -3,15 +3,15 @@
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
-from backend.api.auth import get_current_user
+from backend.api.auth import get_current_user, require_scopes
 from backend.db import get_db
-from backend.core.validation import CreateProjectRequest as ValidatedProjectRequest, format_validation_errors
+from backend.core.validation import CreateProjectRequest as ValidatedProjectRequest, format_validation_errors, sanitize_text_input
 from backend.services.project_service import ProjectDTO, ProjectService
 
 # Initialize templates for HTML responses
@@ -64,45 +64,120 @@ class ProjectListResponse(BaseModel):
     limit: int
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=ProjectResponse)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_project(
-    request: CreateProjectRequest,
-    current_user_id: str = Depends(get_current_user),
+    req: Request,
+    name: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    visibility: Optional[str] = Form("private"),
+    tags: Optional[str] = Form(None),
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
     session: Session = Depends(get_db),
-) -> ProjectResponse:
+):
     """
     Create a new project.
-
-    Only authenticated users can create projects. The authenticated user
-    becomes the project owner automatically.
-
-    Args:
-        request: CreateProjectRequest with title, description, metadata.
-        current_user_id: ID of authenticated user (injected).
-        session: Database session (injected).
-
-    Returns:
-        ProjectResponse with created project data (201 Created).
-
-    Raises:
-        400: If project title is empty or invalid.
-        401: If user is not authenticated.
+    
+    Handles both form submissions (for HTMX) and JSON API requests.
+    Form field 'name' maps to 'title' internally.
+    JSON should use 'title' field directly.
     """
     try:
+        # Check content type to determine request format
+        content_type = req.headers.get("content-type", "")
+        
+        if "application/json" in content_type:
+            # Handle JSON request
+            body = await req.json()
+            title = body.get("title") or body.get("name")  # Support both field names
+            desc = body.get("description")
+            metadata = body.get("custom_metadata", {})
+            
+            if not title:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="title or name field is required"
+                )
+            
+            # Validate title length and content
+            title_stripped = title.strip()
+            if not title_stripped:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Project title cannot be empty or whitespace only"
+                )
+            if len(title_stripped) < 2:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Project title must be at least 2 characters"
+                )
+            if len(title_stripped) > 255:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Project title must be at most 255 characters"
+                )
+            
+            # Sanitize inputs to prevent XSS
+            try:
+                title = sanitize_text_input(title_stripped, "Project title")
+                if desc:
+                    desc = sanitize_text_input(desc, "Project description")
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(e)
+                )
+        else:
+            # Handle form request
+            if not name:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="name field is required"
+                )
+            title = name
+            desc = description
+            metadata = {
+                "visibility": visibility,
+                "tags": tags.split(",") if tags else []
+            }
+        
         service = ProjectService(session)
         project_dto = service.create_project(
             owner_id=current_user_id,
-            title=request.title,
-            description=request.description,
-            custom_metadata=request.custom_metadata or {},
+            title=title,
+            description=desc,
+            custom_metadata=metadata,
         )
-        return ProjectResponse(**project_dto.__dict__)
+        
+        # Return appropriate response based on content type
+        if "application/json" in content_type:
+            return ProjectResponse(**project_dto.__dict__)
+        else:
+            # Return HTML response for HTMX
+            return HTMLResponse(
+                content='<div class="alert alert-success">Project created successfully</div>',
+                status_code=201
+            )
+    except HTTPException:
+        raise
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        if "application/json" in req.headers.get("content-type", ""):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+        return HTMLResponse(
+            content=f'<div class="alert alert-danger">Error: {str(e)}</div>',
+            status_code=400
+        )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create project: {str(e)}",
+        if "application/json" in req.headers.get("content-type", ""):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create project: {str(e)}"
+            )
+        return HTMLResponse(
+            content=f'<div class="alert alert-danger">Failed to create project: {str(e)}</div>',
+            status_code=500
         )
 
 
@@ -112,7 +187,7 @@ async def list_projects(
     skip: int = 0,
     limit: int = 100,
     request: Request = None,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
     session: Session = Depends(get_db),
 ) -> ProjectListResponse:
     """
@@ -167,7 +242,7 @@ async def list_projects(
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: str,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
     session: Session = Depends(get_db),
 ) -> ProjectResponse:
     """
@@ -211,7 +286,7 @@ async def get_project(
 async def update_project(
     project_id: str,
     request: UpdateProjectRequest,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
     session: Session = Depends(get_db),
 ) -> ProjectResponse:
     """
@@ -250,11 +325,26 @@ async def update_project(
             detail="You do not have permission to update this project",
         )
 
+    # Sanitize inputs to prevent XSS
+    sanitized_title = request.title
+    sanitized_description = request.description
+    
+    try:
+        if request.title:
+            sanitized_title = sanitize_text_input(request.title, "Project title")
+        if request.description:
+            sanitized_description = sanitize_text_input(request.description, "Project description")
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
     try:
         updated = service.update_project(
             project_id=project_id,
-            title=request.title,
-            description=request.description,
+            title=sanitized_title,
+            description=sanitized_description,
             custom_metadata=request.custom_metadata,
         )
         return ProjectResponse(**updated.__dict__)
@@ -270,7 +360,7 @@ async def update_project(
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(
     project_id: str,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
     session: Session = Depends(get_db),
 ) -> None:
     """

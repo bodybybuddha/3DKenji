@@ -47,6 +47,47 @@ def validate_password(password: str) -> str:
     return password
 
 
+# XSS protection
+def sanitize_text_input(text: str, field_name: str = "Input") -> str:
+    """
+    Sanitize text input to prevent XSS attacks.
+    
+    Rejects strings containing HTML tags (especially script tags).
+    
+    Args:
+        text: The text to sanitize
+        field_name: Name of the field (for error messages)
+        
+    Returns:
+        The original text if safe
+        
+    Raises:
+        ValueError: If text contains HTML tags or potentially dangerous content
+    """
+    if not text:
+        return text
+    
+    # Check for HTML tags (opening or closing)
+    if re.search(r'<[^>]*>', text):
+        raise ValueError(f"{field_name} cannot contain HTML tags")
+    
+    # Check for common XSS patterns
+    dangerous_patterns = [
+        r'javascript:',
+        r'onerror\s*=',
+        r'onload\s*=',
+        r'onclick\s*=',
+        r'<script',
+        r'</script',
+    ]
+    
+    for pattern in dangerous_patterns:
+        if re.search(pattern, text, re.IGNORECASE):
+            raise ValueError(f"{field_name} contains potentially dangerous content")
+    
+    return text
+
+
 # Form validation schemas
 class LoginRequest(BaseModel):
     """Login form validation."""

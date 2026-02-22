@@ -3,53 +3,64 @@
     <div class="card" style="max-width: 500px; width: 90%;">
         <div
             style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-            <h2 id="user-modal-title" style="margin: 0;">Add User</h2>
+            <h2 id="user-modal-title" style="margin: 0;">{% if user %}Edit User{% else %}Add User{% endif %}</h2>
             <button hx-on="click: this.closest('#user-form-modal').remove()"
                 style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">
                 ×
             </button>
         </div>
 
-        <form id="user-form" hx-post="/api/v1/admin/users" hx-swap="outerHTML">
+        <div id="user-form-alert" style="padding: var(--spacing-md) var(--spacing-lg) 0 var(--spacing-lg);"></div>
+
+        <form id="user-form" {% if user %}hx-put="/api/v1/admin/users/{{ user.id }}" {% else
+            %}hx-post="/api/v1/admin/users" {% endif %} hx-target="#user-form-alert" hx-swap="innerHTML">
             <div style="padding: var(--spacing-lg); display: grid; gap: var(--spacing-md);">
-                <input type="hidden" name="user_id" id="user_id" />
+                <input type="hidden" name="user_id" id="user_id" value="{% if user %}{{ user.id }}{% endif %}" />
 
                 <div>
                     <label for="user_username">Username *</label>
-                    <input type="text" id="user_username" name="username" placeholder="johndoe" required
-                        class="form-control" />
+                    <input type="text" id="user_username"
+                        name="{% if not user %}username{% else %}username_display{% endif %}" placeholder="johndoe" {%
+                        if not user %}required{% endif %} class="form-control"
+                        value="{% if user %}{{ user.username }}{% endif %}" {% if user %}readonly{% endif %}
+                        style="{% if user %}background-color: var(--bg-tertiary); cursor: not-allowed;{% endif %}" />
+                    {% if user %}
+                    <input type="hidden" name="username" value="{{ user.username }}" />
+                    {% endif %}
                 </div>
 
                 <div>
                     <label for="user_email">Email *</label>
                     <input type="email" id="user_email" name="email" placeholder="john@example.com" required
-                        class="form-control" />
+                        class="form-control" value="{% if user %}{{ user.email }}{% endif %}" />
                 </div>
 
                 <div>
                     <label for="user_display_name">Display Name</label>
                     <input type="text" id="user_display_name" name="display_name" placeholder="John Doe"
-                        class="form-control" />
+                        class="form-control" value="{% if user %}{{ user.display_name }}{% endif %}" />
                 </div>
 
                 <div id="password-group">
-                    <label for="user_password">Password *</label>
-                    <input type="password" id="user_password" name="password" placeholder="••••••••" required
-                        class="form-control" />
+                    <label for="user_password">Password {% if not user %}*{% endif %}</label>
+                    <input type="password" id="user_password" name="password" placeholder="••••••••" {% if not user
+                        %}required{% endif %} class="form-control" />
+                    {% if user %}<small style="color: var(--text-tertiary);">Leave empty to keep current
+                        password</small>{% endif %}
                 </div>
 
                 <div>
                     <label for="user_role">Role *</label>
                     <select id="user_role" name="role" required class="form-control">
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                        <option value="moderator">Moderator</option>
+                        <option value="user" {% if user and not user.is_admin %}selected{% endif %}>User</option>
+                        <option value="admin" {% if user and user.is_admin %}selected{% endif %}>Admin</option>
                     </select>
                 </div>
 
                 <div>
                     <label style="display: flex; align-items: center; gap: var(--spacing-sm);">
-                        <input type="checkbox" id="user_active" name="is_active" checked />
+                        <input type="checkbox" id="user_active" name="is_active" value="true" {% if not user or
+                            user.is_active %}checked{% endif %} />
                         <span>Active</span>
                     </label>
                 </div>
@@ -61,7 +72,7 @@
                     Cancel
                 </button>
                 <button type="submit" class="btn btn-primary" id="user-submit-btn">
-                    Add User
+                    {% if user %}Save Changes{% else %}Add User{% endif %}
                 </button>
             </div>
         </form>
@@ -69,28 +80,27 @@
 </div>
 
 <script>
-    // Check if we're editing
-    const userId = document.getElementById('user_id').value;
-    if (userId) {
-        document.getElementById('user-modal-title').textContent = 'Edit User';
-        document.getElementById('user-submit-btn').textContent = 'Save Changes';
-        document.getElementById('user-form').setAttribute('hx-put', '/api/v1/admin/users/' + userId);
+    (function () {
+        const userForm = document.getElementById('user-form');
+        const userIdValue = {% if user %}'{{ user.id }}'{% else %} ''{% endif %};
 
-        // Make password optional for edit
-        document.getElementById('user_password').removeAttribute('required');
-        document.getElementById('password-group').innerHTML = `
-    <label for="user_password">Password (leave empty to keep current)</label>
-    <input type="password" id="user_password" name="password" placeholder="••••••••" class="form-control" />
-  `;
-    }
-
-    document.getElementById('user-form').addEventListener('htmx:afterRequest', function (event) {
+    userForm.addEventListener('htmx:afterRequest', function (event) {
         if (event.detail.xhr.status === 200 || event.detail.xhr.status === 201) {
-            HTMXHelper.showToast('User ' + (userId ? 'updated' : 'created') + ' successfully', 'success');
+            HTMXHelper.showToast('User ' + (userIdValue ? 'updated' : 'created') + ' successfully', 'success');
             setTimeout(() => {
-                document.getElementById('user-form-modal').remove();
-                htmx.ajax('GET', '/admin/users', 'body');
+                const modal = document.getElementById('user-form-modal');
+                if (modal) modal.remove();
+                // Reload users table
+                htmx.ajax('GET', '/api/v1/admin/users?format=html', '#users-table');
             }, 1500);
         }
     });
+
+    userForm.addEventListener('htmx:responseError', function (event) {
+        const alertTarget = document.getElementById('user-form-alert');
+        if (alertTarget && event.detail && event.detail.xhr) {
+            alertTarget.innerHTML = event.detail.xhr.responseText || '<div class="alert alert-error">Failed to save user.</div>';
+        }
+    });
+    }) ();
 </script>

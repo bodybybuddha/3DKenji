@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
-from backend.api import auth_router, projects_router, models_router, keys_router, health_router
+from backend.api import auth_router, projects_router, models_router, keys_router, health_router, users_router
 from backend.api.admin import router as admin_router
 from backend.api.frontend import router as frontend_router, create_theme_router
 from backend.storage import initialize_storage
@@ -60,13 +60,14 @@ def create_app() -> FastAPI:
             logger.error(f"Failed to initialize theme manager: {e}")
 
         # Determine if initial setup is required
+        # Setup is required if NO admins exist (allows multiple admins)
         session = None
         try:
             session = get_session_factory()()
             admin_exists = session.execute(
                 select(User).where(User.is_admin.is_(True))
-            ).scalar_one_or_none()
-            app.state.setup_required = admin_exists is None
+            ).first() is not None
+            app.state.setup_required = not admin_exists
         except Exception as e:
             logger.error(f"Failed to determine setup state: {e}")
             app.state.setup_required = False
@@ -87,6 +88,8 @@ def create_app() -> FastAPI:
                 or path.startswith("/api/v1/theme/css")
                 or path.startswith("/api/v1/theme/list")
                 or path.startswith("/api/v1/theme/variables")
+                or path.startswith("/api/v1/health")
+                or path.startswith("/api/v1/auth")
             ):
                 return await call_next(request)
             return RedirectResponse(url="/setup", status_code=303)
@@ -98,6 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(models_router, prefix="/api/v1")
     app.include_router(keys_router, prefix="/api/v1")
     app.include_router(health_router, prefix="/api/v1")
+    app.include_router(users_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
     
     # Register theme routes

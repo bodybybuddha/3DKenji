@@ -14,6 +14,7 @@ class APIKey(BaseModel):
 
     id = Column(String(36), primary_key=True, index=True)
     owner_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(255), nullable=False)  # Human-readable name for the key
     key_identifier = Column(String(64), unique=True, nullable=False, index=True)  # Prefix for lookup
     key_hash = Column(String(255), nullable=False)  # bcrypt hash of full key
     scopes = Column(JSON, nullable=False, default=list)  # e.g., ["project:read", "model:write"]

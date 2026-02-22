@@ -1,4 +1,4 @@
-.PHONY: venv install install-edit dev test compose-up compose-down clean
+.PHONY: venv install install-edit dev test test-fast test-validation test-e2e test-full test-coverage test-security qa-check compose-up compose-down clean
 
 PYTHON=python
 UV=uv
@@ -22,9 +22,38 @@ dev: install-edit
 	@echo "Starting dev server (uvicorn) with reload..."
 	. .venv/bin/activate && $(UV) run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
+# Standard test commands
 test: install
-	@echo "Running tests..."
-	. .venv/bin/activate && $(PYTHON) -m pytest -q
+	@echo "Running standard tests (contract + integration)..."
+	. .venv/bin/activate && bash scripts/run-qa-tests.sh standard
+
+test-fast: install
+	@echo "Running fast tests (contract only)..."
+	. .venv/bin/activate && bash scripts/run-qa-tests.sh fast
+
+test-validation: install
+	@echo "Running validation tests..."
+	. .venv/bin/activate && bash scripts/run-qa-tests.sh validation
+
+test-e2e: install
+	@echo "Running E2E tests..."
+	. .venv/bin/activate && bash scripts/run-qa-tests.sh e2e
+
+test-full: install
+	@echo "Running full test suite..."
+	. .venv/bin/activate && bash scripts/run-qa-tests.sh full
+
+test-coverage: install
+	@echo "Running tests with coverage..."
+	. .venv/bin/activate && bash scripts/run-qa-tests.sh coverage
+
+test-security: install
+	@echo "Running security tests..."
+	. .venv/bin/activate && bash scripts/run-qa-tests.sh security
+
+qa-check: test-full
+	@echo "Opening QA checklist..."
+	@echo "See tests/manual/qa-checklist.md for manual QA items"
 
 compose-up:
 	@echo "Running docker-compose up (builds images)..."

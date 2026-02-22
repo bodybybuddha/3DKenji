@@ -45,14 +45,14 @@ jobs:
         run: |
           . .venv/bin/activate
           # TODO: Fix contract tests in follow-up PR (known environment config issue)
-          uv run pytest -v --cov=src --cov-report=term-missing --ignore=tests/contract/
+          uv run pytest -v --cov=src --cov-report=term-missing --ignore=tests/contract/ --ignore=tests/e2e/
         env:
           ENABLE_FILE_LOGGING: "false"
       
       - name: Check test count
         run: |
           . .venv/bin/activate
-          TEST_COUNT=$(uv run pytest --collect-only -q --ignore=tests/contract/ | tail -n 1 | awk '{print $1}')
+          TEST_COUNT=$(uv run pytest --collect-only -q --ignore=tests/contract/ --ignore=tests/e2e/ | tail -n 1 | awk '{print $1}')
           echo "Total tests found: $TEST_COUNT"
           if [ "$TEST_COUNT" -lt 43 ]; then
             echo "⚠️  Warning: Expected at least 43 tests, found $TEST_COUNT"

@@ -42,6 +42,8 @@ Add a complete web-based user interface to 3DKenji using FastAPI + Jinja2 templa
 - [ ] Admin can view application logs in real-time
 - [ ] Admin can view system health and status
 - [ ] Settings panel allows configuration changes
+- [ ] User-triggered errors show a visible notification and are logged server-side
+- [ ] All frontend forms include validation to prevent crashes and ensure consistent UX
 
 ---
 
@@ -150,6 +152,17 @@ css_variables = {
 5. Theme preference stored in localStorage (client-side)
 
 **Logout**: Clear session cookie and redirect
+
+### 2.6 Error Handling & Form QA
+
+**User-Action Errors**:
+- Any error caused by a user action (form submit, delete, upload, update) must return a user-visible notification.
+- The same error must be logged server-side with enough context to diagnose (endpoint, user id, request id when available).
+
+**Frontend Form QA/Validation**:
+- All forms must validate required fields, format constraints (email, password length, numeric ranges), and reasonable input limits.
+- Validation must handle unexpected input types without crashing the app (e.g., missing fields, malformed values, oversized payloads).
+- HTMX forms must surface validation errors inline and keep the user on the form.
 
 ---
 

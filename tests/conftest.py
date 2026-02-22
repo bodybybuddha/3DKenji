@@ -8,13 +8,21 @@ from pathlib import Path
 
 import httpx
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import StaticPool
 
 # Use absolute path for test database so subprocess can find it
 project_root = Path(__file__).resolve().parents[1]
-test_db_path = project_root / "test.db"
+test_dir = Path(__file__).resolve().parent
+test_db_path = test_dir / "test.db"
 
 # MUST set DATABASE_URL before any app modules load
 os.environ["DATABASE_URL"] = f"sqlite:///{test_db_path}"
+
+# Clean up old test database to ensure fresh start
+if test_db_path.exists():
+    test_db_path.unlink()
 
 # Initialize database tables at module import time
 from backend.db.base import Base
@@ -22,6 +30,51 @@ from backend.db import get_engine
 
 _engine = get_engine()
 Base.metadata.create_all(_engine)
+
+
+@pytest.fixture(scope="session")
+def db_engine():
+    """
+    Session-scoped database engine.
+    
+    Creates database schema once per test session.
+    All tests share the same database file but use transactions for isolation.
+    """
+    engine = create_engine(
+        f"sqlite:///{test_db_path}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture(scope="function")
+def db_session(db_engine):
+    """
+    Function-scoped database session with automatic rollback.
+    
+    Each test gets a fresh transaction that is rolled back after the test completes.
+    This ensures complete isolation - no test can affect another's data.
+    
+    Usage:
+        def test_something(db_session):
+            user = User(username="test")
+            db_session.add(user)
+            db_session.commit()
+            # Transaction automatically rolled back after test
+    """
+    connection = db_engine.connect()
+    transaction = connection.begin()
+    session = sessionmaker(bind=connection)()
+    
+    yield session
+    
+    # Cleanup: rollback transaction and close connection
+    session.close()
+    transaction.rollback()
+    connection.close()
 
 
 @pytest.fixture(scope="session", autouse=True)
