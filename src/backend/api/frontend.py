@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from backend.core.validation import SetupRequest, format_validation_errors
 from backend.core.auth import decode_token
 from backend.db import get_db
+from backend.services.project_service import ProjectService
 from backend.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
@@ -204,7 +205,21 @@ async def projects_page(request: Request, session: Session = Depends(get_db)):
     user = await get_optional_user(request, session)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse("projects/list.html", {"request": request, "user": user})
+    projects: list[dict] = []
+    try:
+        service = ProjectService(session)
+        projects = [p.__dict__ for p in service.list_user_projects(owner_id=user.id)]
+    except Exception as exc:
+        logger.warning("Failed to load projects for page render: %s", exc)
+
+    return templates.TemplateResponse(
+        "projects/list.html",
+        {
+            "request": request,
+            "user": user,
+            "projects": projects,
+        },
+    )
 
 
 @router.get("/project/{project_id}", response_class=HTMLResponse)

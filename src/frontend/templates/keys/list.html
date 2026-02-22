@@ -44,7 +44,13 @@
 </div>
 
 <script>
-    // Load API keys list
-    htmx.ajax('GET', '/api/v1/keys?format=html', '#keys-list');
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.htmx || typeof htmx.ajax !== 'function') {
+            return;
+        }
+
+        // Load API keys list
+        htmx.ajax('GET', '/api/v1/keys?format=html', '#keys-list');
+    });
 </script>
 {% endblock %}

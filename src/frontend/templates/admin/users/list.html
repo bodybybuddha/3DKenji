@@ -21,7 +21,13 @@
 </div>
 
 <script>
-    // Load users list
-    htmx.ajax('GET', '/api/v1/admin/users?format=html', '#users-table');
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.htmx || typeof htmx.ajax !== 'function') {
+            return;
+        }
+
+        // Load users list
+        htmx.ajax('GET', '/api/v1/admin/users?format=html', '#users-table');
+    });
 </script>
 {% endblock %}

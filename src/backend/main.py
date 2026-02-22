@@ -1,5 +1,6 @@
 import asyncio
 import os
+from datetime import datetime
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -27,11 +28,13 @@ def require_auth() -> None:
 def create_app() -> FastAPI:
     app = FastAPI(title="3D Kenji API", version="1.0.0")
     app.state.setup_required = False
+    app.state.start_time = datetime.now()
 
     # Initialize storage backend on startup
     @app.on_event("startup")
     async def startup():
         logger.info("3D Kenji API starting up")
+        app.state.start_time = datetime.now()
         
         # Create database tables if they don't exist
         try:

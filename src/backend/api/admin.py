@@ -1,6 +1,11 @@
 """Admin panel API endpoints."""
 
+import html
+import json
+import logging
 import os
+from collections import deque
+from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
@@ -15,12 +20,64 @@ from backend.db import get_db
 from backend.models.user import User
 from sqlalchemy import select
 
+logger = logging.getLogger(__name__)
+
 # Initialize templates for HTML responses
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend")
 TEMPLATES_DIR = os.path.join(FRONTEND_DIR, "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+LOG_LINE_LIMIT = 200
+
+
+def _get_log_file_path() -> Path:
+    log_file = os.getenv("LOG_FILE", "data/logs/app.log")
+    log_path = Path(log_file)
+    if log_path.is_absolute():
+        return log_path
+
+    base_dir = Path(__file__).resolve().parents[3]
+    return base_dir / log_path
+
+
+def _read_log_lines(path: Path, limit: int = LOG_LINE_LIMIT) -> list[str]:
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as log_file:
+            return list(deque(log_file, maxlen=limit))
+    except FileNotFoundError:
+        return []
+    except Exception as exc:
+        logger.warning("Failed to read log file %s: %s", path, exc)
+        return []
+
+
+def _parse_log_line(line: str) -> dict[str, str]:
+    raw_line = line.strip()
+    if not raw_line:
+        return {
+            "timestamp": "",
+            "level": "INFO",
+            "module": "",
+            "message": "",
+        }
+
+    try:
+        record = json.loads(raw_line)
+        return {
+            "timestamp": str(record.get("timestamp", "")),
+            "level": str(record.get("level", "INFO")),
+            "module": str(record.get("module", record.get("logger", ""))),
+            "message": str(record.get("message", "")),
+        }
+    except json.JSONDecodeError:
+        return {
+            "timestamp": "",
+            "level": "INFO",
+            "module": "",
+            "message": raw_line,
+        }
 
 
 # Request Models
@@ -114,6 +171,7 @@ async def get_admin_stats(
 @router.get("/health", response_class=HTMLResponse)
 async def get_admin_health(
     request: Request,
+    format: Optional[str] = None,
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get system health status as HTML."""
@@ -125,6 +183,14 @@ async def get_admin_health(
         cpu_usage_percent=32.1,
         timestamp=datetime.utcnow().isoformat(),
     )
+    
+    # Calculate uptime
+    start_time = getattr(request.app.state, 'start_time', datetime.now())
+    uptime = datetime.now() - start_time
+    days = uptime.days
+    hours = uptime.seconds // 3600
+    minutes = (uptime.seconds % 3600) // 60
+    uptime_str = f"{days}d {hours}h {minutes}m" if days > 0 else f"{hours}h {minutes}m"
     
     return f"""
     <div style="padding: var(--spacing-lg);">
@@ -143,7 +209,7 @@ async def get_admin_health(
             </div>
             <div>
                 <h4>Uptime</h4>
-                <p style="margin: 0; font-size: 1.25rem;">287 days 14h</p>
+                <p style="margin: 0; font-size: 1.25rem;">{uptime_str}</p>
             </div>
         </div>
         
@@ -173,10 +239,14 @@ async def get_admin_health(
 @router.get("/metrics", response_class=HTMLResponse)
 async def get_admin_metrics(
     request: Request,
+    format: Optional[str] = None,
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get performance metrics as HTML."""
     return """
+    <div style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color);">
+        <h3>Performance Metrics</h3>
+    </div>
     <div style="padding: var(--spacing-lg);">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-lg);">
             <div style="background: var(--bg-secondary); padding: var(--spacing-lg); border-radius: 4px; text-align: center;">
@@ -290,21 +360,21 @@ async def get_admin_logs(
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get system logs as HTML."""
-    # Sample logs with different levels
-    all_logs = [
-        {"timestamp": "2026-02-21 14:32:15", "level": "INFO", "module": "api.projects", "message": "Project created by user_123"},
-        {"timestamp": "2026-02-21 14:31:42", "level": "INFO", "module": "api.keys", "message": "API key generated"},
-        {"timestamp": "2026-02-21 14:30:18", "level": "WARNING", "module": "storage", "message": "Storage usage above 80%"},
-        {"timestamp": "2026-02-21 14:29:05", "level": "DEBUG", "module": "api.auth", "message": "Token validation successful"},
-        {"timestamp": "2026-02-21 14:28:33", "level": "ERROR", "module": "storage", "message": "Failed to connect to storage backend"},
-        {"timestamp": "2026-02-21 14:27:12", "level": "INFO", "module": "api.models", "message": "Model uploaded: cube.stl"},
-    ]
-    
-    # Filter logs by level if specified
+    log_path = _get_log_file_path()
+    raw_lines = _read_log_lines(log_path)
+    logs = [_parse_log_line(line) for line in raw_lines]
+
     if level:
-        logs = [log for log in all_logs if log["level"].lower() == level.lower()]
-    else:
-        logs = all_logs
+        logs = [log for log in logs if log["level"].lower() == level.lower()]
+
+    logs = list(reversed([log for log in logs if log["message"]]))
+
+    if not logs:
+        return """
+        <div style="padding: var(--spacing-lg); text-align: center;">
+            <p style="color: var(--text-secondary); margin: 0;">No logs available.</p>
+        </div>
+        """
     
     return f"""
     <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
@@ -319,14 +389,13 @@ async def get_admin_logs(
         <tbody>
             {"".join(f'''
             <tr style="border-bottom: 1px solid var(--border-color);">
-                <td style="padding: var(--spacing-sm);">{log["timestamp"]}</td>
+                <td style="padding: var(--spacing-sm);">{html.escape(log["timestamp"])}</td>
                 <td style="padding: var(--spacing-sm);">
                     <span style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 3px;">
-                        {log["level"]}
-                    </span>
+                        {html.escape(log["level"])}</span>
                 </td>
-                <td style="padding: var(--spacing-sm); color: var(--text-secondary);">{log["module"]}</td>
-                <td style="padding: var(--spacing-sm);">{log["message"]}</td>
+                <td style="padding: var(--spacing-sm); color: var(--text-secondary);">{html.escape(log["module"])}</td>
+                <td style="padding: var(--spacing-sm);">{html.escape(log["message"])}</td>
             </tr>
             ''' for log in logs)}
         </tbody>
@@ -361,7 +430,15 @@ async def clear_logs(
     admin_user: str = Depends(require_admin),
 ):
     """Clear all logs."""
-    # TODO: Implement log clearing
+    log_path = _get_log_file_path()
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("w", encoding="utf-8"):
+            pass
+    except Exception as exc:
+        logger.error("Failed to clear logs at %s: %s", log_path, exc)
+        raise HTTPException(status_code=500, detail="Failed to clear logs")
+
     return {"message": "Logs cleared"}
 
 

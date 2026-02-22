@@ -58,15 +58,18 @@ class PluginManager:
         if plugins_path not in sys.path:
             sys.path.insert(0, plugins_path)
 
-        # Discover .py files in plugins_dir (skip __pycache__, __init__.py)
+        # Discover .py files in plugins_dir (include subpackages, skip __pycache__/__init__.py)
         plugin_files = [
             f
-            for f in self.plugins_dir.glob("*.py")
-            if f.name != "__init__.py" and not f.name.startswith("_")
+            for f in self.plugins_dir.rglob("*.py")
+            if f.name != "__init__.py"
+            and not f.name.startswith("_")
+            and "__pycache__" not in f.parts
         ]
 
         for plugin_file in plugin_files:
-            module_name = plugin_file.stem
+            relative_path = plugin_file.relative_to(self.plugins_dir)
+            module_name = ".".join(relative_path.with_suffix("").parts)
             try:
                 logger.info(f"Loading plugin module: {module_name}")
                 module = importlib.import_module(module_name)

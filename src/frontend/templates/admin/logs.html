@@ -32,10 +32,16 @@
 </div>
 
 <script>
-    // Load logs on page load
-    htmx.ajax('GET', '/api/v1/admin/logs', {
-        target: '#logs-list',
-        swap: 'innerHTML'
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.htmx || typeof htmx.ajax !== 'function') {
+            return;
+        }
+
+        // Load logs on page load
+        htmx.ajax('GET', '/api/v1/admin/logs', {
+            target: '#logs-list',
+            swap: 'innerHTML'
+        });
     });
 </script>
 {% endblock %}

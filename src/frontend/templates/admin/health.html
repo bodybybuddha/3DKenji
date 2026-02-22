@@ -5,66 +5,6 @@
     <h2>System Health</h2>
     <p class="section-description">Monitor system components and performance</p>
 
-    <!-- Health Status Grid -->
-    <div
-        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--spacing-lg); margin-bottom: var(--spacing-lg);">
-        <!-- API Server -->
-        <div class="card">
-            <div
-                style="padding: var(--spacing-lg); display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h3 style="margin: 0 0 var(--spacing-sm) 0;">API Server</h3>
-                    <p class="section-description" style="margin: 0;">Overall system status</p>
-                </div>
-                <div style="font-size: 2rem;">
-                    <span id="api-status">⏳</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Database -->
-        <div class="card">
-            <div
-                style="padding: var(--spacing-lg); display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h3 style="margin: 0 0 var(--spacing-sm) 0;">Database</h3>
-                    <p class="section-description" style="margin: 0;">PostgreSQL connection</p>
-                </div>
-                <div style="font-size: 2rem;">
-                    <span id="db-status">⏳</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Storage -->
-        <div class="card">
-            <div
-                style="padding: var(--spacing-lg); display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h3 style="margin: 0 0 var(--spacing-sm) 0;">Storage</h3>
-                    <p class="section-description" style="margin: 0;">File system usage</p>
-                </div>
-                <div style="font-size: 2rem;">
-                    <span id="storage-status">⏳</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Memory -->
-        <div class="card">
-            <div
-                style="padding: var(--spacing-lg); display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h3 style="margin: 0 0 var(--spacing-sm) 0;">Memory</h3>
-                    <p class="section-description" style="margin: 0;">System memory usage</p>
-                </div>
-                <div style="font-size: 2rem;">
-                    <span id="memory-status">⏳</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Detailed Health Information -->
     <div id="health-details" class="card">
         <div style="padding: var(--spacing-lg); text-align: center;">
@@ -84,13 +24,45 @@
 </div>
 
 <script>
-    // Load health details
-    htmx.ajax('GET', '/api/v1/admin/health?format=html', '#health-details');
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.htmx || typeof htmx.ajax !== 'function') {
+            return;
+        }
 
-    // Load performance metrics
-    htmx.ajax('GET', '/api/v1/admin/metrics?format=html', '#performance-metrics');
+        // Load health details
+        htmx.ajax('GET', '/api/v1/admin/health?format=html', {
+            target: '#health-details',
+            swap: 'innerHTML'
+        });
 
-    // Status indicators - ✅ = healthy, ⚠️ = degraded, ❌ = down
-    // These will be updated by the HTMX response
+        // Load performance metrics using fetch for better control
+        fetch('/api/v1/admin/metrics')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                return response.text();
+            })
+            .then(html => {
+                document.getElementById('performance-metrics').innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Failed to load metrics:', error);
+                document.getElementById('performance-metrics').innerHTML =
+                    '<div style="padding: var(--spacing-lg); text-align: center; color: var(--color-danger);">Failed to load: ' + error + '</div>';
+            });
+
+        // Debug: Log any htmx errors
+        document.body.addEventListener('htmx:responseError', function (evt) {
+            console.error('HTMX Error:', evt.detail);
+            if (evt.detail.target.id === 'performance-metrics') {
+                document.getElementById('performance-metrics').innerHTML =
+                    '<div style="padding: var(--spacing-lg); text-align: center; color: var(--color-danger);">Failed to load metrics</div>';
+            }
+        });
+
+        // Status indicators - ✅ = healthy, ⚠️ = degraded, ❌ = down
+        // These will be updated by the HTMX response
+    });
 </script>
 {% endblock %}

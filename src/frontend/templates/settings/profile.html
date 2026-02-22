@@ -115,39 +115,43 @@
 </div>
 
 <script>
-    // Load user profile data
-    htmx.ajax('GET', '/api/v1/users/me?format=json', {
-        handler: function (response) {
-            const user = JSON.parse(response);
-            document.getElementById('username').value = user.username;
-            document.getElementById('email').value = user.email;
-            document.getElementById('display_name').value = user.display_name || '';
+    document.addEventListener('DOMContentLoaded', function () {
+        if (window.htmx && typeof htmx.ajax === 'function') {
+            // Load user profile data
+            htmx.ajax('GET', '/api/v1/users/me?format=json', {
+                handler: function (response) {
+                    const user = JSON.parse(response);
+                    document.getElementById('username').value = user.username;
+                    document.getElementById('email').value = user.email;
+                    document.getElementById('display_name').value = user.display_name || '';
+                }
+            });
         }
-    });
 
-    // Form submission handlers
-    document.getElementById('profile-form').addEventListener('htmx:beforeSwap', function (evt) {
-        if (evt.detail.xhr.status === 200) {
-            HTMXHelper.showToast('Profile updated successfully!', 'success');
-        }
-    });
+        // Form submission handlers
+        document.getElementById('profile-form').addEventListener('htmx:beforeSwap', function (evt) {
+            if (evt.detail.xhr.status === 200) {
+                HTMXHelper.showToast('Profile updated successfully!', 'success');
+            }
+        });
 
-    document.getElementById('password-form').addEventListener('submit', function (e) {
-        const newPass = document.getElementById('new_password').value;
-        const confirm = document.getElementById('new_password_confirm').value;
+        document.getElementById('password-form').addEventListener('submit', function (e) {
+            const newPass = document.getElementById('new_password').value;
+            const confirm = document.getElementById('new_password_confirm').value;
 
-        if (newPass !== confirm) {
-            e.preventDefault();
-            HTMXHelper.showToast('Passwords do not match!', 'danger');
-            return false;
-        }
-    });
+            if (newPass !== confirm) {
+                e.preventDefault();
+                HTMXHelper.showToast('Passwords do not match!', 'danger');
+                return false;
+            }
+        });
 
-    document.getElementById('password-form').addEventListener('htmx:beforeSwap', function (evt) {
-        if (evt.detail.xhr.status === 200) {
-            HTMXHelper.showToast('Password updated successfully!', 'success');
-            document.getElementById('password-form').reset();
-        }
+        document.getElementById('password-form').addEventListener('htmx:beforeSwap', function (evt) {
+            if (evt.detail.xhr.status === 200) {
+                HTMXHelper.showToast('Password updated successfully!', 'success');
+                document.getElementById('password-form').reset();
+            }
+        });
     });
 </script>
 {% endblock %}

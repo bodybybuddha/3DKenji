@@ -76,9 +76,15 @@
 </div>
 
 <script>
-    // Load project details
-    htmx.ajax('GET', '/api/v1/projects/{{ project_id }}?format=html', '#project-header');
-    // Load project models
-    htmx.ajax('GET', '/api/v1/projects/{{ project_id }}/models?format=html', '#models-list');
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.htmx || typeof htmx.ajax !== 'function') {
+            return;
+        }
+
+        // Load project details
+        htmx.ajax('GET', '/api/v1/projects/{{ project_id }}?format=html', '#project-header');
+        // Load project models
+        htmx.ajax('GET', '/api/v1/projects/{{ project_id }}/models?format=html', '#models-list');
+    });
 </script>
 {% endblock %}

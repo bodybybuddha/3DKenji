@@ -21,7 +21,13 @@
 </div>
 
 <script>
-    // Load plugins list
-    htmx.ajax('GET', '/api/v1/admin/plugins?format=html', '#plugins-list');
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.htmx || typeof htmx.ajax !== 'function') {
+            return;
+        }
+
+        // Load plugins list
+        htmx.ajax('GET', '/api/v1/admin/plugins?format=html', '#plugins-list');
+    });
 </script>
 {% endblock %}

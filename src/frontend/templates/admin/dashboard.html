@@ -91,19 +91,25 @@
 </div>
 
 <script>
-    // Load dashboard stats
-    htmx.ajax('GET', '/api/v1/admin/stats?format=json', {
-        handler: function (response) {
-            try {
-                const stats = JSON.parse(response);
-                document.getElementById('user-count').textContent = stats.user_count || 0;
-                document.getElementById('project-count').textContent = stats.project_count || 0;
-                document.getElementById('model-count').textContent = stats.model_count || 0;
-                document.getElementById('storage-used').textContent = stats.storage_formatted || '0 MB';
-            } catch (e) {
-                console.error('Failed to parse stats:', e);
-            }
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.htmx || typeof htmx.ajax !== 'function') {
+            return;
         }
+
+        // Load dashboard stats
+        htmx.ajax('GET', '/api/v1/admin/stats?format=json', {
+            handler: function (response) {
+                try {
+                    const stats = JSON.parse(response);
+                    document.getElementById('user-count').textContent = stats.user_count || 0;
+                    document.getElementById('project-count').textContent = stats.project_count || 0;
+                    document.getElementById('model-count').textContent = stats.model_count || 0;
+                    document.getElementById('storage-used').textContent = stats.storage_formatted || '0 MB';
+                } catch (e) {
+                    console.error('Failed to parse stats:', e);
+                }
+            }
+        });
     });
 </script>
 {% endblock %}
