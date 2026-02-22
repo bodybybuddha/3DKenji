@@ -60,13 +60,14 @@ def create_app() -> FastAPI:
             logger.error(f"Failed to initialize theme manager: {e}")
 
         # Determine if initial setup is required
+        # Setup is required if NO admins exist (allows multiple admins)
         session = None
         try:
             session = get_session_factory()()
             admin_exists = session.execute(
                 select(User).where(User.is_admin.is_(True))
-            ).scalar_one_or_none()
-            app.state.setup_required = admin_exists is None
+            ).first() is not None
+            app.state.setup_required = not admin_exists
         except Exception as e:
             logger.error(f"Failed to determine setup state: {e}")
             app.state.setup_required = False
