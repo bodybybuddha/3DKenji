@@ -22,6 +22,6 @@
       }
     }
   },
-  "postCreateCommand": "cd /workspace && uv venv --python 3.11 --clear && . .venv/bin/activate && uv pip install -e .",
-  "postStartCommand": "uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000"
+  "postCreateCommand": "bash -c 'cd /workspace && uv venv --python 3.11 --clear && VIRTUAL_ENV=/workspace/.venv /workspace/.venv/bin/pip install -e .'",
+  "postStartCommand": "bash -c 'source /workspace/.venv/bin/activate && cd /workspace && uvicorn src.backend.main:app --host 0.0.0.0 --port 8000'"
 }
