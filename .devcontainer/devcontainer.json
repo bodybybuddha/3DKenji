@@ -10,7 +10,9 @@
     "vscode": {
       "extensions": [
         "ms-python.python",
-        "ms-python.vscode-pylance"
+        "ms-python.vscode-pylance",
+        "github.copilot",
+        "github.copilot-chat"
       ],
       "settings": {
         "editor.wordWrap": "on",
