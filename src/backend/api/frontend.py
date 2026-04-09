@@ -2,6 +2,7 @@
 
 import logging
 import os
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request, Depends, Form
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -20,6 +21,49 @@ logger = logging.getLogger(__name__)
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend")
 TEMPLATES_DIR = os.path.join(FRONTEND_DIR, "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+
+# Register custom Jinja2 filters
+def timeago_filter(dt):
+    """Convert a datetime to a human-readable 'time ago' string."""
+    if dt is None:
+        return "Unknown"
+    
+    # Ensure dt is a datetime object
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+        except:
+            return str(dt)
+    
+    now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+    diff = now - dt
+    
+    seconds = diff.total_seconds()
+    
+    if seconds < 60:
+        return "just now"
+    elif seconds < 3600:
+        minutes = int(seconds / 60)
+        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+    elif seconds < 86400:
+        hours = int(seconds / 3600)
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    elif seconds < 604800:
+        days = int(seconds / 86400)
+        return f"{days} day{'s' if days != 1 else ''} ago"
+    elif seconds < 2592000:
+        weeks = int(seconds / 604800)
+        return f"{weeks} week{'s' if weeks != 1 else ''} ago"
+    elif seconds < 31536000:
+        months = int(seconds / 2592000)
+        return f"{months} month{'s' if months != 1 else ''} ago"
+    else:
+        years = int(seconds / 31536000)
+        return f"{years} year{'s' if years != 1 else ''} ago"
+
+
+templates.env.filters["timeago"] = timeago_filter
 
 router = APIRouter(tags=["frontend"])
 

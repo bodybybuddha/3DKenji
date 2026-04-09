@@ -11,22 +11,17 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.api.auth import get_current_user
 from backend.db import get_db
 from backend.models.user import User
+from backend.api.frontend import templates
 from sqlalchemy import select
 from backend.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
-
-# Initialize templates for HTML responses
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend")
-TEMPLATES_DIR = os.path.join(FRONTEND_DIR, "templates")
-templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

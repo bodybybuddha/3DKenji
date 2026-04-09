@@ -8,7 +8,6 @@ from typing import Optional, Callable
 
 from fastapi import APIRouter, HTTPException, status, Depends, Header, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ValidationError, EmailStr, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -26,11 +25,7 @@ from backend.core.validation import (
 from backend.plugins.auth_password import PasswordAuthProvider
 from backend.services.user_service import UserService
 from backend.models.api_key import APIKey
-
-# Initialize templates for HTML responses
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend")
-TEMPLATES_DIR = os.path.join(FRONTEND_DIR, "templates")
-templates = Jinja2Templates(directory=TEMPLATES_DIR)
+from backend.api.frontend import templates
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
