@@ -33,6 +33,13 @@ any other supporting files the user cares to store.
 Human-readable markdown files are the source of truth for project documentation and print history.
 The database does **not** duplicate this content. The web UI reads and renders these files.
 
+Canonical files for all new and managed projects are:
+- `ProjectInfo.md` for project details
+- `PrintHistory.md` for print sessions
+
+Legacy structures (for example `README.md`, `readme.md`, or `Project.md` with embedded print history)
+are supported only through a dedicated import utility and are not canonical in 3D Kenji storage.
+
 ### 1.3 Database = Ownership Index
 
 The database holds the minimal set of data required to:
@@ -90,6 +97,9 @@ The project directory name (slug) is derived from the project title:
 - Must be unique within the category
 
 Example: "Flexi Dragon v2 (PETG)" → `flexi-dragon-v2-petg`
+
+Slug normalization is required for all projects created and managed by 3D Kenji.
+Legacy names from external directories are normalized during import.
 
 ### 2.4 Reserved Subdirectories
 
@@ -279,11 +289,108 @@ Not implemented in Phase 1; the owner has full access and all others have none.
 ## 6. File Upload Rules
 
 - Maximum file size per upload: **100 MB** (configurable via `MAX_UPLOAD_SIZE_MB`)
-- Accepted types: **any** — the app does not restrict file types (user-managed directories)
+- Accepted types: controlled by an extension allowlist, stored in the database and editable in Admin UI
+- A default allowlist is provided at first run and includes common 3D/CAD/media/doc formats
+- Hidden/system files (for example `.DS_Store`) are excluded from listings by default
+- Hidden/system exclusion rules are configurable in Admin UI and stored in the database
 - Uploads are streamed to disk; not held in memory
 - Path traversal is strictly prevented (no `..` in filenames, resolved to project dir)
 - Filenames are sanitised: stripped of path separators, control characters, and leading dots
 - Duplicate filenames are rejected with HTTP 409; client must delete or rename first
+
+### 6.1 Admin-Managed File Policy
+
+The application persists file policy in a database-backed settings model:
+- extension allowlist (lowercase, dotless, unique)
+- hidden/system filename patterns for exclusion in UI/API list views
+- optional per-role override behavior for future use (not Phase 1)
+
+Admin pages provide CRUD operations for these settings. Changes apply without restart.
+
+### 6.2 Minimal Settings Schema (Phase 1)
+
+Use a single generic settings table for admin-configurable app policies.
+
+#### `app_settings`
+
+| Column      | Type         | Notes                                               |
+|-------------|--------------|-----------------------------------------------------|
+| id          | UUID PK      |                                                     |
+| key         | VARCHAR(128) | Unique setting key                                  |
+| value_json  | JSONB        | Structured setting payload                          |
+| updated_by  | UUID FK      | References `users.id` (admin actor)                |
+| updated_at  | TIMESTAMPTZ  | Last update timestamp                               |
+
+Required keys in Phase 1:
+- `file_policy.allowed_extensions`
+- `file_policy.hidden_name_patterns`
+- `file_policy.max_upload_size_mb` (optional override of env default)
+
+Recommended default values:
+- `file_policy.allowed_extensions`:
+  - `stl`, `3mf`, `obj`, `step`, `stp`, `f3d`, `f3z`, `fcstd`, `fcbak`, `scad`, `blend`
+  - `jpg`, `jpeg`, `png`, `webp`, `gif`, `mp4`, `mkv`, `avi`, `md`, `txt`, `pdf`
+- `file_policy.hidden_name_patterns`:
+  - `.DS_Store`, `Thumbs.db`, `desktop.ini`, `._*`, `*.tmp`
+
+### 6.3 Admin API Contract (Minimal)
+
+All endpoints are admin-only and return JSON.
+
+| Method | Path                                      | Description |
+|--------|-------------------------------------------|-------------|
+| GET    | `/api/v1/admin/settings/file-policy`      | Get effective file policy |
+| PUT    | `/api/v1/admin/settings/file-policy`      | Replace file policy settings |
+| POST   | `/api/v1/admin/settings/file-policy/reset`| Reset to default file policy |
+
+`GET /api/v1/admin/settings/file-policy` response:
+
+```json
+{
+  "allowed_extensions": ["stl", "3mf", "mp4"],
+  "hidden_name_patterns": [".DS_Store", "Thumbs.db", "._*"],
+  "max_upload_size_mb": 100,
+  "updated_at": "2026-04-09T18:00:00Z",
+  "updated_by": "<admin-user-id>"
+}
+```
+
+`PUT /api/v1/admin/settings/file-policy` request body:
+
+```json
+{
+  "allowed_extensions": ["stl", "3mf", "obj", "mp4"],
+  "hidden_name_patterns": [".DS_Store", "Thumbs.db", "._*"],
+  "max_upload_size_mb": 100
+}
+```
+
+Validation rules:
+- `allowed_extensions`:
+  - required non-empty array
+  - lowercase strings only
+  - dotless extension format (`stl`, not `.stl`)
+  - unique values after normalization
+- `hidden_name_patterns`:
+  - required array
+  - supports simple wildcard patterns (`*`, `?`)
+  - max 128 patterns
+- `max_upload_size_mb`:
+  - integer, minimum 1, maximum 2048
+
+Error contract:
+- `400` invalid payload or invalid pattern syntax
+- `401` unauthenticated
+- `403` authenticated but not admin
+- `409` optimistic concurrency conflict (if versioning is enabled)
+
+### 6.4 Runtime Enforcement Rules
+
+- Upload validation checks file extension against `allowed_extensions`.
+- File listing applies `hidden_name_patterns` by default.
+- Optional list query parameter `include_hidden=true` is admin-only.
+- Policy is read-through cached for performance with short TTL and explicit cache bust on update.
+- On missing settings rows, service falls back to safe defaults and logs a warning.
 
 ---
 
@@ -374,13 +481,46 @@ Migration steps (Alembic `003_directory_architecture.py`):
 6. **View Print History**: User opens history tab → ParsedHistory.md rendered as a timeline
 7. **Direct File Access**: User mounts `Projects/` as SMB share → browses with Windows Explorer
 8. **Admin Telemetry Sync**: Admin clicks "Sync Print Telemetry" → all PrintHistory.md files parsed → dashboard shows aggregate stats
+9. **Preview STL**: User selects an STL file → inline 3D preview renders in project page viewer panel
+10. **Preview Timelapse Video**: User selects a timelapse video → inline video player opens and streams media
 
 ---
 
-## 12. Out of Scope (This Spec)
+## 12. Legacy Import Utility (Outside Main Repo, Future)
 
-- 3D file viewer / renderer (deferred)
-- Video/timelapse player (deferred)
+An external utility will import legacy directory structures into canonical 3D Kenji layout.
+
+### 12.1 Import Rules
+
+- Input may contain legacy docs (`README.md`, `readme.md`, `Project.md`) and mixed files
+- Output must be canonical (`ProjectInfo.md` + `PrintHistory.md`)
+- Print history embedded in legacy docs is extracted into `PrintHistory.md`
+- Project slugs are normalized per section 2.3
+- Project detection is **leaf-only**: only leaf candidate directories are imported as projects
+- Legacy dates may be parsed from common formats during import, but all new writes use `YYYY-MM-DD`
+
+### 12.2 Conflict Handling
+
+- Name/path collisions are interactive (`prompt`) in the import tool
+- Tool supports non-interactive mode in future (out of scope for initial importer)
+
+### 12.3 Execution Model
+
+- Import is best-effort per run (does not rollback entire run on one failure)
+- Tool produces a final report with:
+  - successful imports
+  - skipped items
+  - failed items with error reasons
+  - manual follow-up recommendations
+
+### 12.4 Nice-to-Have
+
+- Dry-run mode that emits a move/transform manifest without writing files
+
+---
+
+## 13. Out of Scope (This Spec)
+
 - Multi-user collaboration and project sharing (deferred)
 - Project templates configurable by admins (deferred)
 - S3/Azure storage backends (deferred)

@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 from backend.db.base import Base
-from backend.models import User, Project, Model, APIKey
+from backend.models import User, Project, Model, APIKey, AppSetting
 
 config = context.config
 
