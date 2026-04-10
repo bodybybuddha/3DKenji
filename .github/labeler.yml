@@ -1,0 +1,27 @@
+type: docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "README.md"
+          - "**/*.md"
+          - "_config.yml"
+          - ".github/instructions/**"
+          - ".github/skills/**"
+          - ".github/agents/**"
+
+type: ci-cd:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/labeler.yml"
+
+type: backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/backend/**"
+          - "migrations/**"
+          - "tests/**"
+          - "pyproject.toml"
+          - "alembic.ini"
+          - "Dockerfile"
+          - ".devcontainer/Dockerfile"

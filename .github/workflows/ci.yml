@@ -3,8 +3,22 @@ name: CI
 on:
   push:
     branches: [ main, dev, "feature/**" ]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".github/instructions/**"
+      - ".github/skills/**"
+      - ".github/agents/**"
+      - "_config.yml"
   pull_request:
     branches: [ main, dev ]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".github/instructions/**"
+      - ".github/skills/**"
+      - ".github/agents/**"
+      - "_config.yml"
 
 jobs:
   test:

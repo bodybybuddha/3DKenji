@@ -554,6 +554,25 @@ gh release create v1.1.0 --notes "Release notes here"
 - **`dev`**: Cannot be deleted, requires CI, no force push
 - **Feature branches**: No restrictions, delete after merge
 
+### PR Labels and Release Tags
+
+Use labels to classify intent and keep release flow predictable:
+
+- `type: docs` for documentation-only updates
+- `type: backend` for application code changes
+- `type: ci-cd` for workflow/automation changes
+
+Tag strategy for production releases:
+
+- Use semantic version tags (`vMAJOR.MINOR.PATCH`) on `main` only.
+- Keep docs-only updates deployable to GitHub Pages without creating production release tags.
+
+Automation notes:
+
+- PR labels are auto-applied by `.github/workflows/labeler.yml` and `.github/labeler.yml`.
+- Docs and Pages pipeline runs from `.github/workflows/docs-pages.yml`.
+- Code CI skips docs-only changes via path filters in `.github/workflows/ci.yml`.
+
 ### Running Tests Locally
 
 ```bash

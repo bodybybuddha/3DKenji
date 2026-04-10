@@ -1,0 +1,66 @@
+---
+name: Docs and Pages
+
+on:
+  push:
+    branches: [ main, dev ]
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "_config.yml"
+      - ".github/instructions/**"
+      - ".github/skills/**"
+      - ".github/agents/**"
+  pull_request:
+    branches: [ main, dev ]
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "_config.yml"
+      - ".github/instructions/**"
+      - ".github/skills/**"
+      - ".github/agents/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-docs:
+    name: Build Documentation Site
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+
+  deploy-docs:
+    name: Deploy to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
