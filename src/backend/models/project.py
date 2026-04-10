@@ -21,6 +21,9 @@ class Project(BaseModel):
     directory_path = Column(String(1024), nullable=True)
     disk_size_bytes = Column(BigInteger, nullable=True, default=0)
     is_archived = Column(Boolean, nullable=False, default=False)
+    
+    # Deletion policy: 'archive' (default) or 'hard_delete'
+    deletion_policy = Column(String(50), nullable=False, default="archive")
 
     __table_args__ = (
         UniqueConstraint("owner_id", "category", "slug", name="uq_project_owner_category_slug"),

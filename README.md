@@ -15,8 +15,10 @@ Self-hosted knowledge keeper for 3D printing projects. Manage, organize, and tra
 ### 📁 Project Management
 - Create, read, update, and delete printing projects
 - Organize models by project
-- Add custom metadata and notes
+- **Hybrid storage**: Database for identity/metadata, filesystem for artifacts and docs
+- ProjectInfo.md and PrintHistory.md with YAML-like frontmatter for structured metadata
 - Full ownership and permission validation
+- Filesystem directories backed by persistent STORAGE_ROOT volume
 
 ### 🎨 3D Model Management
 - Upload 3D model files (.stl, .3mf, .obj, .gcode)
@@ -195,6 +197,19 @@ LOG_BACKUP_COUNT=5
 # Security
 SECRET_KEY=your-secret-key-for-jwt-signing
 ```
+
+Project directories are created at:
+
+```text
+STORAGE_ROOT/Projects/<category>/<slug>
+```
+
+Each project includes:
+- **ProjectInfo.md** – Project metadata (frontmatter) and documentation
+- **PrintHistory.md** – Print session log with metadata and session records
+- **models/, cad_files/, timelapse/, images/** – Artifact directories
+
+For complete details on filesystem layout, frontmatter schemas, and markdown formats, see [docs/project-storage-architecture.md](docs/project-storage-architecture.md).
 
 ### Docker Environment
 Set variables in `.env` file:

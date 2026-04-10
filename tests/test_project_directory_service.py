@@ -15,8 +15,14 @@ from pathlib import Path
 import pytest
 
 from backend.services.markdown_service import (
+    ensure_project_info_frontmatter,
+    format_frontmatter,
+    format_project_info,
+    format_print_history,
+    ensure_print_history_frontmatter,
     render_markdown,
     parse_print_history,
+    split_frontmatter,
     format_print_session,
     normalize_date,
 )
@@ -82,6 +88,78 @@ class TestRenderMarkdown:
         html = render_markdown("<script>alert('xss')</script>")
         assert "<script>" not in html
         assert "alert" in html  # text remains, tag is escaped
+
+
+class TestProjectInfoFrontmatter:
+    def test_split_frontmatter_extracts_metadata_and_body(self):
+        text = textwrap.dedent("""\
+            ---
+            title: Test Project
+            summary: Short summary
+            tags:
+              - calibration
+              - benchy
+            status: active
+            ---
+
+            # About
+            Project body.
+        """)
+        metadata, body = split_frontmatter(text)
+        assert metadata["title"] == "Test Project"
+        assert metadata["summary"] == "Short summary"
+        assert metadata["tags"] == ["calibration", "benchy"]
+        assert metadata["status"] == "active"
+        assert body.startswith("# About")
+
+    def test_format_frontmatter_serializes_lists(self):
+        text = format_frontmatter({"title": "Example", "tags": ["a", "b"]})
+        assert "title: Example" in text
+        assert "tags:" in text
+        assert "  - a" in text
+        assert "  - b" in text
+
+    def test_format_project_info_contains_frontmatter_and_body(self):
+        text = format_project_info(
+            title="Example Project",
+            description="A useful description",
+            today="2026-04-10",
+            tags=["3d-printing", "calibration"],
+        )
+        metadata, body = split_frontmatter(text)
+        assert metadata["title"] == "Example Project"
+        assert metadata["summary"] == "A useful description"
+        assert metadata["tags"] == ["3d-printing", "calibration"]
+        assert "# About" in body
+        assert "A useful description" in body
+
+    def test_render_markdown_does_not_render_frontmatter_when_split_first(self):
+        text = format_project_info(
+            title="Rendered Project",
+            description="Rendered body",
+            today="2026-04-10",
+        )
+        _, body = split_frontmatter(text)
+        html = render_markdown(body)
+        assert "Rendered body" in html
+        assert "title:" not in html
+
+    def test_ensure_project_info_frontmatter_preserves_existing_body(self):
+        original = textwrap.dedent("""\
+            # Legacy Project
+
+            This is a migrated project.
+
+            ## Notes
+            Existing content.
+        """)
+        updated = ensure_project_info_frontmatter(original, title="Legacy Project")
+        metadata, body = split_frontmatter(updated)
+        assert metadata["title"] == "Legacy Project"
+        assert metadata["summary"] == "This is a migrated project."
+        assert metadata["tags"] == ["3d-printing"]
+        assert "## Notes" in body
+        assert "Existing content." in body
 
 
 class TestParsePrintHistory:
@@ -175,6 +253,56 @@ class TestFormatPrintSession:
         assert sessions[0]["fields"]["Filament"] == "Prusament PETG Orange"
 
 
+class TestPrintHistoryFrontmatter:
+    def test_format_print_history_contains_frontmatter_and_body(self):
+        text = format_print_history(
+            title="Test Project",
+            today="2026-04-10",
+            printer_model="Prusa i3 MK3",
+            notes="Main printer for tests",
+        )
+        metadata, body = split_frontmatter(text)
+        assert metadata["project"] == "Test Project"
+        assert metadata["created_date"] == "2026-04-10"
+        assert metadata["printer_model"] == "Prusa i3 MK3"
+        assert metadata["notes"] == "Main printer for tests"
+        assert metadata["total_sessions"] == "0"  # Frontmatter values are strings
+        assert "# Print History" in body
+
+    def test_format_print_history_defaults_created_date_to_today(self):
+        text = format_print_history(
+            title="Test Project",
+            today="2026-04-10",
+        )
+        metadata, _ = split_frontmatter(text)
+        assert metadata["created_date"] == "2026-04-10"
+
+    def test_ensure_print_history_frontmatter_preserves_sessions(self):
+        original = textwrap.dedent("""\
+            # Print History
+
+            ## 2025-03-15 – Session 1
+
+            - **Filament**: Prusament PLA
+            - **Result**: Success
+
+            ---
+        """)
+        updated = ensure_print_history_frontmatter(original, title="Test Project")
+        metadata, body = split_frontmatter(updated)
+        assert metadata["project"] == "Test Project"
+        assert "## 2025-03-15 – Session 1" in body
+        assert "Success" in body
+
+    def test_get_print_history_includes_metadata(self, svc_with_dir: ProjectDirectoryService):
+        svc_with_dir.create_project_directory(title="Test Project")
+        history = svc_with_dir.get_print_history()
+        assert "project" in history.metadata
+        assert history.metadata["project"] == "Test Project"
+        assert history.metadata["total_sessions"] == "0"  # Frontmatter values are strings
+        assert history.metadata["created_date"] != ""
+
+
 # ===========================================================================
 # ProjectDirectoryService – basic operations
 # ===========================================================================
@@ -194,6 +322,7 @@ class TestCreateProjectDirectory:
         assert path.exists()
         content = path.read_text()
         assert "My Widget" in content
+        assert content.startswith("---\n")
 
     def test_creates_printhistory_md(self, svc: ProjectDirectoryService, tmp_path: Path):
         svc.create_project_directory(title="My Widget")
@@ -261,6 +390,8 @@ class TestProjectInfoHelpers:
         info = svc_with_dir.get_project_info()
         assert info.raw != ""
         assert "<h1>" in info.html
+        assert info.metadata["title"] == "Test Project"
+        assert "# About" in info.body
 
     def test_write_persists(self, svc_with_dir: ProjectDirectoryService):
         svc_with_dir.write_project_info("# Updated Title\n\nNew content.")

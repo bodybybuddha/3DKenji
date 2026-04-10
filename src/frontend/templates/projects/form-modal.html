@@ -3,42 +3,58 @@
     <div class="card" style="max-width: 500px; width: 90%;">
         <div
             style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-            <h2 id="modal-title" style="margin: 0;">Create Project</h2>
+            <h2 id="modal-title" style="margin: 0;">{% if project %}Edit Project{% else %}Create Project{% endif %}</h2>
             <button hx-on="click: this.closest('#project-form-modal').remove()"
                 style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">
                 ×
             </button>
         </div>
 
-        <form id="project-form" hx-post="/api/v1/projects" hx-swap="outerHTML">
+        <div id="project-form-alert" style="padding: var(--spacing-md) var(--spacing-lg) 0 var(--spacing-lg);"></div>
+
+        <form id="project-form" {% if project %}hx-put="/api/v1/projects/{{ project.id }}" {% else
+            %}hx-post="/api/v1/projects" {% endif %} hx-target="#project-form-alert" hx-swap="innerHTML">
             <div style="padding: var(--spacing-lg); display: grid; gap: var(--spacing-md);">
-                <input type="hidden" name="project_id" id="project_id" />
+                <input type="hidden" name="project_id" id="project_id"
+                    value="{% if project %}{{ project.id }}{% endif %}" />
 
                 <div>
                     <label for="project_name">Project Name *</label>
                     <input type="text" id="project_name" name="name" placeholder="My Awesome Project" required
-                        class="form-control" />
+                        class="form-control" value="{% if project %}{{ project.title }}{% endif %}" />
                 </div>
 
+                {% if not project %}
                 <div>
                     <label for="project_description">Description</label>
                     <textarea id="project_description" name="description" placeholder="Describe your project..."
                         rows="4" class="form-control"></textarea>
                 </div>
+                {% endif %}
 
                 <div>
                     <label for="project_visibility">Visibility</label>
                     <select id="project_visibility" name="visibility" class="form-control">
-                        <option value="private">Private</option>
-                        <option value="public">Public</option>
+                        <option value="private" {% if project and project.category=='private' %}selected{% endif %}>
+                            Private</option>
+                        <option value="public" {% if project and project.category=='public' %}selected{% endif %}>Public
+                        </option>
                     </select>
                 </div>
 
+                {% if not project %}
                 <div>
                     <label for="project_tags">Tags (comma-separated, optional)</label>
                     <input type="text" id="project_tags" name="tags" placeholder="ml, vision, classification"
                         class="form-control" />
                 </div>
+                {% else %}
+                <div>
+                    <p style="margin: 0; font-size: 0.875rem; color: var(--text-secondary);">
+                        This version stores project name and visibility. Description and tags are not persisted yet.
+                    </p>
+                </div>
+                {% endif %}
             </div>
 
             <div
@@ -47,7 +63,7 @@
                     Cancel
                 </button>
                 <button type="submit" class="btn btn-primary" id="submit-btn">
-                    Create Project
+                    {% if project %}Save Changes{% else %}Create Project{% endif %}
                 </button>
             </div>
         </form>
@@ -55,22 +71,31 @@
 </div>
 
 <script>
-    // Check if we're editing by looking for project data
+    const projectForm = document.getElementById('project-form');
     const projectId = document.getElementById('project_id').value;
-    if (projectId) {
-        document.getElementById('modal-title').textContent = 'Edit Project';
-        document.getElementById('submit-btn').textContent = 'Save Changes';
-        document.getElementById('project-form').setAttribute('hx-put', '/api/v1/projects/' + projectId);
-    }
 
     // Form submission handler
-    document.getElementById('project-form').addEventListener('htmx:afterRequest', function (event) {
-        if (event.detail.xhr.status === 200 || event.detail.xhr.status === 201) {
+    projectForm.addEventListener('htmx:afterRequest', function (event) {
+        if (event.detail.xhr.status === 201 || event.detail.xhr.status === 200) {
             HTMXHelper.showToast('Project ' + (projectId ? 'updated' : 'created') + ' successfully', 'success');
             setTimeout(() => {
-                document.getElementById('project-form-modal').remove();
-                htmx.ajax('GET', '/projects', 'body');
+                const modal = document.getElementById('project-form-modal');
+                if (modal) modal.remove();
+
+                const projectsList = document.getElementById('projects-list');
+                if (projectsList) {
+                    htmx.ajax('GET', '/api/v1/projects?format=html', '#projects-list');
+                } else {
+                    window.location.href = '/projects';
+                }
             }, 1500);
+        }
+    });
+
+    // Handle HTMX errors
+    projectForm.addEventListener('htmx:responseError', function (event) {
+        if (event.detail.xhr.status >= 400) {
+            HTMXHelper.showToast('Error: ' + (event.detail.xhr.statusText || 'Failed to save project'), 'danger');
         }
     });
 </script>

@@ -4,7 +4,7 @@ import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
@@ -36,15 +36,16 @@ class UpdateProjectRequest(BaseModel):
 
 # Response Models
 class ProjectResponse(BaseModel):
-    """Project response with metadata."""
+    """Project response matching the Project model structure."""
 
     id: str
     owner_id: str
     title: str
-    description: Optional[str]
-    custom_metadata: dict
-    created_at: str
-    updated_at: str
+    slug: str
+    category: str
+    directory_path: Optional[str] = None
+    disk_size_bytes: Optional[int] = 0
+    is_archived: bool = False
 
     class Config:
         from_attributes = True
@@ -136,11 +137,13 @@ async def create_project(
             }
         
         service = ProjectService(session)
+        # Extract category from metadata if present, otherwise default to "Uncategorized"
+        category = metadata.get("visibility", "Uncategorized") if isinstance(metadata, dict) else "Uncategorized"
         project_dto = service.create_project(
             owner_id=current_user_id,
             title=title,
-            description=desc,
-            custom_metadata=metadata,
+            category=category,
+            description=desc or "",
         )
         
         # Return appropriate response based on content type
@@ -322,13 +325,15 @@ async def update_project(
 
     # Sanitize inputs to prevent XSS
     sanitized_title = request.title
-    sanitized_description = request.description
+    sanitized_category = None
     
     try:
         if request.title:
             sanitized_title = sanitize_text_input(request.title, "Project title")
-        if request.description:
-            sanitized_description = sanitize_text_input(request.description, "Project description")
+        if request.custom_metadata:
+            requested_category = request.custom_metadata.get("category") or request.custom_metadata.get("visibility")
+            if requested_category:
+                sanitized_category = sanitize_text_input(str(requested_category), "Project category")
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -339,8 +344,7 @@ async def update_project(
         updated = service.update_project(
             project_id=project_id,
             title=sanitized_title,
-            description=sanitized_description,
-            custom_metadata=request.custom_metadata,
+            category=sanitized_category,
         )
         return ProjectResponse(**updated.__dict__)
     except ValueError as e:
@@ -352,12 +356,72 @@ async def update_project(
         )
 
 
-@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.put("/{project_id}", response_class=HTMLResponse)
+async def update_project_form(
+    project_id: str,
+    request: Request,
+    name: str = Form(...),
+    visibility: Optional[str] = Form(None),
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Update project from HTMX form submission."""
+    service = ProjectService(session)
+    project = service.get_project_by_id(project_id)
+
+    if not project:
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {"request": request, "message": "Project not found", "errors": {}},
+            status_code=404,
+        )
+
+    if project.owner_id != current_user_id:
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {"request": request, "message": "You do not have permission to update this project", "errors": {}},
+            status_code=403,
+        )
+
+    try:
+        if not name or not name.strip():
+            raise ValueError("Project name is required")
+
+        sanitized_name = sanitize_text_input(name.strip(), "Project title")
+        sanitized_category = sanitize_text_input(visibility, "Project category") if visibility else None
+
+        service.update_project(
+            project_id=project_id,
+            title=sanitized_name,
+            category=sanitized_category,
+        )
+
+        return templates.TemplateResponse(
+            "fragments/success-alert.html",
+            {"request": request, "message": "Project updated successfully"},
+            status_code=200,
+        )
+    except ValueError as e:
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {"request": request, "message": str(e), "errors": {}},
+            status_code=400,
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {"request": request, "message": "Failed to update project", "errors": {"general": [str(e)]}},
+            status_code=500,
+        )
+
+
+@router.delete("/{project_id}")
 async def delete_project(
+    request: Request,
     project_id: str,
     current_user_id: str = Depends(require_scopes(["write:projects"])),
     session: Session = Depends(get_db),
-) -> None:
+) -> Response:
     """
     Delete a project.
 
@@ -398,6 +462,11 @@ async def delete_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project '{project_id}' not found",
         )
+
+    if request.headers.get("HX-Request") == "true":
+        return HTMLResponse(content="", status_code=200)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 # Modal endpoints for HTMX form loading
 @router.get("/{project_id}/edit-modal", response_class=HTMLResponse)

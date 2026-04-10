@@ -28,20 +28,25 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from backend.services.markdown_service import (
-    PROJECT_INFO_TEMPLATE,
     PRINT_HISTORY_TEMPLATE,
     format_print_session,
+    format_project_info,
+    format_print_history,
+    ensure_print_history_frontmatter,
     parse_print_history,
     render_markdown,
     normalize_date,
+    split_frontmatter,
 )
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
-STORAGE_ROOT = Path(os.environ.get("STORAGE_ROOT", "/data/storage"))
-PROJECTS_DIR = STORAGE_ROOT / "Projects"
+def get_projects_dir() -> Path:
+    """Return the Projects root directory from environment at call time."""
+    storage_root = Path(os.environ.get("STORAGE_ROOT", "/data/storage"))
+    return storage_root / "Projects"
 
 # ---------------------------------------------------------------------------
 # Errors
@@ -80,12 +85,15 @@ class FileEntry:
 class ProjectInfoContent:
     raw: str
     html: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+    body: str = ""
 
 
 @dataclass
 class PrintHistoryContent:
     sessions: list[dict[str, Any]] = field(default_factory=list)
     raw: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +215,7 @@ class ProjectDirectoryService:
         # Seed ProjectInfo.md if absent
         project_info_path = self._root / "ProjectInfo.md"
         if not project_info_path.exists():
-            content = PROJECT_INFO_TEMPLATE.format(
+            content = format_project_info(
                 title=title,
                 description=description or "Add a description here.",
                 today=date.today().isoformat(),
@@ -217,7 +225,11 @@ class ProjectDirectoryService:
         # Seed PrintHistory.md if absent
         print_history_path = self._root / "PrintHistory.md"
         if not print_history_path.exists():
-            print_history_path.write_text(PRINT_HISTORY_TEMPLATE, encoding="utf-8")
+            content = format_print_history(
+                title=title,
+                today=date.today().isoformat(),
+            )
+            print_history_path.write_text(content, encoding="utf-8")
 
     def delete_project_directory(self) -> None:
         """Permanently remove the entire project directory from disk."""
@@ -352,9 +364,10 @@ class ProjectDirectoryService:
         """Read ProjectInfo.md and return raw text and rendered HTML."""
         path = self._root / "ProjectInfo.md"
         if not path.exists():
-            return ProjectInfoContent(raw="", html="")
+            return ProjectInfoContent(raw="", metadata={}, body="", html="")
         raw = path.read_text(encoding="utf-8")
-        return ProjectInfoContent(raw=raw, html=render_markdown(raw))
+        metadata, body = split_frontmatter(raw)
+        return ProjectInfoContent(raw=raw, metadata=metadata, body=body, html=render_markdown(body))
 
     def write_project_info(self, content: str) -> None:
         """Overwrite ProjectInfo.md with *content*.
@@ -375,9 +388,11 @@ class ProjectDirectoryService:
         if not path.exists():
             return PrintHistoryContent()
         raw = path.read_text(encoding="utf-8")
+        metadata, _ = split_frontmatter(raw)
         return PrintHistoryContent(
             sessions=parse_print_history(raw),
             raw=raw,
+            metadata=metadata,
         )
 
     def append_print_session(self, session_data: dict[str, Any]) -> None:
@@ -403,8 +418,12 @@ class ProjectDirectoryService:
 
         path = self._root / "PrintHistory.md"
         if not path.exists():
-            # Create with header
-            path.write_text(PRINT_HISTORY_TEMPLATE, encoding="utf-8")
+            # Create with frontmatter header
+            content = format_print_history(
+                title="Print History",
+                today=date.today().isoformat(),
+            )
+            path.write_text(content, encoding="utf-8")
 
         raw = path.read_text(encoding="utf-8")
 
@@ -445,5 +464,5 @@ def service_for_project(category: str, slug: str) -> ProjectDirectoryService:
 
     Projects root: ``PROJECTS_DIR / category / slug``
     """
-    project_dir = PROJECTS_DIR / category / slug
+    project_dir = get_projects_dir() / category / slug
     return ProjectDirectoryService(project_dir)

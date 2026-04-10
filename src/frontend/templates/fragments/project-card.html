@@ -3,16 +3,19 @@
         <div
             style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--spacing-md);">
             <div>
-                <h3 style="margin: 0 0 var(--spacing-xs) 0;">{{ project.name }}</h3>
-                <p class="section-description" style="margin: 0;">{{ project.description or 'No description' }}</p>
+                <h3 style="margin: 0 0 var(--spacing-xs) 0;">{{ project.title }}</h3>
+                <p class="section-description" style="margin: 0;">{{ project.category or 'No description' }}</p>
             </div>
             <div style="display: flex; gap: var(--spacing-sm);">
-                <button class="btn btn-sm btn-secondary" hx-get="/projects/{{ project.id }}/edit-modal" hx-target="body"
-                    hx-swap="beforeend" title="Edit">
+                <button class="btn btn-sm btn-secondary" hx-get="/api/v1/projects/{{ project.id }}/edit-modal"
+                    hx-target="body" hx-swap="beforeend" title="Edit">
                     ✏️
                 </button>
                 <button class="btn btn-sm btn-danger" hx-delete="/api/v1/projects/{{ project.id }}"
-                    hx-confirm="Are you sure?" hx-target="nearest .project-card" hx-swap="swap 1s" title="Delete">
+                    hx-confirm="Delete project '{{ project.title }}'? This cannot be undone."
+                    hx-target="closest .project-card" hx-swap="delete"
+                    hx-on::after-request="if (event.detail.successful && window.HTMXHelper) { HTMXHelper.showToast('Project deleted', 'success'); }"
+                    title="Delete">
                     🗑️
                 </button>
             </div>
@@ -21,13 +24,15 @@
         <div
             style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: var(--spacing-md); font-size: 0.875rem; color: var(--text-secondary); padding-top: var(--spacing-md); border-top: 1px solid var(--border-color);">
             <div>
-                <span style="font-weight: 600;">Models:</span> {{ project.model_count or 0 }}
+                <span style="font-weight: 600;">Models:</span> 0
             </div>
             <div>
-                <span style="font-weight: 600;">Size:</span> {{ project.total_size or '0 B' }}
+                <span style="font-weight: 600;">Size:</span> {% if project.disk_size_bytes %}{{ (project.disk_size_bytes
+                | filesizeformat) }}{% else %}0 B{% endif %}
             </div>
             <div>
-                <span style="font-weight: 600;">Created:</span> {{ project.created_at | timeago }}
+                <span style="font-weight: 600;">Created:</span> {% if project.created_at %}{{ project.created_at |
+                timeago }}{% else %}just now{% endif %}
             </div>
         </div>
 
