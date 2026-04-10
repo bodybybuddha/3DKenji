@@ -24,3 +24,10 @@ name: "3DKenji Project Context"
 - Use `feature/*` branches for implementation work.
 - Open pull requests from `feature/*` into `dev`.
 - Promote `dev` into `main` through controlled release merges.
+- **Delete feature branches after a successful merge.** Once a `feature/*` PR is merged into `dev`, delete the branch both remotely and locally:
+  ```bash
+  git push origin --delete feature/<branch-name>
+  git checkout dev && git pull origin dev
+  git branch -d feature/<branch-name>
+  ```
+- At steady state, only `dev` and `main` should exist.
