@@ -220,6 +220,42 @@ LOG_DIR=/data/logs
 SECRET_KEY=dev-secret-key
 ```
 
+### VS Code MCP Configuration
+
+This workspace includes MCP server configuration in `.vscode/mcp.json` and auto-start is enabled in `.vscode/settings.json` via `chat.mcp.autostart`.
+
+For the PostgreSQL MCP server, store the connection string in the workspace `.env` file using:
+
+```bash
+DATABASE_URL=postgresql://kenji:kenji@db:5432/kenji
+```
+
+Notes:
+- `.env` is gitignored, so secrets are not committed.
+- MCP Postgres reads from `DATABASE_URL` through `envFile` in `.vscode/mcp.json`.
+- After changing `.env`, restart the Postgres MCP server from `MCP: List Servers`.
+
+### VS Code Copilot Skills
+
+This repository includes custom workspace skills and they are already installed at `.github/skills/`.
+
+- Skills index: [.github/skills/README.md](.github/skills/README.md)
+- Example invocation in chat: `/qa-gate-runner`
+- Skills are loaded on demand, not all at once.
+- Custom project skills are configured as primary.
+- Awesome-derived skills are installed as fallback helpers.
+
+### VS Code Copilot Instructions
+
+Project instructions are stored in `.github/instructions/` (not repository root).
+
+- `.github/instructions/project-context.instructions.md`
+- `.github/instructions/fastapi-backend.instructions.md`
+- `.github/instructions/database-storage.instructions.md`
+- `.github/instructions/testing-quality.instructions.md`
+
+These are split by concern so Copilot can load the most relevant guidance per task/file scope.
+
 ## Database Setup
 
 Migrations run automatically on startup. To manually run migrations:

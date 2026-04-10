@@ -1,0 +1,35 @@
+{
+    "servers": {
+        "github": {
+            "type": "http",
+            "url": "https://api.githubcopilot.com/mcp"
+        },
+        "postgres": {
+            "type": "stdio",
+            "command": "/usr/bin/npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-postgres",
+                "${env:DATABASE_URL}"
+            ],
+            "envFile": "${workspaceFolder}/.env"
+        },
+        "playwright": {
+            "type": "stdio",
+            "command": "/usr/bin/npx",
+            "args": [
+                "-y",
+                "@playwright/mcp",
+                "--headless"
+            ]
+        },
+        "chromeDevtools": {
+            "type": "stdio",
+            "command": "/usr/bin/npx",
+            "args": [
+                "-y",
+                "chrome-devtools-mcp@latest"
+            ]
+        }
+    }
+}
