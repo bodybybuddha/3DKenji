@@ -50,6 +50,7 @@
   - Existing records survive migration
   - Directory path and slug are populated
   - Removed columns no longer referenced
+  - File policy settings defaults are present after migration/bootstrap
 
 **Acceptance Criteria**
 - Migration tests pass consistently
@@ -110,10 +111,14 @@
   - `GET /api/v1/projects/{id}/files/{path}`
   - `POST /api/v1/projects/{id}/files`
   - `DELETE /api/v1/projects/{id}/files/{path}`
+- Enforce extension allowlist policy from DB-backed admin settings
+- Exclude hidden/system files from default list responses based on configurable patterns
 
 **Acceptance Criteria**
 - Upload/list/download/delete integration tests pass
 - Authorization checks enforce owner-only access
+- Blocked extensions are rejected with clear validation errors
+- Hidden/system exclusions are applied by default in list results
 
 ---
 
@@ -133,10 +138,12 @@
   - `GET /api/v1/projects/{id}/print-history`
   - `POST /api/v1/projects/{id}/print-history`
   - `GET /api/v1/projects/{id}/print-history/{session}`
+- Standardize session date format on write as `YYYY-MM-DD`
 
 **Acceptance Criteria**
 - New sessions prepend to file
 - Session list returns newest first
+- New writes are always normalized to `YYYY-MM-DD`
 
 ---
 
@@ -194,18 +201,52 @@
 
 ---
 
+### T315 - Add admin file policy settings UI
+- Add Admin page/subpage for file policy settings:
+  - Extension allowlist management
+  - Hidden/system file exclusion pattern management
+- Add admin settings API endpoints:
+  - `GET /api/v1/admin/settings/file-policy`
+  - `PUT /api/v1/admin/settings/file-policy`
+  - `POST /api/v1/admin/settings/file-policy/reset`
+- Persist settings in `app_settings` (or equivalent) with audit metadata (`updated_by`, `updated_at`)
+- Persist settings in database and apply changes at runtime
+
+**Acceptance Criteria**
+- Admin can edit and save allowlist and exclusion patterns
+- Settings immediately affect upload validation and file listing behavior
+- Endpoint validation enforces lowercase/dotless unique extensions and valid exclusion patterns
+- Non-admin users cannot view or modify file policy settings
+
+---
+
 ## Phase 6: Testing & Release Prep
 
-### T315 - Add/refresh automated tests
+### T316 - Add STL and timelapse preview in project page
+- Add inline STL preview panel in project detail view
+- Add inline timelapse video player for supported video formats
+- Add fallback behavior for unsupported file previews
+
+**Acceptance Criteria**
+- STL files preview inline in project page
+- Timelapse videos play inline in project page
+- Unsupported files degrade gracefully to download/open
+
+---
+
+### T317 - Add/refresh automated tests
 - Update contract/integration tests for new file/markdown APIs
 - Add regression tests for prior broken screens
+- Add tests for admin file policy settings behavior
+- Add tests for date normalization on print-history writes
+- Add tests for STL/video preview UI states
 
 **Acceptance Criteria**
 - Tests validate new architecture behavior
 
 ---
 
-### T316 - Update docs and release notes
+### T318 - Update docs and release notes
 - Update:
   - `CHANGELOG.md`
   - `PROGRESS.md`
@@ -234,12 +275,26 @@
 
 ---
 
+### F302 - External legacy import utility
+- Build external utility to import legacy directories into canonical layout
+- Detect projects using leaf-only strategy
+- Convert legacy markdown content into `ProjectInfo.md` + `PrintHistory.md`
+- Prompt on collisions (interactive mode)
+- Execute in best-effort mode and output final report of skipped/failed items
+- Nice-to-have: dry-run mode with manifest output
+
+**Acceptance Criteria**
+- Utility imports mixed legacy structures without stopping on single-item failure
+- End-of-run report clearly identifies manual follow-up items
+
+---
+
 ## Suggested Session Order
 
 1. T301 → T303
 2. T304 → T306
 3. T307 → T309
 4. T310 → T312
-5. T313 → T314
-6. T315 → T316
-7. F301 (future)
+5. T313 → T315
+6. T316 → T318
+7. F301 → F302 (future)

@@ -404,18 +404,26 @@ async def validate_login_form(
             password=password,
         )
         
-        # If validation passed, try to authenticate
+        # If validation passed, resolve email -> username (if needed), then authenticate.
+        login_identifier = validated.username_or_email
+        user_service = UserService(db)
+        if "@" in login_identifier:
+            user_by_email = user_service.get_user_by_email(login_identifier)
+            if user_by_email:
+                login_identifier = user_by_email.username
+
+        # Try to authenticate
         auth_provider = PasswordAuthProvider(db)
         try:
             auth_result = await auth_provider.authenticate(
-                credentials={"username": validated.username_or_email, "password": validated.password}
+                credentials={"username": login_identifier, "password": validated.password}
             )
             
             # Create JWT token
             token = create_access_token(auth_result.user_id, auth_result.username)
             
             # Create redirect response with cookie
-            response = RedirectResponse(url="/projects", status_code=302)
+            response = RedirectResponse(url="/projects", status_code=303)
             response.set_cookie(
                 key="access_token",
                 value=token.access_token,
@@ -423,6 +431,8 @@ async def validate_login_form(
                 max_age=3600 * 24 * 7,  # 7 days
                 samesite="lax"
             )
+            # HTMX-aware redirect keeps login flow deterministic in XHR mode.
+            response.headers["HX-Redirect"] = "/projects"
             return response
             
         except ValueError as e:
@@ -431,7 +441,7 @@ async def validate_login_form(
                 "request": request,
                 "message": "Invalid username/email or password",
                 "errors": {},
-            })
+            }, status_code=401)
     
     except ValidationError as e:
         errors = format_validation_errors(e)
@@ -439,7 +449,7 @@ async def validate_login_form(
             "request": request,
             "message": "Validation failed",
             "errors": errors,
-        })
+        }, status_code=400)
 
 
 @router.post("/validate/register")

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ project_id }} - 3DKenji{% endblock %}
+{% block title %}{{ project.title }} - 3DKenji{% endblock %}
 
 {% block content %}
 <div class="container" style="padding: var(--spacing-2xl) var(--spacing-lg);">
@@ -13,16 +13,17 @@
     <div class="section-header">
         <div id="project-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-                <h1 id="project-name">{{ project_id }}</h1>
-                <p class="section-description" id="project-description">Loading project details...</p>
+                <h1 id="project-name">{{ project.title }}</h1>
+                <p class="section-description" id="project-description">{{ project.category }}</p>
             </div>
             <div class="flex gap-md">
-                <button class="btn btn-secondary" hx-get="/projects/{{ project_id }}/edit-modal" hx-target="body"
+                <button class="btn btn-secondary" hx-get="/api/v1/projects/{{ project_id }}/edit-modal" hx-target="body"
                     hx-swap="beforeend">
                     Edit
                 </button>
                 <button class="btn btn-danger" hx-delete="/api/v1/projects/{{ project_id }}"
-                    hx-confirm="Are you sure you want to delete this project?">
+                    hx-confirm="Delete project '{{ project.title }}'? This cannot be undone."
+                    hx-on::after-request="if (event.detail.successful) { window.location.href = '/projects'; }">
                     Delete
                 </button>
             </div>
@@ -59,15 +60,40 @@
                 <div class="card-body stack-md">
                     <div>
                         <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Created</p>
-                        <p id="created-at" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
+                        <p id="created-at" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">{{
+                            project.created_at | timeago }}</p>
                     </div>
                     <div>
                         <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Models</p>
-                        <p id="model-count" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
+                        <p id="model-count" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">0</p>
                     </div>
                     <div>
                         <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Total Size</p>
-                        <p id="total-size" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
+                        <p id="total-size" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">{{
+                            project.disk_size_bytes or 0 }} B</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-compact" style="margin-top: var(--spacing-lg);">
+                <div class="card-header">
+                    <h4 style="margin: 0;">Storage Details</h4>
+                </div>
+                <div class="card-body stack-md">
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Directory Path</p>
+                        <p style="margin: var(--spacing-xs) 0 0 0; font-weight: 500; word-break: break-all;">{{
+                            project_fs_path }}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Directory Exists</p>
+                        <p style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">{% if project_directory_exists
+                            %}Yes{% else %}No{% endif %}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">ProjectInfo.md</p>
+                        <p style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">{% if project_info_exists
+                            %}Present{% else %}Missing{% endif %}</p>
                     </div>
                 </div>
             </div>
@@ -81,8 +107,6 @@
             return;
         }
 
-        // Load project details
-        htmx.ajax('GET', '/api/v1/projects/{{ project_id }}?format=html', '#project-header');
         // Load project models
         htmx.ajax('GET', '/api/v1/projects/{{ project_id }}/models?format=html', '#models-list');
     });

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from backend.core.validation import SetupRequest, format_validation_errors
 from backend.core.auth import decode_token
 from backend.db import get_db
+from backend.services.project_directory import get_projects_dir
 from backend.services.project_service import ProjectService
 from backend.services.user_service import UserService
 
@@ -287,7 +288,27 @@ async def project_detail(request: Request, project_id: str, session: Session = D
     user = await get_optional_user(request, session)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse("projects/detail.html", {"request": request, "project_id": project_id, "user": user})
+
+    project_service = ProjectService(session)
+    project = project_service.get_project_by_id(project_id)
+    if not project or project.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project_fs_path = get_projects_dir() / project.category / project.slug
+    project_info_path = project_fs_path / "ProjectInfo.md"
+
+    return templates.TemplateResponse(
+        "projects/detail.html",
+        {
+            "request": request,
+            "project_id": project_id,
+            "project": project,
+            "user": user,
+            "project_fs_path": str(project_fs_path),
+            "project_info_exists": project_info_path.exists(),
+            "project_directory_exists": project_fs_path.exists(),
+        },
+    )
 
 
 @router.get("/keys", response_class=HTMLResponse)

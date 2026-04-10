@@ -23,17 +23,52 @@ Examples:
 ### Storage
 
 **STORAGE_ROOT** (Optional, default: `/data/storage`)
-Directory for storing uploaded 3D model files.
+Root directory for project filesystem data.
 
 ```bash
 STORAGE_ROOT=/data/storage
 ```
+
+Projects are stored under:
+
+```text
+STORAGE_ROOT/Projects/<category>/<slug>
+```
+
+Example:
+
+```text
+/data/storage/Projects/private/test-project-2
+```
+
+Note: set `STORAGE_ROOT` to the root path only (for example `/workspace/data/storage`), not to a nested `.../Projects` path.
 
 Ensure directory exists and is writable:
 ```bash
 mkdir -p /data/storage
 chmod 755 /data/storage
 ```
+
+### Project Structure and Frontmatter
+
+Project creation seeds each project directory with:
+
+- `ProjectInfo.md` – Project metadata (YAML frontmatter) and documentation
+- `PrintHistory.md` – Print session log (YAML frontmatter) and session entries
+- `models/`
+- `cad_files/`
+- `timelapse/`
+- `images/`
+
+Both markdown files use **YAML-like frontmatter** for structured metadata. This hybrid approach means:
+
+- **Database is canonical for**: ownership, permissions, system lifecycle
+- **Filesystem is canonical for**: project artifacts, user-editable documentation, and metadata in frontmatter
+- **Frontmatter is structured**: automatically parsed and never rendered in HTML output
+- **Body is freeform**: human-readable markdown that users can edit directly
+
+For complete details on ProjectInfo.md and PrintHistory.md frontmatter schemas, see
+[docs/project-storage-architecture.md](project-storage-architecture.md).
 
 ### Logging
 

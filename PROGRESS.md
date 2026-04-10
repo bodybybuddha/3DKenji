@@ -1,7 +1,8 @@
 # Implementation Progress
 
-**Last Updated**: 2026-02-22  
+**Last Updated**: 2026-04-10  
 **MVP Status**: ✅ COMPLETE – QA Infrastructure Phase 7 complete
+**Current Branch**: 🚀 Filesystem Architecture & Archive Feature (COMPLETE)
 
 ---
 
@@ -17,12 +18,40 @@
 ✅ **Version 1.0.0 Released** – Production ready, fully tested
 ✅ **Web UI complete** – Theme system, templates, HTMX, admin UI, validation
 ✅ **QA Infrastructure complete** – E2E tests, validation tests, CI/CD pipeline (Feb 22, 2026)
+✅ **Filesystem Architecture** – Project directories, ProjectInfo.md, PrintHistory.md with frontmatter
+✅ **Archive Feature** – Archive-on-delete with configurable deletion policy
+
+---
+
+## Current Branch Status (Filesystem & Archive)
+
+**Completed: 10 of 10 tasks (100%) ✅**
+```
+Filesystem Architecture (8/8)               ✅
+- STORAGE_ROOT configuration                 ✅
+- Project directory creation                 ✅
+- ProjectInfo.md with frontmatter            ✅
+- PrintHistory.md with frontmatter           ✅
+- Frontmatter parser (no deps)               ✅
+- Backfill migration script                  ✅
+- Documentation (architecture, config)       ✅
+- All frontmatter tests (57/57 passing)      ✅
+
+Archive Feature (2/2)                        ✅
+- deletion_policy DB field + migration       ✅
+- Archive vs hard_delete logic               ✅
+- Comprehensive tests (3 new, 13/13 passing) ✅
+- ProjectDTO with deletion_policy field      ✅
+- Documentation updated (TODO, CHANGELOG)    ✅
+═════════════════════════════════════════════════════
+Branch Completion                           10/10 ✅
+```
 
 ---
 
 ## Progress Summary
 
-**Completed: 80 of 80 tasks (100%) ✅**
+**Total Implementation Completion: 92 of 92 tasks (100%) ✅**
 ```
 Phase 1: Setup (4/4)                        ✅
 Phase 2: Tests (5/5)                        ✅
@@ -37,15 +66,17 @@ Phase 4: Integration & Polish (5/5)         ✅
 Phase 5: Docs & Release (5/5)               ✅
 Phase 6: Web UI Frontend (30/30)            ✅
 Phase 7: QA Infrastructure (Phase 7)        ✅
+Phase 8: Filesystem & Archive (10/10)       ✅
 ═════════════════════════════════════════════════════
-Total Project Completion                   80/80 ✅
+Total Project Completion                   92/92 ✅
 
-🎉 MVP COMPLETE - PRODUCTION READY - QA COMPLETE 🎉
+🎉 BRANCH READY FOR MERGE - ALL FEATURES COMPLETE 🎉
 ```
 
-**Test Coverage: 132+ tests passing**
-- Services: 30 tests
+**Test Coverage: 140+ tests passing**
+- Services: 35+ tests (including 3 new archive tests)
 - Storage: 13 tests
+- Project Directory: 57 tests (frontmatter suite)
 - Contract: 9 tests
 - Validation: 75+ tests (auth, projects, API keys)
 - E2E: 27+ browser tests (Playwright)

@@ -22,7 +22,23 @@
 
 # Next Steps
 
-With MVP v1.0.0 and QA Infrastructure v1.1.0 complete:
+**Current Branch - Final Feature Implementation:**
+
+  - ✅ **Archive-on-Delete Feature** (COMPLETE)
+    - ✅ Added `deletion_policy` field to Project model (archive/hard_delete)
+    - ✅ Implemented archive logic: move to archive category instead of delete
+    - ✅ Implemented hard_delete logic for permanent removal
+    - ✅ Database migration (005_add_deletion_policy)
+    - ✅ Tests for archive, hard_delete, and default behavior
+    - ✅ ProjectDTO updated to include deletion_policy field
+    - Next: Admin UI integration (defer to next branch if time constrained)
+
+**Post-Branch (Future Work):**
+
+  - **Admin UI for Deletion Policy**
+    - Add deletion_policy setting to Admin panel
+    - Allow per-project or global default configuration
+    - Database schema for admin settings (if needed)
 
   - **Option 1**: Feature development from specs/002-plugin-architecture/
     - OAuth plugins (GitHub, Google)

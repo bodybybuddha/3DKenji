@@ -4,6 +4,51 @@ All notable changes to 3DKenji are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### ✨ Added - Filesystem Architecture & Archive Feature
+
+#### Filesystem-Backed Projects
+- Project directories created alongside database records in `STORAGE_ROOT/Projects/<category>/<slug>`
+- ProjectInfo.md with frontmatter (project metadata) and markdown body (documentation)
+- PrintHistory.md with frontmatter (file-level metadata) and session entries
+- Configurable STORAGE_ROOT environment variable for persistent volume mapping
+- Default subdirectories: models/, cad_files/, timelapse/, images/
+
+#### Frontmatter Support
+- YAML-like frontmatter parser (no external dependencies)
+- ProjectInfo.md frontmatter schema: title, summary, tags, designer, source_url, license, status
+- PrintHistory.md frontmatter schema: project, created_date, last_print_date, total_sessions, printer_model, notes
+- Backward-compatible frontmatter normalization for existing files
+- Frontmatter automatically excluded from HTML rendering
+
+#### Archive Feature
+- **Deletion Policy**: Configurable per-project behavior (`archive` default, `hard_delete` option)
+- **Archive Behavior**: Move project to archive category instead of permanent deletion
+- **Hard Delete Behavior**: Permanent removal for explicit data purging
+- **Database Migration**: schema v005 adds deletion_policy field
+- **Backward Compatible**: Existing projects default to archive behavior
+
+### 🧪 Testing
+- 3 new tests for archive functionality (archive policy, hard_delete policy, default behavior)
+- Updated legacy delete tests to reflect new archive-default behavior
+- All 60+ project-related tests passing
+
+### 📚 Documentation
+- docs/project-storage-architecture.md: Complete hybrid DB+filesystem model explanation
+- docs/configuration.md: Frontmatter support explanation and STORAGE_ROOT guidance  
+- README.md: Highlights hybrid storage model and frontmatter for structured metadata
+- Migration story for backfiller script to upgrade existing projects
+- Admin panel integration deferred to next branch
+
+### 🔧 Internal
+- ProjectDTO updated with deletion_policy field
+- Alembic migration 005 for deletion_policy column
+- backend/services/project_service.py: _archive_project() and _hard_delete_project() methods
+- ProjectService.delete_project() delegates to policy-specific handlers
+
+---
+
 ## [1.1.0] - 2026-02-22
 
 ### ✨ Added - QA Infrastructure
@@ -176,6 +221,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - No built-in 3D rendering (uses plugins/external services)
 
 ## Unreleased
+
+### Planned Features
+
+#### Project Lifecycle
+- Add configurable project deletion strategy in Admin settings:
+	- `archive` (default): move project into archive category/path
+	- `hard_delete`: permanently remove project and filesystem artifacts
+- Persist deletion strategy in database so behavior is deterministic across restarts
+- Keep end-user UI simple by continuing to expose a single "Delete" action
+- Introduce archive directory/category conventions under project storage root
+
+### Documentation
+- Update docs to describe filesystem-backed project architecture (not only DB metadata)
+- Document project directory defaults and storage-root behavior
+- Document `ProjectInfo.md` and `PrintHistory.md` structure and expected contents
 
 ### Planned Features for v1.1.0
 

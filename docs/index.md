@@ -7,12 +7,14 @@ Welcome to 3DKenji – a self-hosted knowledge keeper for 3D printing projects.
 - **[Quick Start Guide](getting-started.md)** – Installation and setup
 - **[API Reference](api-reference.md)** – Complete REST API documentation
 - **[Configuration](configuration.md)** – Environment variables and settings
+- **[Project Storage Architecture](project-storage-architecture.md)** – Filesystem layout, markdown formats, lifecycle
 - **[Plugin Development](plugin-development.md)** – Building custom plugins
 
 ## Features
 
 ✅ **User Management** – Secure registration and JWT authentication  
 ✅ **Project Management** – Organize your 3D printing projects  
+✅ **Filesystem-backed Projects** – Directories plus markdown project records  
 ✅ **Model Management** – Upload and track 3D model files  
 ✅ **API Keys** – Programmatic access to projects and models  
 ✅ **Health Monitoring** – Built-in Kubernetes readiness/liveness probes  
@@ -37,6 +39,7 @@ docs/
 ├── getting-started.md            # Installation & quick start
 ├── api-reference.md              # REST API documentation
 ├── configuration.md              # Environment & settings
+├── project-storage-architecture.md # Filesystem project model
 ├── plugin-development.md         # Plugin development guide
 └── architecture.md               # System design & architecture
 ```

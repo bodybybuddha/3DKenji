@@ -84,8 +84,14 @@ This is a **breaking architectural change** requiring:
 - ✅ PrintHistory.md as single file with per-session entries (newest first)
 - ✅ Single `Projects/` root for all projects (SMB/NFS mountable)
 - ✅ Categories as plain subdirectories
+- ✅ Slug normalization is required for managed projects
 - ✅ DB role: ownership + path index only (no content)
 - ✅ `models` table removed; files managed on disk
+- ✅ Legacy import utility will be external to this repo
+- ✅ Legacy import uses leaf-only project detection, interactive collision prompts, and best-effort execution
+- ✅ File extension allowlist + hidden/system file exclusions configurable from Admin and stored in DB
+- ✅ Print session dates standardized on write (`YYYY-MM-DD`)
+- ✅ Inline STL and timelapse video previews required on project page
 - ✅ Print telemetry deferred to Future phase (admin sync from markdown)
 - ✅ Multi-backend storage abstraction maintained
 
@@ -98,6 +104,7 @@ This is a **breaking architectural change** requiring:
 **What changes**:
 - `projects` table: add `slug`, `category`, `directory_path`, `disk_size_bytes`, `is_archived`
 - `projects` table: remove `description`, `custom_metadata`
+- Add settings persistence for upload policy and hidden/system exclusion patterns
 - `models` table: removed (data migrated to filesystem)
 - Alembic migration `003_directory_architecture.py` created and tested
 - ProjectService updated for new schema (no file logic yet — that's Phase 2)
@@ -105,12 +112,14 @@ This is a **breaking architectural change** requiring:
 **New files**:
 - `migrations/versions/003_directory_architecture.py`
 - `src/backend/models/project.py` (updated)
+- `src/backend/models/system_setting.py` (or equivalent app settings model)
 
 **Tests**:
 - Migration runs forward cleanly on fresh DB
 - Migration runs forward on DB with existing test data (migration test)
 - `project.slug` is computed correctly from title
 - Existing projects get valid `directory_path` assigned
+- Settings defaults seeded for extension allowlist and hidden/system exclusions
 
 **Session size**: ~3–4 hours
 
@@ -191,6 +200,7 @@ APIs and frontend use this service — they never touch the filesystem directly.
 - PUT ProjectInfo persists and re-reads correctly
 - PrintHistory parse returns ordered sessions
 - Append new session appears at top of file
+- Session write path always normalizes date to `YYYY-MM-DD`
 - Malformed PrintHistory.md handled gracefully (no crash)
 
 **Session size**: ~3 hours
@@ -294,8 +304,27 @@ Two sub-sessions due to HTMX complexity.
 - Admin stats API returns correct counts from database
 - Dashboard template binds to correct field names
 - Add: disk usage summary per user (reads from directory sizes)
+- Add: file policy admin page/subpage for extension allowlist + hidden/system exclusions
 
 **Session size**: ~2 hours
+
+---
+
+## Phase 7B: Media Preview (STL + Timelapse)
+
+**Goal**: Add inline preview capability in project pages for STL files and timelapse videos.
+
+**What's built**:
+- STL preview panel (client-side viewer) for `.stl`
+- Inline video player for supported timelapse formats (at least `.mp4`, configurable)
+- Graceful fallback for non-previewable files (download/open only)
+
+**Tests**:
+- Selecting `.stl` shows 3D preview without full-page navigation
+- Selecting timelapse video streams in embedded player
+- Unsupported format falls back cleanly without UI breakage
+
+**Session size**: ~3 hours
 
 ---
 
@@ -349,6 +378,19 @@ Spec update required before implementation.
 
 ---
 
+## Future Phase F4: External Legacy Import Utility
+
+**Goal**: Build an external utility to import legacy project directories into canonical 3D Kenji layout.
+
+**Requirements**:
+- Converts legacy markdown layouts into `ProjectInfo.md` and `PrintHistory.md`
+- Uses leaf-only project detection
+- Uses interactive prompt behavior for collisions
+- Runs in best-effort mode and emits end-of-run report for skipped/failed items
+- Supports dry-run manifest mode (nice-to-have)
+
+---
+
 ## Risk Register
 
 | Risk                                        | Likelihood | Impact | Mitigation                                              |
@@ -358,3 +400,4 @@ Spec update required before implementation.
 | PrintHistory.md parse fails on user edits   | Medium     | Medium | Graceful fallback; show raw markdown if parse error    |
 | Directory rename breaks DB path reference   | Medium     | Medium | Phase 4B handles rename; path stored in DB updated     |
 | Performance: large directories slow browser | Low        | Medium | Paginate file listing; optional lazy-load              |
+| STL/video preview performance on large files| Medium     | Medium | Lazy load viewer; stream media; cap preview size       |

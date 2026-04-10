@@ -37,7 +37,8 @@
             </div>
             {% endif %}
 
-            <form hx-post="/api/v1/auth/validate/login" hx-swap="innerHTML" hx-target="#login-form" id="login-form">
+            <form method="post" action="/api/v1/auth/validate/login" hx-post="/api/v1/auth/validate/login"
+                hx-swap="innerHTML" hx-target="#login-form" id="login-form">
                 <!-- Username -->
                 <div class="form-group">
                     <label for="username_or_email" class="form-label required">Username or Email</label>
@@ -90,11 +91,19 @@
         if (evt.detail.xhr.status === 401) {
             HTMXHelper.showToast('Invalid username or password', 'danger');
             evt.detail.shouldSwap = false;
-        } else if (evt.detail.xhr.status === 200) {
-            HTMXHelper.showToast('Logged in successfully! Redirecting...', 'success', 2000);
-            setTimeout(() => {
-                window.location.href = '/projects';
-            }, 1000);
+        } else if (evt.detail.xhr.status === 400) {
+            HTMXHelper.showToast('Please fix the form errors and try again', 'warning');
+            evt.detail.shouldSwap = false;
+        } else if (evt.detail.xhr.status === 303 || evt.detail.xhr.status === 302 || evt.detail.xhr.status === 301) {
+            // Handle redirect responses
+            const redirectUrl = evt.detail.xhr.getResponseHeader('HX-Redirect') || evt.detail.xhr.getResponseHeader('Location');
+            if (redirectUrl) {
+                HTMXHelper.showToast('Logged in successfully! Redirecting...', 'success', 1500);
+                setTimeout(() => {
+                    window.location.href = redirectUrl;
+                }, 1000);
+            }
+            evt.detail.shouldSwap = false;
         }
     });
 </script>

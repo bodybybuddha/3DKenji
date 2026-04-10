@@ -30,8 +30,9 @@ def user_service(test_db: Session):
 
 
 @pytest.fixture
-def project_service(test_db: Session):
+def project_service(test_db: Session, tmp_path, monkeypatch):
     """Create ProjectService instance."""
+    monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
     return ProjectService(test_db)
 
 
@@ -246,12 +247,64 @@ class TestProjectService:
         project = project_service.create_project(
             owner_id=user.id,
             title="Test Project",
-            description="A test project",
         )
 
         assert project.title == "Test Project"
         assert project.owner_id == user.id
         assert project.id is not None
+        assert project.slug == "test-project"
+        assert project.category == "Uncategorized"
+
+    def test_create_project_creates_directory_and_projectinfo(
+        self,
+        project_service: ProjectService,
+        user,
+        monkeypatch,
+        tmp_path,
+    ):
+        """Project creation should create filesystem directory and ProjectInfo.md."""
+        monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
+
+        project = project_service.create_project(
+            owner_id=user.id,
+            title="Directory Project",
+            category="private",
+            description="Directory-backed project",
+        )
+
+        project_dir = tmp_path / "Projects" / "private" / project.slug
+        info_path = project_dir / "ProjectInfo.md"
+
+        assert project_dir.is_dir()
+        assert info_path.exists()
+        content = info_path.read_text(encoding="utf-8")
+        assert "Directory Project" in content
+        assert "Directory-backed project" in content
+
+    def test_create_project_seeds_projectinfo_with_title_and_description(
+        self,
+        project_service: ProjectService,
+        user,
+        monkeypatch,
+        tmp_path,
+    ):
+        """ProjectInfo.md should be seeded from create_project inputs."""
+        monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
+
+        title = "My Functional Project"
+        description = "A precise seeded description"
+        project = project_service.create_project(
+            owner_id=user.id,
+            title=title,
+            category="private",
+            description=description,
+        )
+
+        info_path = tmp_path / "Projects" / "private" / project.slug / "ProjectInfo.md"
+        assert info_path.exists()
+        content = info_path.read_text(encoding="utf-8")
+        assert title in content
+        assert description in content
 
     def test_create_project_nonexistent_owner(
         self, project_service: ProjectService
@@ -292,20 +345,18 @@ class TestProjectService:
         project = project_service.create_project(
             owner_id=user.id,
             title="Original Title",
-            description="Original Description",
         )
 
         updated_project = project_service.update_project(
             project.id,
             title="Updated Title",
-            description="Updated Description",
         )
 
         assert updated_project.title == "Updated Title"
-        assert updated_project.description == "Updated Description"
+        assert updated_project.slug == "updated-title"
 
     def test_delete_project(self, project_service: ProjectService, user):
-        """Test deleting project."""
+        """Test deleting project - default behavior is archive."""
         project = project_service.create_project(
             owner_id=user.id,
             title="Test Project",
@@ -314,7 +365,38 @@ class TestProjectService:
         deleted = project_service.delete_project(project.id)
 
         assert deleted is True
-        assert project_service.get_project_by_id(project.id) is None
+        # With default 'archive' policy, project should be archived not deleted
+        archived = project_service.get_project_by_id(project.id)
+        assert archived is not None
+        assert archived.is_archived is True
+        assert archived.category == "archive"
+
+    def test_delete_project_removes_directory(
+        self,
+        project_service: ProjectService,
+        user,
+        monkeypatch,
+        tmp_path,
+    ):
+        """Project deletion - with default archive policy, directory is moved to archive."""
+        monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
+
+        project = project_service.create_project(
+            owner_id=user.id,
+            title="Delete Directory Project",
+            category="private",
+        )
+
+        project_dir = tmp_path / "Projects" / "private" / project.slug
+        assert project_dir.exists()
+
+        deleted = project_service.delete_project(project.id)
+
+        assert deleted is True
+        # With archive policy, original directory should be moved
+        assert not project_dir.exists()
+        archive_dir = tmp_path / "Projects" / "archive" / project.slug
+        assert archive_dir.exists()
 
     def test_check_project_ownership(
         self, project_service: ProjectService, user, user_service: UserService
@@ -334,6 +416,110 @@ class TestProjectService:
 
         assert project_service.check_project_ownership(project.id, user.id) is True
         assert project_service.check_project_ownership(project.id, other_user.id) is False
+
+    def test_delete_project_with_archive_policy(
+        self,
+        project_service: ProjectService,
+        user,
+        monkeypatch,
+        tmp_path,
+    ):
+        """Project deletion with archive policy should move to archive category."""
+        monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
+
+        project = project_service.create_project(
+            owner_id=user.id,
+            title="Archive Test Project",
+            category="private",
+        )
+        # Set deletion_policy on the ORM object in the database
+        from sqlalchemy import select
+        from backend.models.project import Project
+        orm_project = project_service.session.execute(
+            select(Project).where(Project.id == project.id)
+        ).scalar_one()
+        orm_project.deletion_policy = "archive"
+        project_service.session.commit()
+
+        original_dir = tmp_path / "Projects" / "private" / project.slug
+        assert original_dir.exists()
+
+        deleted = project_service.delete_project(project.id)
+        assert deleted is True
+
+        # Project should still exist in database but be archived
+        archived_project = project_service.get_project_by_id(project.id)
+        assert archived_project is not None
+        assert archived_project.category == "archive"
+        assert archived_project.is_archived is True
+
+        # Directory should be moved to archive location
+        assert not original_dir.exists()
+        archive_dir = tmp_path / "Projects" / "archive" / project.slug
+        assert archive_dir.exists()
+
+    def test_delete_project_with_hard_delete_policy(
+        self,
+        project_service: ProjectService,
+        user,
+        monkeypatch,
+        tmp_path,
+    ):
+        """Project deletion with hard_delete policy should permanently delete."""
+        monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
+
+        project = project_service.create_project(
+            owner_id=user.id,
+            title="Hard Delete Test Project",
+            category="private",
+        )
+        # Set deletion_policy on the ORM object in the database
+        from sqlalchemy import select
+        from backend.models.project import Project
+        orm_project = project_service.session.execute(
+            select(Project).where(Project.id == project.id)
+        ).scalar_one()
+        orm_project.deletion_policy = "hard_delete"
+        project_service.session.commit()
+
+        project_dir = tmp_path / "Projects" / "private" / project.slug
+        assert project_dir.exists()
+
+        deleted = project_service.delete_project(project.id)
+        assert deleted is True
+
+        # Project should be completely gone from database
+        assert project_service.get_project_by_id(project.id) is None
+
+        # Directory should be deleted
+        assert not project_dir.exists()
+
+    def test_archive_project_default_policy(
+        self,
+        project_service: ProjectService,
+        user,
+        monkeypatch,
+        tmp_path,
+    ):
+        """Default deletion policy should be archive."""
+        monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
+
+        project = project_service.create_project(
+            owner_id=user.id,
+            title="Default Policy Test",
+        )
+        # Don't explicitly set deletion_policy; should default to archive
+
+        project_dir = tmp_path / "Projects" / "Uncategorized" / project.slug
+        assert project_dir.exists()
+
+        deleted = project_service.delete_project(project.id)
+        assert deleted is True
+
+        # Should be archived (default behavior)
+        archived_project = project_service.get_project_by_id(project.id)
+        assert archived_project is not None
+        assert archived_project.category == "archive"
 
 
 class TestModelService:
