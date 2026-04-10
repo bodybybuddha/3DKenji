@@ -1,7 +1,12 @@
 FROM python:3.11-slim
 
-# Install build essentials (make, gcc, etc.)
-RUN apt-get update && apt-get install -y make
+# Install build essentials and Node.js tooling for MCP servers (npm/npx)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+	make \
+	gh \
+	nodejs \
+	npm && \
+	rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
