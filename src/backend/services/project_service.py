@@ -1,5 +1,6 @@
 """Project service for project management."""
 
+import re
 import uuid
 from typing import Optional
 from dataclasses import dataclass
@@ -10,6 +11,15 @@ from sqlalchemy import select
 from backend.models.project import Project
 
 
+def _slugify(title: str) -> str:
+    """Derive a filesystem-safe slug from a project title (spec §2.3)."""
+    slug = title.lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", slug)
+    slug = re.sub(r"-{2,}", "-", slug)
+    slug = slug.strip("-")
+    return (slug[:64]).rstrip("-") or "project"
+
+
 @dataclass
 class ProjectDTO:
     """Project domain transfer object."""
@@ -17,8 +27,11 @@ class ProjectDTO:
     id: str
     owner_id: str
     title: str
-    description: Optional[str]
-    custom_metadata: dict
+    slug: str
+    category: str
+    directory_path: Optional[str]
+    disk_size_bytes: int
+    is_archived: bool
     created_at: str
     updated_at: str
 
@@ -34,39 +47,58 @@ class ProjectService:
         self,
         owner_id: str,
         title: str,
-        description: Optional[str] = None,
-        custom_metadata: Optional[dict] = None,
+        category: str = "Uncategorized",
     ) -> ProjectDTO:
         """Create a new project.
-        
+
         Args:
             owner_id: ID of project owner (user)
             title: Project title
-            description: Optional project description
-            custom_metadata: Optional metadata dict
-            
+            category: Project category (directory group); defaults to "Uncategorized"
+
         Returns:
             ProjectDTO with created project data
-            
+
         Raises:
-            ValueError: If owner doesn't exist
+            ValueError: If owner doesn't exist or slug collision cannot be resolved
         """
-        # Verify owner exists (will be caught at DB level too)
         from backend.models.user import User
-        
+
         owner = self.session.execute(
             select(User).where(User.id == owner_id)
         ).scalar_one_or_none()
-        
+
         if not owner:
             raise ValueError(f"User '{owner_id}' not found")
+
+        # Generate a unique slug within (owner_id, category)
+        base_slug = _slugify(title)
+        slug = base_slug
+        suffix = 1
+        while True:
+            existing = self.session.execute(
+                select(Project).where(
+                    Project.owner_id == owner_id,
+                    Project.category == category,
+                    Project.slug == slug,
+                )
+            ).scalar_one_or_none()
+            if not existing:
+                break
+            slug = f"{base_slug}-{suffix}"
+            suffix += 1
+
+        directory_path = f"Projects/{category}/{slug}"
 
         project = Project(
             id=str(uuid.uuid4()),
             owner_id=owner_id,
             title=title,
-            description=description,
-            custom_metadata=custom_metadata or {},
+            slug=slug,
+            category=category,
+            directory_path=directory_path,
+            disk_size_bytes=0,
+            is_archived=False,
         )
 
         self.session.add(project)
@@ -116,36 +148,36 @@ class ProjectService:
         self,
         project_id: str,
         title: Optional[str] = None,
-        description: Optional[str] = None,
-        custom_metadata: Optional[dict] = None,
+        category: Optional[str] = None,
     ) -> ProjectDTO:
-        """Update project.
-        
+        """Update project title and/or category.
+
         Args:
             project_id: Project ID
             title: New title (if provided)
-            description: New description (if provided)
-            custom_metadata: New metadata (if provided)
-            
+            category: New category (if provided)
+
         Returns:
             Updated ProjectDTO
-            
+
         Raises:
             ValueError: If project not found
         """
         project = self.session.execute(
             select(Project).where(Project.id == project_id)
         ).scalar_one_or_none()
-        
+
         if not project:
             raise ValueError(f"Project '{project_id}' not found")
 
         if title is not None:
             project.title = title  # type: ignore[attr-defined]
-        if description is not None:
-            project.description = description  # type: ignore[attr-defined]
-        if custom_metadata is not None:
-            project.custom_metadata = custom_metadata  # type: ignore[attr-defined]
+            project.slug = _slugify(title)  # type: ignore[attr-defined]
+        if category is not None:
+            project.category = category  # type: ignore[attr-defined]
+
+        # Update directory_path to reflect any title/category changes
+        project.directory_path = f"Projects/{project.category}/{project.slug}"  # type: ignore[attr-defined]
 
         self.session.commit()
         self.session.refresh(project)
@@ -190,20 +222,16 @@ class ProjectService:
 
     @staticmethod
     def _to_dto(project: Project) -> ProjectDTO:
-        """Convert Project model to ProjectDTO.
-        
-        Args:
-            project: Project model
-            
-        Returns:
-            ProjectDTO
-        """
+        """Convert Project model to ProjectDTO."""
         return ProjectDTO(
             id=project.id,  # type: ignore[arg-type]
             owner_id=project.owner_id,  # type: ignore[arg-type]
             title=project.title,  # type: ignore[arg-type]
-            description=project.description,  # type: ignore[arg-type]
-            custom_metadata=project.custom_metadata,  # type: ignore[arg-type]
+            slug=project.slug,  # type: ignore[arg-type]
+            category=project.category,  # type: ignore[arg-type]
+            directory_path=project.directory_path,  # type: ignore[arg-type]
+            disk_size_bytes=project.disk_size_bytes or 0,  # type: ignore[arg-type]
+            is_archived=bool(project.is_archived),  # type: ignore[arg-type]
             created_at=project.created_at.isoformat(),
             updated_at=project.updated_at.isoformat(),
         )

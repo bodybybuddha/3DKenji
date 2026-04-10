@@ -22,4 +22,3 @@ class User(BaseModel):
     # Relationships
     projects = relationship("Project", back_populates="owner")
     api_keys = relationship("APIKey", back_populates="owner")
-    uploaded_models = relationship("Model", back_populates="uploaded_by_user")

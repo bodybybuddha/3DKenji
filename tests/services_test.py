@@ -246,12 +246,13 @@ class TestProjectService:
         project = project_service.create_project(
             owner_id=user.id,
             title="Test Project",
-            description="A test project",
         )
 
         assert project.title == "Test Project"
         assert project.owner_id == user.id
         assert project.id is not None
+        assert project.slug == "test-project"
+        assert project.category == "Uncategorized"
 
     def test_create_project_nonexistent_owner(
         self, project_service: ProjectService
@@ -292,17 +293,15 @@ class TestProjectService:
         project = project_service.create_project(
             owner_id=user.id,
             title="Original Title",
-            description="Original Description",
         )
 
         updated_project = project_service.update_project(
             project.id,
             title="Updated Title",
-            description="Updated Description",
         )
 
         assert updated_project.title == "Updated Title"
-        assert updated_project.description == "Updated Description"
+        assert updated_project.slug == "updated-title"
 
     def test_delete_project(self, project_service: ProjectService, user):
         """Test deleting project."""

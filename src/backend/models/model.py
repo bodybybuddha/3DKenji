@@ -20,6 +20,6 @@ class Model(BaseModel):
     custom_metadata = Column(JSON, nullable=False, default=dict)  # JSONB for flexible data
     storage_key = Column(String(255), nullable=False, index=True)  # Storage backend identifier
 
-    # Relationships
-    project = relationship("Project", back_populates="models")
-    uploaded_by_user = relationship("User", back_populates="uploaded_models")
+    # Relationships (table being dropped in migration 004 – remove back_populates)
+    project = relationship("Project")
+    uploaded_by_user = relationship("User")
