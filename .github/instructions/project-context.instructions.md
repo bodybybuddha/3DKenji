@@ -18,3 +18,9 @@ name: "3DKenji Project Context"
 - Keep database model changes and migrations synchronized.
 - Keep filesystem/frontmatter behavior backward compatible unless migration guidance is included.
 - Run relevant tests for changed behavior and report what was validated.
+
+## Branching Strategy
+
+- Use `feature/*` branches for implementation work.
+- Open pull requests from `feature/*` into `dev`.
+- Promote `dev` into `main` through controlled release merges.
