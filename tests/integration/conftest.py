@@ -6,7 +6,7 @@ Ensures test data exists (admin user, etc.) before running tests.
 
 import os
 import pytest
-import psycopg
+import psycopg2
 import bcrypt
 from uuid import uuid4
 
@@ -22,7 +22,7 @@ def ensure_test_admin_user():
     db_password = os.environ.get("DATABASE_PASSWORD", "kenji")
     
     try:
-        conn = psycopg.connect(
+        conn = psycopg2.connect(
             host=db_host,
             port=db_port,
             dbname=db_name,

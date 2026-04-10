@@ -1,3 +1,8 @@
+---
+layout: default
+title: Project Storage Architecture
+---
+
 # Project Storage Architecture
 
 This document describes the current filesystem-backed project model with frontmatter-based metadata and related markdown files.

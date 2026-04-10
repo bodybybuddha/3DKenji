@@ -1,3 +1,8 @@
+---
+layout: default
+title: Testing Architecture
+---
+
 # Testing Architecture Visualization
 
 ## Testing Pyramid

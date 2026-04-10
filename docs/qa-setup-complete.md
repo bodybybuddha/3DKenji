@@ -1,3 +1,8 @@
+---
+layout: default
+title: QA Setup
+---
+
 # QA Setup Complete! 🎉
 
 ## What Was Created

@@ -1,3 +1,8 @@
+---
+layout: default
+title: Getting Started
+---
+
 # Getting Started with 3DKenji
 
 Get up and running with 3DKenji in minutes.

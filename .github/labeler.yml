@@ -1,4 +1,4 @@
-type: docs:
+"type: docs":
   - changed-files:
       - any-glob-to-any-file:
           - "docs/**"
@@ -9,13 +9,13 @@ type: docs:
           - ".github/skills/**"
           - ".github/agents/**"
 
-type: ci-cd:
+"type: ci-cd":
   - changed-files:
       - any-glob-to-any-file:
           - ".github/workflows/**"
           - ".github/labeler.yml"
 
-type: backend:
+"type: backend":
   - changed-files:
       - any-glob-to-any-file:
           - "src/backend/**"

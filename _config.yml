@@ -1,11 +1,26 @@
 title: 3DKenji
 description: Self-hosted knowledge keeper for 3D printing projects
 theme: jekyll-theme-minimal
-logo: /assets/logo.png
 show_downloads: true
 github:
   is_project_page: true
-  repository_url: https://github.com/yourusername/3dkenji
-plugins:
-  - jekyll-seo-tag
-  - jekyll-sitemap
+  repository_url: https://github.com/bodybybuddha/3DKenji
+
+# Exclude non-docs content from the built site
+exclude:
+  - src/
+  - tests/
+  - migrations/
+  - scripts/
+  - specs/
+  - templates/
+  - ExampleProjects/
+  - data/
+  - docker-compose.yml
+  - Dockerfile
+  - Makefile
+  - pyproject.toml
+  - alembic.ini
+  - pytest.ini
+  - uv.lock
+  - "*.py"

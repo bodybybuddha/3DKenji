@@ -1,3 +1,8 @@
+---
+layout: default
+title: QA Strategy
+---
+
 # QA Strategy & Testing Guide
 
 ## Overview

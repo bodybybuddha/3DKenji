@@ -1,3 +1,8 @@
+---
+layout: default
+title: Documentation
+---
+
 # 3DKenji Documentation
 
 Welcome to 3DKenji – a self-hosted knowledge keeper for 3D printing projects.

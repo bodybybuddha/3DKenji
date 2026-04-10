@@ -1,3 +1,8 @@
+---
+layout: default
+title: Adding Validation
+---
+
 # Adding Input Validation to Existing Endpoints
 
 This guide shows how to add proper validation to your FastAPI endpoints to prevent the issues you've been experiencing.

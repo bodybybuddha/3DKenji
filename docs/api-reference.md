@@ -1,3 +1,8 @@
+---
+layout: default
+title: API Reference
+---
+
 # API Reference
 
 Complete documentation of all 3DKenji REST API endpoints.

@@ -1,3 +1,8 @@
+---
+layout: default
+title: Plugin Development
+---
+
 # Plugin Development Guide
 
 3DKenji uses a plugin architecture for extensibility. This guide explains how to build custom plugins.

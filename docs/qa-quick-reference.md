@@ -1,3 +1,8 @@
+---
+layout: default
+title: QA Quick Reference
+---
+
 # Quick Reference - QA Testing
 
 ## Running Tests
