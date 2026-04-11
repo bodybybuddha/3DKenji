@@ -8,6 +8,10 @@ github:
 
 # Exclude non-docs content from the built site
 exclude:
+  - BUGS.md
+  - CHANGELOG.md
+  - PROGRESS.md
+  - TODO.md
   - src/
   - tests/
   - migrations/

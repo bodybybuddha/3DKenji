@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, dev, "feature/**" ]
+    branches: [ main, dev ]
     paths-ignore:
       - "docs/**"
       - "**/*.md"
@@ -21,9 +21,36 @@ on:
       - "_config.yml"
 
 jobs:
+  changes:
+    name: Detect Relevant Changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect code-impacting changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - "src/**"
+              - "tests/**"
+              - "migrations/**"
+              - "pyproject.toml"
+              - "pytest.ini"
+              - "alembic.ini"
+              - "Dockerfile"
+              - "docker-compose.yml"
+
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     
     steps:
       - name: Checkout code
@@ -75,6 +102,8 @@ jobs:
   lint:
     name: Code Quality
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     
     steps:
       - name: Checkout code

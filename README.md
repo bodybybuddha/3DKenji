@@ -4,6 +4,22 @@ Self-hosted knowledge keeper for 3D printing projects. Manage, organize, and tra
 
 **Status**: MVP Complete ✅ | Production Ready | All Core Features Implemented
 
+## Branch Strategy
+
+This repository uses one release path and treats it as the canonical workflow:
+
+- `feature/*` branches merge into `dev`
+- `dev` merges into `main`
+- Direct commits to `dev` or `main` are not part of the workflow
+- `dev` and `main` must remain protected and must not be deleted
+- Feature branches should be deleted automatically after they are merged into `dev`
+
+Automation in this repository supports that policy in three places:
+
+- `.github/pull_request_template.md` reminds authors which source and target branches are allowed
+- `.github/workflows/branch-strategy.yml` fails PRs that do not follow `feature/* -> dev` or `dev -> main`
+- `.github/setup_branch_protection.sh` configures branch protection and automatic deletion of merged feature branches
+
 ## Features
 
 ### 🔐 User Management
@@ -49,7 +65,7 @@ Self-hosted knowledge keeper for 3D printing projects. Manage, organize, and tra
 
 ### Option 1: Docker Compose (Recommended)
 ```bash
-git clone https://github.com/yourusername/3dkenji.git
+git clone https://github.com/bodybybuddha/3DKenji.git
 cd 3dkenji
 docker-compose up
 ```
@@ -59,7 +75,7 @@ The API will be available at `http://localhost:8000` with docs at `http://localh
 ### Option 2: Local Development
 ```bash
 # Clone and enter directory
-git clone https://github.com/yourusername/3dkenji.git
+git clone https://github.com/bodybybuddha/3DKenji.git
 cd 3dkenji
 
 # Install dependencies (creates virtual environment)

@@ -22,6 +22,11 @@ fi
 echo "✅ GitHub CLI authenticated"
 echo ""
 
+echo "🔁 Enabling automatic deletion of merged branches"
+gh api -X PATCH "/repos/$REPO" -F delete_branch_on_merge=true >/dev/null
+echo "   ✅ Merged feature branches will be deleted automatically"
+echo ""
+
 # Function to enable branch protection
 setup_branch_protection() {
     local branch=$1
@@ -36,7 +41,7 @@ setup_branch_protection() {
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["test"]
+    "contexts": ["Run Tests", "Code Quality", "Validate Branch Strategy"]
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {
@@ -52,15 +57,15 @@ setup_branch_protection() {
 }
 EOF
     else
-        # Less strict protection for dev branch
+        # Standard protection for dev branch
         gh api -X PUT "/repos/$REPO/branches/$branch/protection" \
             --input - <<EOF
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["test"]
+    "contexts": ["Run Tests", "Code Quality", "Validate Branch Strategy"]
   },
-  "enforce_admins": false,
+  "enforce_admins": true,
   "required_pull_request_reviews": {
     "dismiss_stale_reviews": true,
     "require_code_owner_reviews": false,
@@ -102,10 +107,11 @@ fi
 echo "🎉 Branch protection setup complete!"
 echo ""
 echo "📋 Summary:"
-echo "  - main: Strict protection (reviews required, linear history, no deletions)"
-echo "  - dev: Standard protection (no deletions, conversation resolution)"
+echo "  - main: Strict protection (dev -> main only, reviews required, no deletions)"
+echo "  - dev: Standard protection (feature/* -> dev only, no direct pushes, no deletions)"
+echo "  - merged feature branches: automatically deleted by GitHub"
 echo ""
 echo "⚙️  Review settings at: https://github.com/$REPO/settings/branches"
 echo ""
 echo "💡 Workflow:"
-echo "  feature-branch → dev (via PR) → main (via PR)"
+echo "  feature/* → dev (via PR) → main (via PR from dev)"
