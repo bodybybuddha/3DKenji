@@ -25,7 +25,7 @@
                 Welcome! Let's set up your 3DKenji instance. Please create an admin account to continue.
             </p>
 
-            <form id="setup-form" hx-post="/setup" hx-swap="innerHTML swap:1s">
+            <form id="setup-form" hx-post="/setup" hx-target="#setup-feedback" hx-swap="innerHTML swap:1s">
                 <!-- Username -->
                 <div class="form-group">
                     <label for="username" class="form-label required">Admin Username</label>
@@ -48,7 +48,8 @@
                     <label for="password" class="form-label required">Password</label>
                     <input type="password" id="password" name="password" class="form-input" required minlength="8"
                         aria-describedby="password-description">
-                    <small id="password-description" style="color: var(--text-tertiary);">At least 8 characters</small>
+                    <small id="password-description" style="color: var(--text-tertiary);">At least 8 characters, with
+                        uppercase, lowercase, and a number</small>
                 </div>
 
                 <!-- Confirm Password -->
@@ -69,11 +70,13 @@
 
                 <!-- Submit -->
                 <div style="display: flex; gap: var(--spacing-md); margin-top: var(--spacing-xl);">
-                    <button type="submit" class="btn btn-primary btn-block">
+                    <button id="setup-submit" type="submit" class="btn btn-primary btn-block">
                         Create Admin Account &rarr;
                     </button>
                 </div>
             </form>
+
+            <div id="setup-feedback" style="margin-top: var(--spacing-md);"></div>
 
             <!-- Help text -->
             <hr style="margin: var(--spacing-lg) 0;">
@@ -85,8 +88,12 @@
 </div>
 
 <script>
+    const setupForm = document.getElementById('setup-form');
+    const setupSubmit = document.getElementById('setup-submit');
+    const defaultSubmitLabel = setupSubmit.textContent;
+
     // Form validation
-    document.getElementById('setup-form').addEventListener('submit', function (e) {
+    setupForm.addEventListener('submit', function (e) {
         const password = document.getElementById('password').value;
         const confirm = document.getElementById('password_confirm').value;
 
@@ -96,23 +103,57 @@
             return false;
         }
 
-        // Basic password strength check
+        // Password strength check (must match backend requirements)
         if (password.length < 8) {
             e.preventDefault();
             HTMXHelper.showToast('Password must be at least 8 characters long', 'warning');
             return false;
         }
+        if (!/[A-Z]/.test(password)) {
+            e.preventDefault();
+            HTMXHelper.showToast('Password must contain at least one uppercase letter', 'warning');
+            return false;
+        }
+        if (!/[a-z]/.test(password)) {
+            e.preventDefault();
+            HTMXHelper.showToast('Password must contain at least one lowercase letter', 'warning');
+            return false;
+        }
+        if (!/\d/.test(password)) {
+            e.preventDefault();
+            HTMXHelper.showToast('Password must contain at least one number', 'warning');
+            return false;
+        }
+
+        setupSubmit.disabled = true;
+        setupSubmit.textContent = 'Creating Admin Account...';
     });
 
     // After HTMX form submission, show success message
     document.addEventListener('htmx:afterSwap', function () {
+        const error = document.querySelector('#setup-feedback .alert-error');
         const success = document.querySelector('.alert-success');
+
+        if (error) {
+            HTMXHelper.showToast('Could not create account. Please fix the highlighted errors.', 'warning');
+            setupSubmit.disabled = false;
+            setupSubmit.textContent = defaultSubmitLabel;
+            return;
+        }
+
         if (success) {
             HTMXHelper.showToast('Admin account created successfully! Redirecting...', 'success', 2000);
             setTimeout(() => {
                 window.location.href = '/login';
             }, 2000);
         }
+    });
+
+    // Recover gracefully for unexpected server/network errors
+    setupForm.addEventListener('htmx:responseError', function () {
+        HTMXHelper.showToast('Setup request failed. Please try again.', 'danger');
+        setupSubmit.disabled = false;
+        setupSubmit.textContent = defaultSubmitLabel;
     });
 </script>
 {% endblock %}
