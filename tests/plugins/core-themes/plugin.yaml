@@ -1,0 +1,17 @@
+id: core-themes
+name: Core Themes
+version: 1.0.0
+author: 3DKenji
+type: cosmetic
+description: Bundled dark and light themes for the admin and user UI.
+themes:
+- name: dark
+  label: Dark
+  css_file: assets/themes/dark.css
+  default: true
+- name: light
+  label: Light
+  css_file: assets/themes/light.css
+  default: false
+settings_defaults:
+  default_theme: dark

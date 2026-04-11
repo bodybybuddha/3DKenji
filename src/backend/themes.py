@@ -1,16 +1,15 @@
-"""Theme management system for pluggable UI theming."""
+"""Theme management system for externally-discovered UI themes."""
 
 import logging
 from typing import Optional
 
-from backend.core.plugin_interfaces import ThemePlugin
-from backend.core.plugins import PluginManager
+from backend.core.plugins import PluginManager, ThemeContribution
 
 logger = logging.getLogger(__name__)
 
 
 class ThemeManager:
-    """Manages theme plugins and theme selection."""
+    """Manages theme contributions and theme selection."""
 
     def __init__(self, plugin_manager: PluginManager):
         """
@@ -20,7 +19,7 @@ class ThemeManager:
             plugin_manager: Plugin manager instance to discover themes.
         """
         self.plugin_manager = plugin_manager
-        self._themes_cache: dict[str, ThemePlugin] = {}
+        self._themes_cache: dict[str, ThemeContribution] = {}
         self._default_theme: Optional[str] = None
 
     async def load_themes(self) -> None:
@@ -42,7 +41,7 @@ class ThemeManager:
         
         logger.info(f"Loaded {len(self._themes_cache)} themes")
 
-    async def get_theme(self, theme_name: Optional[str] = None) -> ThemePlugin:
+    async def get_theme(self, theme_name: Optional[str] = None) -> ThemeContribution:
         """
         Get a theme by name.
 
@@ -50,7 +49,7 @@ class ThemeManager:
             theme_name: Name of theme to load. If None, returns default theme.
 
         Returns:
-            ThemePlugin instance.
+            ThemeContribution instance.
 
         Raises:
             ValueError: If theme not found.

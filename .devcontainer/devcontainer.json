@@ -25,6 +25,6 @@
       }
     }
   },
-  "postCreateCommand": "bash -c 'cd /workspace && if grep -qs \" /workspace/.venv \" /proc/mounts; then echo \"postCreate: skip .venv cleanup (mounted volume)\"; else echo \"postCreate: remove .venv\"; rm -rf .venv; fi && if [ -f .venv/pyvenv.cfg ]; then echo \"postCreate: .venv exists, skip venv create\"; else uv venv --python 3.11; fi && if [ -f .venv/.installed ]; then echo \"postCreate: deps already installed, skip install\"; else uv pip install -e . && touch .venv/.installed; fi && bash scripts/bootstrap-mcp.sh --ensure-env'",
+  "postCreateCommand": "bash -c 'mkdir -p /working/plugins && cd /workspace && if grep -qs \" /workspace/.venv \" /proc/mounts; then echo \"postCreate: skip .venv cleanup (mounted volume)\"; else echo \"postCreate: remove .venv\"; rm -rf .venv; fi && if [ -f .venv/pyvenv.cfg ]; then echo \"postCreate: .venv exists, skip venv create\"; else uv venv --python 3.11; fi && if [ -f .venv/.installed ]; then echo \"postCreate: deps already installed, skip install\"; else uv pip install -e . && touch .venv/.installed; fi && bash scripts/bootstrap-mcp.sh --ensure-env'",
   "postStartCommand": "bash -c 'source /workspace/.venv/bin/activate && cd /workspace && uvicorn src.backend.main:app --host 0.0.0.0 --port 8000 --reload'"
 }

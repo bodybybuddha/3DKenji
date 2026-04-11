@@ -204,6 +204,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/kenji
 
 # Storage
 STORAGE_ROOT=/data/storage
+PLUGINS_ROOT=/data/plugins
 
 # Logging
 LOG_DIR=/data/logs
@@ -218,6 +219,18 @@ Project directories are created at:
 
 ```text
 STORAGE_ROOT/Projects/<category>/<slug>
+
+Plugin packages are discovered at startup from:
+
+```text
+PLUGINS_ROOT/<plugin-id>/plugin.yaml
+```
+
+Each plugin package owns its own `settings.yaml`, while installation enable/disable state is stored centrally under:
+
+```text
+PLUGINS_ROOT/_system/plugin-registry.yaml
+```
 ```
 
 Each project includes:

@@ -23,12 +23,20 @@ from backend.api.frontend import templates
 from sqlalchemy import select, func
 from backend.services.user_service import UserService
 from backend.observability import get_runtime_metrics
+from backend.core.plugins import PluginManager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 LOG_LINE_LIMIT = 200
+
+
+def _get_plugin_manager(request: Request) -> PluginManager:
+    manager = getattr(request.app.state, "plugin_manager", None)
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Plugin manager is not initialized")
+    return manager
 
 
 def _get_memory_usage_percent() -> float:
@@ -415,31 +423,175 @@ async def get_admin_plugins_list(
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get list of all plugins as HTML."""
-    plugins = [
-        {"id": "dark-theme", "name": "Dark Theme", "version": "1.0.0", "status": "enabled"},
-        {"id": "light-theme", "name": "Light Theme", "version": "1.0.0", "status": "enabled"},
-    ]
-    
-    return f"""
-    <div style="display: grid; gap: var(--spacing-lg);">
-        {"".join(f'''
-        <div style="padding: var(--spacing-lg); border: 1px solid var(--border-color); border-radius: 4px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h4 style="margin: 0 0 var(--spacing-xs) 0;">{plugin["name"]}</h4>
-                    <p style="margin: 0; color: var(--text-secondary); font-size: 0.875rem;">Version {plugin["version"]}</p>
-                </div>
-                <div style="display: flex; gap: var(--spacing-sm);">
-                    <span style="background: {'var(--success)' if plugin["status"] == 'enabled' else 'var(--warning)'}; color: white; padding: 4px 12px; border-radius: 4px; font-size: 0.75rem;">
-                        {plugin["status"]}
-                    </span>
-                    <button class="btn btn-sm btn-secondary">Settings</button>
-                </div>
-            </div>
+    if request is None:
+        raise HTTPException(status_code=500, detail="Request context is required")
+
+    plugin_manager = _get_plugin_manager(request)
+    plugins = plugin_manager.list_plugins()
+
+    if not plugins:
+        return """
+        <div style="padding: var(--spacing-lg); text-align: center;">
+            <p style="color: var(--text-secondary); margin: 0;">No plugins discovered under PLUGINS_ROOT.</p>
         </div>
-        ''' for plugin in plugins)}
+        """
+
+    cards = []
+    for plugin in plugins:
+        warnings_html = ""
+        if plugin.warnings:
+            warnings_html = "".join(
+                f'<li style="margin: var(--spacing-xs) 0; color: var(--color-warning);">{html.escape(warning)}</li>'
+                for warning in plugin.warnings
+            )
+            warnings_html = f"<ul style=\"margin: var(--spacing-sm) 0 0 0; padding-left: var(--spacing-lg);\">{warnings_html}</ul>"
+
+        themes_summary = ", ".join(html.escape(theme.theme_name) for theme in plugin.themes) or "none"
+        viewers_summary = ", ".join(html.escape(viewer.viewer_id) for viewer in plugin.viewers) or "none"
+        display_status = plugin.status if plugin.status == "invalid" else ("enabled" if plugin.enabled else "disabled")
+        status_color = "var(--success)" if display_status == "enabled" else "var(--warning)"
+        next_enabled = "false" if plugin.enabled else "true"
+        toggle_label = "Disable" if plugin.enabled else "Enable"
+
+        cards.append(
+            f"""
+            <div style="padding: var(--spacing-lg); border: 1px solid var(--border-color); border-radius: 4px; display: grid; gap: var(--spacing-md);">
+                <div style="display: flex; justify-content: space-between; gap: var(--spacing-md); align-items: flex-start;">
+                    <div>
+                        <h4 style="margin: 0 0 var(--spacing-xs) 0;">{html.escape(plugin.name)}</h4>
+                        <p style="margin: 0; color: var(--text-secondary); font-size: 0.875rem;">{html.escape(plugin.plugin_id)} · Version {html.escape(plugin.version)} · {html.escape(plugin.plugin_type)}</p>
+                    </div>
+                    <div style="display: flex; gap: var(--spacing-sm); align-items: center; flex-wrap: wrap; justify-content: flex-end;">
+                        <span style="background: {status_color}; color: white; padding: 4px 12px; border-radius: 4px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em;">{html.escape(display_status)}</span>
+                        <button class="btn btn-sm btn-secondary" hx-get="/api/v1/admin/plugins/{html.escape(plugin.plugin_id)}/settings-modal" hx-target="body" hx-swap="beforeend">Settings YAML</button>
+                        <button class="btn btn-sm {'btn-danger' if plugin.enabled else 'btn-primary'}" hx-post="/api/v1/admin/plugins/{html.escape(plugin.plugin_id)}/toggle" hx-vals='{{"enabled":"{next_enabled}"}}' hx-target="#plugins-list" hx-swap="innerHTML">{toggle_label}</button>
+                    </div>
+                </div>
+                <p style="margin: 0; color: var(--text-secondary);">{html.escape(plugin.description or 'No description provided.')}</p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--spacing-md); font-size: 0.875rem;">
+                    <div>
+                        <strong>Install Path</strong>
+                        <p style="margin: var(--spacing-xs) 0 0 0; color: var(--text-secondary); word-break: break-all;">{html.escape(str(plugin.plugin_dir))}</p>
+                    </div>
+                    <div>
+                        <strong>Theme Hooks</strong>
+                        <p style="margin: var(--spacing-xs) 0 0 0; color: var(--text-secondary);">{themes_summary}</p>
+                    </div>
+                    <div>
+                        <strong>Viewer Hooks</strong>
+                        <p style="margin: var(--spacing-xs) 0 0 0; color: var(--text-secondary);">{viewers_summary}</p>
+                    </div>
+                    <div>
+                        <strong>Settings File</strong>
+                        <p style="margin: var(--spacing-xs) 0 0 0; color: var(--text-secondary); word-break: break-all;">{html.escape(str(plugin.settings_path))}</p>
+                    </div>
+                </div>
+                <p style="margin: 0; font-size: 0.875rem; color: var(--text-tertiary);">Changes to enable state and YAML are saved immediately, but plugin discovery and activation still occur on application restart in v1.</p>
+                {warnings_html}
+            </div>
+            """
+        )
+
+    return f'<div style="display: grid; gap: var(--spacing-lg);">{"".join(cards)}</div>'
+
+
+@router.get("/plugins/{plugin_id}/settings-modal", response_class=HTMLResponse)
+async def get_plugin_settings_modal(
+    plugin_id: str,
+    request: Request,
+    admin_user: str = Depends(require_admin),
+) -> str:
+    """Open a modal editor for a plugin settings.yaml file."""
+    plugin_manager = _get_plugin_manager(request)
+    try:
+        plugin = plugin_manager.get_plugin(plugin_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Plugin not found") from exc
+
+    settings_text = html.escape(plugin_manager.get_plugin_settings_text(plugin_id))
+    return f"""
+    <div id="plugin-settings-modal" class="modal" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
+      <div class="card" style="max-width: 860px; width: min(95vw, 860px); max-height: 90vh; overflow: auto;">
+        <div style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-md);">
+          <div>
+            <h2 style="margin: 0;">{html.escape(plugin.name)} Settings</h2>
+            <p style="margin: var(--spacing-xs) 0 0 0; color: var(--text-secondary); font-size: 0.875rem;">Editing {html.escape(str(plugin.settings_path))}</p>
+          </div>
+          <button hx-on="click: this.closest('#plugin-settings-modal').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">×</button>
+        </div>
+        <form hx-post="/api/v1/admin/plugins/{html.escape(plugin.plugin_id)}/settings" hx-target="#plugin-settings-feedback" hx-swap="innerHTML">
+          <div style="padding: var(--spacing-lg); display: grid; gap: var(--spacing-md);">
+            <p style="margin: 0; color: var(--text-secondary); font-size: 0.875rem;">This writes the plugin-owned <strong>settings.yaml</strong>. Manifest metadata in <strong>plugin.yaml</strong> remains read-only.</p>
+            <textarea name="settings_text" spellcheck="false" style="width: 100%; min-height: 420px; font-family: monospace; font-size: 0.9rem; line-height: 1.5; padding: var(--spacing-md); border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-primary);">{settings_text}</textarea>
+            <div id="plugin-settings-feedback"></div>
+          </div>
+          <div style="padding: var(--spacing-lg); border-top: 1px solid var(--border-color); display: flex; gap: var(--spacing-md); justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" onclick="this.closest('#plugin-settings-modal').remove();">Close</button>
+            <button type="submit" class="btn btn-primary">Save settings.yaml</button>
+          </div>
+        </form>
+      </div>
     </div>
     """
+
+
+@router.post("/plugins/{plugin_id}/settings", response_class=HTMLResponse)
+async def save_plugin_settings(
+    plugin_id: str,
+    request: Request,
+    settings_text: str = Form(...),
+    admin_user: str = Depends(require_admin),
+) -> HTMLResponse:
+    """Validate and save plugin settings.yaml content."""
+    plugin_manager = _get_plugin_manager(request)
+    try:
+        plugin_manager.save_plugin_settings(plugin_id, settings_text)
+    except KeyError:
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {"request": request, "message": "Plugin not found", "errors": {}},
+            status_code=404,
+        )
+    except Exception as exc:
+        logger.warning("Failed to save plugin settings for %s: %s", plugin_id, exc)
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {
+                "request": request,
+                "message": "Could not save settings.yaml",
+                "errors": {"settings.yaml": [str(exc)]},
+            },
+            status_code=400,
+        )
+
+    return templates.TemplateResponse(
+        "fragments/success-alert.html",
+        {
+            "request": request,
+            "message": "settings.yaml saved. Restart the application to apply plugin configuration changes.",
+        },
+        status_code=200,
+    )
+
+
+@router.post("/plugins/{plugin_id}/toggle", response_class=HTMLResponse)
+async def toggle_plugin_enabled(
+    plugin_id: str,
+    request: Request,
+    enabled: str = Form(...),
+    admin_user: str = Depends(require_admin),
+) -> str:
+    """Persist plugin enable state and refresh the admin list."""
+    plugin_manager = _get_plugin_manager(request)
+    try:
+        plugin_manager.set_plugin_enabled(
+            plugin_id,
+            enabled.lower() in {"true", "1", "yes", "on"},
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Plugin not found") from exc
+
+    return await get_admin_plugins_list(format="html", request=request, admin_user=admin_user)
 
 
 # Logs endpoints

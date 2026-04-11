@@ -16,11 +16,13 @@ services:
       dockerfile: .devcontainer/Dockerfile
     volumes:
       - ..:/workspace:cached
+      - ../working/plugins:/working/plugins
       - ${HOME}/.gitconfig:/home/vscode/.gitconfig
       - ${HOME}/.ssh:/home/vscode/.ssh:ro
       - venv_data:/workspace/.venv
     environment:
       DATABASE_URL: postgresql+psycopg://kenji:kenji@db:5432/kenji
+      PLUGINS_ROOT: /working/plugins
     depends_on:
       - db
     ports:

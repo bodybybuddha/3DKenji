@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 /data/
 !/data/.gitkeep
+/plugins/
+/working/plugins/
 
 # Test databases
 *.db

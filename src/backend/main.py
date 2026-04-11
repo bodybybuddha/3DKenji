@@ -14,7 +14,7 @@ from backend.api.admin import router as admin_router
 from backend.api.frontend import router as frontend_router, create_theme_router
 from backend.storage import initialize_storage
 from backend.logging_config import logger
-from backend.core.plugins import PluginManager
+from backend.core.plugins import PluginManager, get_plugins_root
 from backend.themes import ThemeManager
 from backend.observability import register_sqlalchemy_metrics, record_request_metric
 import backend.storage as storage_module
@@ -52,9 +52,10 @@ def create_app() -> FastAPI:
         
         # Initialize theme manager
         try:
-            plugin_manager = PluginManager()
+            plugin_manager = PluginManager(get_plugins_root())
             # First load all plugins
             await plugin_manager.load_plugins(app, {})
+            app.state.plugin_manager = plugin_manager
             # Then initialize theme manager with loaded plugins
             app.state.theme_manager = ThemeManager(plugin_manager)
             await app.state.theme_manager.load_themes()
