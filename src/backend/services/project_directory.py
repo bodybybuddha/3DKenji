@@ -45,8 +45,18 @@ from backend.services.markdown_service import (
 
 def get_projects_dir() -> Path:
     """Return the Projects root directory from environment at call time."""
-    storage_root = Path(os.environ.get("STORAGE_ROOT", "/data/storage"))
-    return storage_root / "Projects"
+    # Keep default aligned with storage plugin behavior (relative data/storage).
+    storage_root = Path(os.environ.get("STORAGE_ROOT", "data/storage"))
+
+    # Compatibility: prefer the canonical capitalized folder when present,
+    # but gracefully fall back to lowercase layouts from older installs.
+    canonical = storage_root / "Projects"
+    legacy = storage_root / "projects"
+    if canonical.exists():
+        return canonical
+    if legacy.exists():
+        return legacy
+    return canonical
 
 # ---------------------------------------------------------------------------
 # Errors

@@ -10,19 +10,19 @@
             </button>
         </div>
 
-        <form hx-post="/api/v1/models/upload" hx-encoding="multipart/form-data"
-            hx-on="htmx:xhr:progress: updateProgress(event)" hx-on="htmx:afterRequest: handleUploadComplete(event)">
+        <form hx-post="/api/v1/projects/{{ project_id }}/models" hx-encoding="multipart/form-data" hx-swap="none"
+            hx-on:htmx:xhr:progress="updateProgress(event)" hx-on:htmx:after-request="handleUploadComplete(event)"
+            hx-on:htmx:response-error="handleUploadError(event)">
             <div style="padding: var(--spacing-lg); display: grid; gap: var(--spacing-md);">
-                <input type="hidden" name="project_id" value="{{ project_id }}" />
                 <div>
                     <label>Model File</label>
-                    <input type="file" name="model_file" accept=".stl,.3mf,.obj,.gcode" required class="form-control" />
+                    <input type="file" name="file" accept=".stl,.3mf,.obj,.gcode" required class="form-control" />
                     <small style="color: var(--text-secondary);">Supported: .stl, .3mf, .obj, .gcode</small>
                 </div>
 
                 <div>
-                    <label>Model Name</label>
-                    <input type="text" name="model_name" placeholder="e.g., ResNet50" required class="form-control" />
+                    <label>Source URL (optional)</label>
+                    <input type="url" name="source_url" placeholder="https://example.com/model" class="form-control" />
                 </div>
 
                 <div>
@@ -32,20 +32,8 @@
                 </div>
 
                 <div>
-                    <label>Framework</label>
-                    <select name="framework" required class="form-control">
-                        <option value="">Select framework...</option>
-                        <option value="pytorch">PyTorch</option>
-                        <option value="tensorflow">TensorFlow</option>
-                        <option value="onnx">ONNX</option>
-                        <option value="sklearn">Scikit-learn</option>
-                        <option value="other">Other</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label>Version (optional)</label>
-                    <input type="text" name="version" placeholder="1.0.0" class="form-control" />
+                    <label>Tags (optional)</label>
+                    <input type="text" name="tags" placeholder="prototype, test" class="form-control" />
                 </div>
 
                 <!-- Progress Bar -->
@@ -80,15 +68,24 @@
     }
 
     function handleUploadComplete(event) {
-        if (event.detail.xhr.status === 200 || event.detail.xhr.status === 201) {
+        if (event.detail.successful) {
             HTMXHelper.showToast('Model uploaded successfully', 'success');
-            setTimeout(() => {
-                document.getElementById('upload-model-modal').remove();
-                htmx.ajax('GET', window.location.href, 'body');
-            }, 1500);
+            setTimeout(function () {
+                const modal = document.getElementById('upload-model-modal');
+                if (modal) {
+                    modal.remove();
+                }
+                htmx.ajax('GET', '/api/v1/projects/{{ project_id }}/models?format=html', '#models-list');
+                htmx.ajax('GET', '/api/v1/projects/{{ project_id }}/files?format=html', '#project-files-browser');
+            }, 250);
         } else {
-            const error = event.detail.xhr.responseText || 'Upload failed';
+            const error = (event.detail.xhr && event.detail.xhr.responseText) ? event.detail.xhr.responseText : 'Upload failed';
             HTMXHelper.showToast(error, 'error');
         }
+    }
+
+    function handleUploadError(event) {
+        const error = (event.detail.xhr && event.detail.xhr.responseText) ? event.detail.xhr.responseText : 'Upload failed';
+        HTMXHelper.showToast(error, 'error');
     }
 </script>
