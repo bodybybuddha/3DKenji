@@ -4,7 +4,7 @@ import logging
 import os
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request, Depends, Form
-from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -64,7 +64,41 @@ def timeago_filter(dt):
         return f"{years} year{'s' if years != 1 else ''} ago"
 
 
+def dateformat_filter(dt):
+    """Format datetime in a short readable date format."""
+    if dt is None:
+        return "Never"
+
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+        except Exception:
+            return str(dt)
+
+    return dt.strftime("%Y-%m-%d")
+
+
+def filesizeformat_filter(size):
+    """Convert bytes to human-readable file size."""
+    try:
+        size = float(size or 0)
+    except (TypeError, ValueError):
+        return "0 B"
+
+    units = ["B", "KB", "MB", "GB", "TB"]
+    unit_index = 0
+    while size >= 1024 and unit_index < len(units) - 1:
+        size /= 1024
+        unit_index += 1
+
+    if unit_index == 0:
+        return f"{int(size)} {units[unit_index]}"
+    return f"{size:.1f} {units[unit_index]}"
+
+
 templates.env.filters["timeago"] = timeago_filter
+templates.env.filters["dateformat"] = dateformat_filter
+templates.env.filters["filesizeformat"] = filesizeformat_filter
 
 router = APIRouter(tags=["frontend"])
 
@@ -311,6 +345,28 @@ async def project_detail(request: Request, project_id: str, session: Session = D
     )
 
 
+@router.get("/projects/{project_id}/upload-modal", response_class=HTMLResponse)
+async def get_upload_model_modal(
+    request: Request,
+    project_id: str,
+    session: Session = Depends(get_db),
+) -> str:
+    """Get the upload model modal for a project owned by current user."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    project_service = ProjectService(session)
+    project = project_service.get_project_by_id(project_id)
+    if not project or project.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    return templates.TemplateResponse(
+        "projects/upload-modal.html",
+        {"request": request, "project_id": project_id},
+    ).body.decode()
+
+
 @router.get("/keys", response_class=HTMLResponse)
 async def api_keys_page(request: Request, session: Session = Depends(get_db)):
     """API keys management page."""
@@ -517,6 +573,26 @@ async def update_password(
             content=f'<div class="alert alert-danger">Failed to update password: {str(e)}</div>',
             status_code=400
         )
+
+
+@router.delete("/settings/account", response_class=HTMLResponse)
+async def delete_account(
+    request: Request,
+    session: Session = Depends(get_db),
+):
+    """Delete currently authenticated account and clear auth cookie."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    user_service = UserService(session)
+    if not user_service.delete_user(user.id):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    response = Response(status_code=200)
+    response.headers["HX-Redirect"] = "/"
+    response.delete_cookie("access_token")
+    return response
 
 
 @router.get("/admin", response_class=HTMLResponse)

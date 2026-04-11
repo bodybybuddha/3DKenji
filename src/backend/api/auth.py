@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Optional, Callable
 
 from fastapi import APIRouter, HTTPException, status, Depends, Header, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, ValidationError, EmailStr, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -422,8 +422,9 @@ async def validate_login_form(
             # Create JWT token
             token = create_access_token(auth_result.user_id, auth_result.username)
             
-            # Create redirect response with cookie
-            response = RedirectResponse(url="/projects", status_code=303)
+            # HTMX requests should use HX-Redirect; non-HTMX callers expect HTTP redirect semantics.
+            is_htmx = request.headers.get("HX-Request") == "true"
+            response = Response(status_code=204) if is_htmx else RedirectResponse(url="/projects", status_code=303)
             response.set_cookie(
                 key="access_token",
                 value=token.access_token,
@@ -431,8 +432,8 @@ async def validate_login_form(
                 max_age=3600 * 24 * 7,  # 7 days
                 samesite="lax"
             )
-            # HTMX-aware redirect keeps login flow deterministic in XHR mode.
-            response.headers["HX-Redirect"] = "/projects"
+            if is_htmx:
+                response.headers["HX-Redirect"] = "/projects"
             return response
             
         except ValueError as e:
@@ -502,8 +503,9 @@ async def validate_register_form(
         # Create JWT token
         token = create_access_token(user_identity.user_id, user_identity.username)
         
-        # Create redirect response with cookie
-        response = RedirectResponse(url="/projects", status_code=302)
+        # HTMX requests should use HX-Redirect; non-HTMX callers expect HTTP redirect semantics.
+        is_htmx = request.headers.get("HX-Request") == "true"
+        response = Response(status_code=204) if is_htmx else RedirectResponse(url="/projects", status_code=303)
         response.set_cookie(
             key="access_token",
             value=token.access_token,
@@ -511,6 +513,8 @@ async def validate_register_form(
             max_age=3600 * 24 * 7,  # 7 days
             samesite="lax"
         )
+        if is_htmx:
+            response.headers["HX-Redirect"] = "/projects"
         return response
     
     except ValidationError as e:

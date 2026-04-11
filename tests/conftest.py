@@ -16,20 +16,47 @@ from sqlalchemy.pool import StaticPool
 project_root = Path(__file__).resolve().parents[1]
 test_dir = Path(__file__).resolve().parent
 test_db_path = test_dir / "test.db"
+test_storage_root = test_dir / "storage"
 
 # MUST set DATABASE_URL before any app modules load
 os.environ["DATABASE_URL"] = f"sqlite:///{test_db_path}"
+os.environ["STORAGE_ROOT"] = str(test_storage_root)
 
 # Clean up old test database to ensure fresh start
 if test_db_path.exists():
     test_db_path.unlink()
 
+test_storage_root.mkdir(parents=True, exist_ok=True)
+
 # Initialize database tables at module import time
 from backend.db.base import Base
 from backend.db import get_engine
+from backend.services.user_service import UserService
 
 _engine = get_engine()
 Base.metadata.create_all(_engine)
+
+
+def _ensure_sqlite_test_admin() -> None:
+    """Seed a deterministic admin user in the shared SQLite test database."""
+    session = sessionmaker(bind=_engine)()
+    try:
+        service = UserService(session)
+        existing = service.get_user_by_username("admin")
+        if not existing:
+            service.create_user(
+                username="admin",
+                email="admin@local.test",
+                display_name="Admin",
+                password="admin1234",
+                is_admin=True,
+                is_active=True,
+            )
+    finally:
+        session.close()
+
+
+_ensure_sqlite_test_admin()
 
 
 @pytest.fixture(scope="session")
@@ -90,6 +117,7 @@ def _start_api_server():
     # Prepare environment for subprocess with test database
     env = os.environ.copy()
     env["DATABASE_URL"] = f"sqlite:///{test_db_path}"
+    env["STORAGE_ROOT"] = str(test_storage_root)
     env["ENABLE_FILE_LOGGING"] = "false"
     
     cmd = [

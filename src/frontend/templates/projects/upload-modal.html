@@ -13,11 +13,11 @@
         <form hx-post="/api/v1/models/upload" hx-encoding="multipart/form-data"
             hx-on="htmx:xhr:progress: updateProgress(event)" hx-on="htmx:afterRequest: handleUploadComplete(event)">
             <div style="padding: var(--spacing-lg); display: grid; gap: var(--spacing-md);">
+                <input type="hidden" name="project_id" value="{{ project_id }}" />
                 <div>
                     <label>Model File</label>
-                    <input type="file" name="model_file" accept=".pt,.pth,.onnx,.pb,.h5,.pkl" required
-                        class="form-control" />
-                    <small style="color: var(--text-secondary);">Supported: .pt, .pth, .onnx, .pb, .h5, .pkl</small>
+                    <input type="file" name="model_file" accept=".stl,.3mf,.obj,.gcode" required class="form-control" />
+                    <small style="color: var(--text-secondary);">Supported: .stl, .3mf, .obj, .gcode</small>
                 </div>
 
                 <div>
@@ -80,7 +80,7 @@
     }
 
     function handleUploadComplete(event) {
-        if (event.detail.xhr.status === 200) {
+        if (event.detail.xhr.status === 200 || event.detail.xhr.status === 201) {
             HTMXHelper.showToast('Model uploaded successfully', 'success');
             setTimeout(() => {
                 document.getElementById('upload-model-modal').remove();

@@ -1,4 +1,4 @@
-.PHONY: venv install install-edit dev test test-fast test-validation test-e2e test-full test-coverage test-security qa-check compose-up compose-down clean
+.PHONY: venv install install-edit dev test test-fast test-validation test-e2e test-e2e-smoke test-full test-coverage test-security qa-check compose-up compose-down clean
 
 PYTHON=python
 UV=uv
@@ -38,6 +38,10 @@ test-validation: install
 test-e2e: install
 	@echo "Running E2E tests..."
 	. .venv/bin/activate && bash scripts/run-qa-tests.sh e2e
+
+test-e2e-smoke: install
+	@echo "Running E2E smoke tests..."
+	. .venv/bin/activate && bash scripts/run-qa-tests.sh e2e-smoke
 
 test-full: install
 	@echo "Running full test suite..."

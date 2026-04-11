@@ -11,7 +11,7 @@
     <tbody>
         {% for key in keys %}
         {% include "fragments/api-key-item.html" %}
-        {% empty %}
+        {% else %}
         <tr>
             <td colspan="5" style="padding: var(--spacing-xl); text-align: center; color: var(--text-secondary);">
                 🔑 No API keys yet. Create one to access the API.

@@ -129,10 +129,37 @@ async def create_project(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="name field is required"
                 )
-            title = name
-            desc = description
+            try:
+                validated = ValidatedProjectRequest(
+                    name=name,
+                    description=description,
+                    visibility=visibility or "private",
+                )
+                title = sanitize_text_input(validated.name, "Project title")
+                desc = (
+                    sanitize_text_input(validated.description, "Project description")
+                    if validated.description
+                    else None
+                )
+            except ValidationError as e:
+                errors = format_validation_errors(e)
+                return templates.TemplateResponse(
+                    "fragments/error-alert.html",
+                    {
+                        "request": req,
+                        "message": "Validation failed",
+                        "errors": errors,
+                    },
+                    status_code=400,
+                )
+            except ValueError as e:
+                return HTMLResponse(
+                    content=f'<div class="alert alert-danger">Error: {str(e)}</div>',
+                    status_code=400,
+                )
+
             metadata = {
-                "visibility": visibility,
+                "visibility": validated.visibility,
                 "tags": tags.split(",") if tags else []
             }
         

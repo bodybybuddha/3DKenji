@@ -1,14 +1,16 @@
 """Base page object for common functionality."""
 
+import os
+
 from playwright.sync_api import Page, expect
 
 
 class BasePage:
     """Base page object with common methods."""
 
-    def __init__(self, page: Page, base_url: str = "http://localhost:8000"):
+    def __init__(self, page: Page, base_url: str | None = None):
         self.page = page
-        self.base_url = base_url
+        self.base_url = base_url or os.getenv("E2E_BASE_URL") or os.getenv("API_BASE_URL", "http://localhost:8000")
 
     def navigate(self, path: str = "/"):
         """Navigate to a path."""
@@ -35,7 +37,7 @@ class BasePage:
 
     def get_error_message(self) -> str:
         """Get error message if present."""
-        error = self.page.locator(".error-message, .alert-error").first
+        error = self.page.locator(".error-message, .alert-error, .alert-danger").first
         if error.is_visible():
             return error.inner_text()
         return ""

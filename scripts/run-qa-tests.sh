@@ -11,6 +11,7 @@
 #   standard  - Contract + integration tests ~2min
 #   validation - All validation tests ~5min
 #   e2e       - End-to-end browser tests ~10min
+#   e2e-smoke - E2E smoke tests only (includes admin smoke) ~2min
 #   full      - All tests including E2E ~15min
 #   coverage  - Full tests with coverage report
 #
@@ -97,6 +98,20 @@ case "$TEST_LEVEL" in
         pytest tests/e2e/ -v --headed --screenshot on --video retain-on-failure
         print_success "E2E tests completed"
         ;;
+
+    e2e-smoke)
+        print_header "Running E2E Smoke Tests"
+
+        # Default to deterministic sqlite test admin unless explicitly overridden.
+        export E2E_ADMIN_USERNAME="${E2E_ADMIN_USERNAME:-admin}"
+        export E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-admin1234}"
+
+        pytest tests/e2e/test_smoke_public_pages.py \
+               tests/e2e/test_smoke_user_pages.py \
+               tests/e2e/test_smoke_admin_pages.py \
+               -v --tb=short
+        print_success "E2E smoke tests completed"
+        ;;
     
     full)
         print_header "Running Full Test Suite"
@@ -158,6 +173,7 @@ case "$TEST_LEVEL" in
         echo "  standard   - Contract + integration tests ~2min"
         echo "  validation - All validation tests ~5min"
         echo "  e2e        - End-to-end browser tests ~10min"
+        echo "  e2e-smoke  - E2E smoke tests only ~2min"
         echo "  full       - All tests including E2E ~15min"
         echo "  coverage   - Full tests with coverage report"
         echo "  smoke      - Critical path tests only"
