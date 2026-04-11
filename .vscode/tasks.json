@@ -1,0 +1,16 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Bootstrap MCP prerequisites",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "scripts/bootstrap-mcp.sh",
+                "--ensure-env"
+            ],
+            "group": "build",
+            "problemMatcher": []
+        }
+    ]
+}

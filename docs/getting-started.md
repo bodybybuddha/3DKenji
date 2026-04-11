@@ -52,7 +52,14 @@ For VS Code users:
    - Creates Python virtual environment
    - Installs all dependencies
    - Starts PostgreSQL database
+  - Bootstraps MCP tooling (GitHub, Postgres, Playwright, Chrome DevTools)
    - Sets up debugging
+
+4. If you need to rerun MCP setup manually:
+
+```bash
+make mcp-bootstrap
+```
 
 ## Your First Project
 
@@ -240,6 +247,10 @@ Tests verify:
 **Q: "Connection refused" error**
 - Ensure PostgreSQL is running: `docker-compose ps`
 - Check `DATABASE_URL` is correct
+
+**Q: Postgres MCP does not start in VS Code**
+- Ensure `.env` includes `MCP_POSTGRES_URL=postgresql://kenji:kenji@db:5432/kenji`
+- Use a plain `postgres://` or `postgresql://` URL (not `postgresql+psycopg://`)
 
 **Q: "Port 8000 already in use"**
 ```bash

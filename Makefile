@@ -1,4 +1,4 @@
-.PHONY: venv install install-edit dev test test-fast test-validation test-e2e test-e2e-smoke test-full test-coverage test-security qa-check compose-up compose-down clean
+.PHONY: venv install install-edit dev test test-fast test-validation test-e2e test-e2e-smoke test-full test-coverage test-security qa-check compose-up compose-down mcp-bootstrap clean
 
 PYTHON=python
 UV=uv
@@ -66,6 +66,10 @@ compose-up:
 compose-down:
 	@echo "Stopping docker-compose services..."
 	docker-compose down
+
+mcp-bootstrap:
+	@echo "Bootstrapping MCP dependencies (env, package cache, browsers)..."
+	bash scripts/bootstrap-mcp.sh --ensure-env
 
 clean:
 	@echo "Removing .venv (if present)..."
