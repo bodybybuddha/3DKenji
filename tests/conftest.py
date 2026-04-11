@@ -16,13 +16,17 @@ from sqlalchemy.pool import StaticPool
 project_root = Path(__file__).resolve().parents[1]
 test_dir = Path(__file__).resolve().parent
 test_db_path = test_dir / "test.db"
+test_storage_root = test_dir / "storage"
 
 # MUST set DATABASE_URL before any app modules load
 os.environ["DATABASE_URL"] = f"sqlite:///{test_db_path}"
+os.environ["STORAGE_ROOT"] = str(test_storage_root)
 
 # Clean up old test database to ensure fresh start
 if test_db_path.exists():
     test_db_path.unlink()
+
+test_storage_root.mkdir(parents=True, exist_ok=True)
 
 # Initialize database tables at module import time
 from backend.db.base import Base
@@ -113,6 +117,7 @@ def _start_api_server():
     # Prepare environment for subprocess with test database
     env = os.environ.copy()
     env["DATABASE_URL"] = f"sqlite:///{test_db_path}"
+    env["STORAGE_ROOT"] = str(test_storage_root)
     env["ENABLE_FILE_LOGGING"] = "false"
     
     cmd = [

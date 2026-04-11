@@ -81,6 +81,12 @@ def _slugify(title: str) -> str:
 @pytest.fixture(scope="module")
 def pg_engine():
     engine = create_engine(TEST_PG_URL, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect():
+            pass
+    except Exception as exc:
+        engine.dispose()
+        pytest.skip(f"Postgres not available for migration tests at {TEST_PG_URL}: {exc}")
     yield engine
     engine.dispose()
 
