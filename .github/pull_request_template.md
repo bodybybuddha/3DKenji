@@ -1,6 +1,12 @@
 ## Description
 <!-- Provide a brief description of the changes in this PR -->
 
+## Branch Strategy
+<!-- Confirm this PR follows the required branch flow -->
+
+- [ ] This PR targets `dev` from a `feature/*` branch
+- [ ] This PR targets `main` from `dev` for a release/promotion
+
 ## Type of Change
 <!-- Mark the relevant option with an 'x' -->
 
@@ -35,6 +41,7 @@ Closes #
 ## Checklist
 <!-- Mark completed items with an 'x' -->
 
+- [ ] I am not merging directly into `dev` or `main` from an unsupported branch
 - [ ] My code follows the project's style guidelines
 - [ ] I have performed a self-review of my code
 - [ ] I have commented my code, particularly in hard-to-understand areas

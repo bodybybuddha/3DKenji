@@ -16,10 +16,17 @@ This will configure:
 - ✅ Required status checks
 - ✅ Pull request reviews
 - ✅ Prevent branch deletion
+- ✅ Automatic deletion of merged feature branches
 
 ## 📋 What Was Configured
 
 ### 1. Branch Protection Rules
+
+The canonical branch policy is documented in `README.md` and enforced as:
+
+- `feature/* -> dev`
+- `dev -> main`
+- no direct pushes to `dev` or `main`
 
 #### `main` Branch (Production)
 - ✅ Requires pull request before merging
@@ -38,11 +45,13 @@ This will configure:
 - ✅ Requires conversation resolution
 - ✅ Prevents force pushes
 - ✅ Prevents deletion
+- ✅ Enforces rules for administrators
 - ⚠️ No review requirement (fast iteration)
 
 ### 2. GitHub Actions CI/CD
 
 **File**: `.github/workflows/ci.yml`
+**Branch policy check**: `.github/workflows/branch-strategy.yml`
 
 **Triggers**:
 - Push to `main`, `dev`, or `feature/**` branches
@@ -58,6 +67,10 @@ This will configure:
 2. **Lint Job** (optional):
    - Runs ruff for code quality
    - Checks formatting
+
+3. **Branch Strategy Job**:
+   - Rejects PRs to `dev` unless the source branch matches `feature/*`
+   - Rejects PRs to `main` unless the source branch is `dev`
 
 ### 3. Code Owners
 
@@ -124,9 +137,12 @@ gh pr create --base dev --head feature/my-awesome-feature
 
 #### 3. Merge to `dev` (After Approval & CI Pass)
 - CI tests must pass ✅
+- Branch strategy check must pass ✅
 - Code review approved (if required) ✅
 - All conversations resolved ✅
 - Click "Merge pull request" on GitHub
+
+After merge, GitHub should automatically delete the merged `feature/*` branch.
 
 #### 4. Create Release PR to `main`
 ```bash
@@ -136,6 +152,7 @@ gh pr create --base main --head dev --title "Release v1.1.0"
 
 #### 5. Merge to `main` (Production Release)
 - CI tests must pass ✅
+- Branch strategy check must pass ✅
 - **Requires 1 approval** (important!) ✅
 - All conversations resolved ✅
 - Click "Merge pull request" on GitHub
@@ -206,11 +223,13 @@ View at: https://github.com/bodybybuddha/3DKenji
 ## 🔒 Security Best Practices
 
 1. **Never commit directly to `main`** - Always use PRs
-2. **Keep `dev` stable** - Test thoroughly before merging
-3. **Review all PRs** - Even your own (self-review)
-4. **Run tests locally** - Before pushing: `make test`
-5. **Keep dependencies updated** - Review Dependabot alerts
-6. **Rotate secrets regularly** - Update GitHub secrets as needed
+2. **Never commit directly to `dev`** - Always merge feature branches through PRs
+3. **Keep `dev` stable** - Test thoroughly before merging
+4. **Delete merged feature branches** - Let GitHub remove them automatically after merge
+5. **Run tests locally** - Before pushing: `make test`
+6. **Keep dependencies updated** - Review Dependabot alerts
+7. **Rotate secrets regularly** - Update GitHub secrets as needed
+8. **Review all PRs** - Even your own (self-review)
 
 ## 🆘 Troubleshooting
 
