@@ -60,6 +60,20 @@ git commit --no-verify -m "message"
 
 ## Existing Scripts
 
+### bootstrap-mcp.sh
+Bootstraps VS Code MCP prerequisites for local/devcontainer development.
+
+**Usage:**
+```bash
+bash scripts/bootstrap-mcp.sh --ensure-env
+```
+
+What it does:
+1. Creates `.env` from `.env.example` if missing
+2. Validates `MCP_POSTGRES_URL`
+3. Warms npm package cache for configured MCP servers
+4. Installs Playwright Chromium browser for frontend/browser testing
+
 ### check-task-prerequisites.sh
 Checks prerequisites before running tasks.
 

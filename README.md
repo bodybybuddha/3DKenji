@@ -230,7 +230,8 @@ For complete details on filesystem layout, frontmatter schemas, and markdown for
 ### Docker Environment
 Set variables in `.env` file:
 ```
-DATABASE_URL=postgresql://kenji:kenji@postgres:5432/kenji
+DATABASE_URL=postgresql+psycopg://kenji:kenji@db:5432/kenji
+MCP_POSTGRES_URL=postgresql://kenji:kenji@db:5432/kenji
 STORAGE_ROOT=/data/storage
 LOG_DIR=/data/logs
 SECRET_KEY=dev-secret-key
@@ -240,15 +241,27 @@ SECRET_KEY=dev-secret-key
 
 This workspace includes MCP server configuration in `.vscode/mcp.json` and auto-start is enabled in `.vscode/settings.json` via `chat.mcp.autostart`.
 
-For the PostgreSQL MCP server, store the connection string in the workspace `.env` file using:
+The devcontainer post-create step runs `scripts/bootstrap-mcp.sh --ensure-env` to preinstall browser tooling and warm MCP package caches.
+
+To run this manually at any time:
 
 ```bash
-DATABASE_URL=postgresql://kenji:kenji@db:5432/kenji
+make mcp-bootstrap
+```
+
+For the PostgreSQL MCP server, store the project database connection string in the workspace `.env` file using:
+
+```bash
+MCP_POSTGRES_URL=postgresql://kenji:kenji@db:5432/kenji
 ```
 
 Notes:
 - `.env` is gitignored, so secrets are not committed.
-- MCP Postgres reads from `DATABASE_URL` through `envFile` in `.vscode/mcp.json`.
+- Backend app and MCP use separate URL vars on purpose:
+  - `DATABASE_URL` can stay SQLAlchemy-specific (`postgresql+psycopg://...`).
+  - `MCP_POSTGRES_URL` must be plain `postgres://` or `postgresql://`.
+- MCP Postgres reads from `MCP_POSTGRES_URL` through `envFile` in `.vscode/mcp.json`.
+- Playwright MCP and Chrome DevTools MCP package versions are pinned in `.vscode/mcp.json` for reproducible startup.
 - After changing `.env`, restart the Postgres MCP server from `MCP: List Servers`.
 
 ### VS Code Copilot Skills

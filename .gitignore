@@ -36,6 +36,7 @@ ENV/
 # Local env files
 .env
 .env.*
+!.env.example
 
 # Python/tool caches and build artifacts
 .python-version

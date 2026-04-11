@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### ⚙️ Changed - Developer MCP Bootstrap
+
+- VS Code MCP auto-start now provisions GitHub, Postgres, Playwright, and Chrome DevTools servers from workspace config.
+- Postgres MCP now reads from `MCP_POSTGRES_URL` (plain `postgres://` or `postgresql://`) to avoid SQLAlchemy driver URL incompatibilities.
+- Added `scripts/bootstrap-mcp.sh` and `make mcp-bootstrap` for one-command MCP cache warming and Playwright Chromium setup.
+- Devcontainer post-create now runs MCP bootstrap automatically so frontend browser testing tools are ready after container creation.
+- Added `.env.example` and a VS Code task (`Bootstrap MCP prerequisites`) to simplify setup for new contributors.
+
 ### ✨ Added - Filesystem Architecture & Archive Feature
 
 #### Filesystem-Backed Projects
