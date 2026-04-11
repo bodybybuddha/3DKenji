@@ -91,25 +91,36 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        if (!window.htmx || typeof htmx.ajax !== 'function') {
-            return;
-        }
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+    }
 
-        // Load dashboard stats
-        htmx.ajax('GET', '/api/v1/admin/stats?format=json', {
-            handler: function (response) {
-                try {
-                    const stats = JSON.parse(response);
-                    document.getElementById('user-count').textContent = stats.user_count || 0;
-                    document.getElementById('project-count').textContent = stats.project_count || 0;
-                    document.getElementById('model-count').textContent = stats.model_count || 0;
-                    document.getElementById('storage-used').textContent = stats.storage_formatted || '0 MB';
-                } catch (e) {
-                    console.error('Failed to parse stats:', e);
+    document.addEventListener('DOMContentLoaded', function () {
+        // Load dashboard stats via fetch for better error handling
+        fetch('/api/v1/admin/stats')
+            .then(response => response.json())
+            .then(data => {
+                if (data.total_users !== undefined) {
+                    document.getElementById('user-count').textContent = data.total_users;
                 }
-            }
-        });
+                if (data.total_projects !== undefined) {
+                    document.getElementById('project-count').textContent = data.total_projects;
+                }
+                if (data.total_models !== undefined) {
+                    document.getElementById('model-count').textContent = data.total_models;
+                }
+                if (data.total_storage_bytes !== undefined) {
+                    document.getElementById('storage-used').textContent = formatBytes(data.total_storage_bytes);
+                }
+            })
+            .catch(error => {
+                console.error('Failed to load stats:', error);
+                // Keep the dashes if load fails
+            });
     });
 </script>
 {% endblock %}

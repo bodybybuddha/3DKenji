@@ -86,12 +86,21 @@
 
     userForm.addEventListener('htmx:afterRequest', function (event) {
         if (event.detail.xhr.status === 200 || event.detail.xhr.status === 201) {
-            HTMXHelper.showToast('User ' + (userIdValue ? 'updated' : 'created') + ' successfully', 'success');
+            // Show success message
+            if (window.HTMXHelper && typeof HTMXHelper.showToast === 'function') {
+                HTMXHelper.showToast('User ' + (userIdValue ? 'updated' : 'created') + ' successfully', 'success');
+            }
+
+            // Close modal and reload users table
             setTimeout(() => {
                 const modal = document.getElementById('user-form-modal');
                 if (modal) modal.remove();
-                // Reload users table
-                htmx.ajax('GET', '/api/v1/admin/users?format=html', '#users-table');
+
+                // Reload users table using proper HTMX request
+                const usersTable = document.getElementById('users-table');
+                if (usersTable) {
+                    htmx.ajax('GET', '/api/v1/admin/users?format=html', { target: usersTable, swap: 'innerHTML' });
+                }
             }, 1500);
         }
     });

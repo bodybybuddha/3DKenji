@@ -74,6 +74,14 @@ What it does:
 3. Warms npm package cache for configured MCP servers
 4. Installs Playwright Chromium browser for frontend/browser testing
 
+### run-mcp-postgres.sh
+Launches the VS Code Postgres MCP server reliably in devcontainer sessions.
+
+What it does:
+1. Loads `.env` from the workspace root
+2. Validates `MCP_POSTGRES_URL` format
+3. Starts `@modelcontextprotocol/server-postgres` with the resolved URL
+
 ### check-task-prerequisites.sh
 Checks prerequisites before running tasks.
 

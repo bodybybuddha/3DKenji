@@ -260,7 +260,7 @@ Notes:
 - Backend app and MCP use separate URL vars on purpose:
   - `DATABASE_URL` can stay SQLAlchemy-specific (`postgresql+psycopg://...`).
   - `MCP_POSTGRES_URL` must be plain `postgres://` or `postgresql://`.
-- MCP Postgres reads from `MCP_POSTGRES_URL` through `envFile` in `.vscode/mcp.json`.
+- MCP Postgres is launched through `scripts/run-mcp-postgres.sh`, which loads `.env` and passes `MCP_POSTGRES_URL` to `@modelcontextprotocol/server-postgres`.
 - Playwright MCP and Chrome DevTools MCP package versions are pinned in `.vscode/mcp.json` for reproducible startup.
 - After changing `.env`, restart the Postgres MCP server from `MCP: List Servers`.
 

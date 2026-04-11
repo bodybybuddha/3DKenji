@@ -6,13 +6,10 @@
         },
         "postgres": {
             "type": "stdio",
-            "command": "/usr/bin/npx",
+            "command": "/bin/bash",
             "args": [
-                "-y",
-                "@modelcontextprotocol/server-postgres@0.6.2",
-                "${env:MCP_POSTGRES_URL}"
-            ],
-            "envFile": "${workspaceFolder}/.env"
+                "${workspaceFolder}/scripts/run-mcp-postgres.sh"
+            ]
         },
         "playwright": {
             "type": "stdio",
