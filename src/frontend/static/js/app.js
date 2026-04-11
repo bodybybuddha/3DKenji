@@ -98,6 +98,17 @@
      * HTMX Configuration and Helpers
      */
     const HTMXHelper = {
+        getToastContainer() {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'toast-container';
+                document.body.appendChild(container);
+            }
+            return container;
+        },
+
         init() {
             // Configure HTMX defaults
             if (window.htmx) {
@@ -119,6 +130,7 @@
          * Show a toast notification
          */
         showToast(message, type = 'info', duration = 3000) {
+                        const container = this.getToastContainer();
             const toast = document.createElement('div');
             toast.className = `alert alert-${type} toast`;
             toast.innerHTML = `
@@ -128,7 +140,7 @@
         <button class="alert-close" role="button" aria-label="Close">&times;</button>
       `;
 
-            document.body.appendChild(toast);
+                        container.appendChild(toast);
 
             // Handle close button
             toast.querySelector('.alert-close').addEventListener('click', () => {
