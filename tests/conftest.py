@@ -17,7 +17,7 @@ project_root = Path(__file__).resolve().parents[1]
 test_dir = Path(__file__).resolve().parent
 test_db_path = test_dir / "test.db"
 test_storage_root = test_dir / "storage"
-test_plugins_root = test_dir / "plugins"
+test_plugins_root = Path("/tmp/3dkenji-test-plugins")
 
 # MUST set DATABASE_URL before any app modules load
 os.environ["DATABASE_URL"] = f"sqlite:///{test_db_path}"
