@@ -17,12 +17,19 @@ from backend.api.auth import get_current_user, require_scopes
 from backend.db import get_db
 from backend.core.validation import CreateProjectRequest as ValidatedProjectRequest, format_validation_errors, sanitize_text_input
 from backend.services.project_directory import PathNotFoundError, PathTraversalError, UnsafeFilenameError, service_for_project
+from backend.services.markdown_service import render_markdown
 from backend.services.project_service import ProjectDTO, ProjectService
 from backend.api.frontend import templates
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 MAX_PROJECT_FILE_UPLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
+MAX_TEXT_EDITOR_FILE_SIZE = 2 * 1024 * 1024  # 2 MB
+EDITABLE_EXTENSIONS = {
+    "txt", "md", "markdown", "rtf", "log", "json", "yaml", "yml", "csv",
+    "ini", "cfg", "conf", "toml", "xml", "html", "css", "js", "ts", "py",
+    "gcode", "sql", "sh",
+}
 
 
 # Request Models
@@ -66,6 +73,19 @@ class ProjectListResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+
+class UpdateProjectFileContentRequest(BaseModel):
+    """Request payload for text file editor saves."""
+
+    path: str = Field(..., min_length=1)
+    content: str = Field(default="")
+
+
+class MarkdownPreviewRequest(BaseModel):
+    """Request payload for markdown preview rendering."""
+
+    content: str = Field(default="")
 
 
 def _format_size(size_bytes: int) -> str:
@@ -139,6 +159,10 @@ def _guess_raw_media_type(path: str) -> str:
     return guessed or "application/octet-stream"
 
 
+def _is_editable_extension(extension: str) -> bool:
+    return extension.lower().lstrip(".") in EDITABLE_EXTENSIONS
+
+
 @router.get("/{project_id}/files")
 async def list_project_files(
     project_id: str,
@@ -186,6 +210,7 @@ async def list_project_files(
                 "size_bytes": entry.size_bytes,
                 "size": _format_size(entry.size_bytes),
                 "extension": entry.extension,
+                "is_editable": (not entry.is_dir and _is_editable_extension(entry.extension)),
                 "viewer": viewer,
             }
         )
@@ -269,6 +294,97 @@ async def list_project_files(
         "parent_path": parent_path,
         "items": rows,
     }
+
+
+@router.get("/{project_id}/files/content")
+async def get_project_file_content(
+    project_id: str,
+    path: str,
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Return editable text file content for the project file editor."""
+    project = _resolve_project_for_owner(project_id, current_user_id, session)
+    directory_service = service_for_project(project.category, project.slug)
+
+    extension = os.path.splitext(path)[1].lstrip(".").lower()
+    if not _is_editable_extension(extension):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File type is not editable")
+
+    try:
+        content = directory_service.read_file(path)
+    except PathTraversalError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found") from exc
+    except IsADirectoryError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path is a directory") from exc
+
+    if len(content) > MAX_TEXT_EDITOR_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds editor size limit of {MAX_TEXT_EDITOR_FILE_SIZE} bytes",
+        )
+
+    return {
+        "project_id": project_id,
+        "path": path,
+        "extension": extension,
+        "is_markdown": extension in {"md", "markdown"},
+        "size_bytes": len(content),
+        "content": content.decode("utf-8", errors="replace"),
+    }
+
+
+@router.put("/{project_id}/files/content")
+async def update_project_file_content(
+    project_id: str,
+    payload: UpdateProjectFileContentRequest,
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Persist text file editor changes to the project filesystem."""
+    project = _resolve_project_for_owner(project_id, current_user_id, session)
+    directory_service = service_for_project(project.category, project.slug)
+
+    extension = os.path.splitext(payload.path)[1].lstrip(".").lower()
+    if not _is_editable_extension(extension):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File type is not editable")
+
+    content_bytes = payload.content.encode("utf-8")
+    if len(content_bytes) > MAX_TEXT_EDITOR_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds editor size limit of {MAX_TEXT_EDITOR_FILE_SIZE} bytes",
+        )
+
+    try:
+        directory_service.write_file(payload.path, content_bytes, create_parents=False)
+    except UnsafeFilenameError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathTraversalError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found") from exc
+
+    return {
+        "project_id": project_id,
+        "path": payload.path,
+        "size_bytes": len(content_bytes),
+        "size": _format_size(len(content_bytes)),
+    }
+
+
+@router.post("/{project_id}/files/markdown-preview")
+async def preview_project_markdown_content(
+    project_id: str,
+    payload: MarkdownPreviewRequest,
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Render markdown editor content to safe HTML for live previews."""
+    _resolve_project_for_owner(project_id, current_user_id, session)
+    return {"html": render_markdown(payload.content or "")}
 
 
 @router.get("/{project_id}/files/summary")
@@ -433,14 +549,12 @@ async def preview_project_file(
                 f"Plugin {viewer['plugin_id']} matched extension '.{extension}'. "
                 "Rendering through plugin-provided viewer script."
             )
+        viewer_tooltip = html.escape(f"{viewer_header} {viewer_details}")
 
-        if preview_mode == "text":
-            body_html = (
-                f'<pre style="margin: 0; max-height: 420px; overflow: auto; padding: var(--spacing-md); background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px;">{html.escape(preview_text or "")}</pre>'
-            )
-        elif viewer and viewer.get("has_js"):
+        if viewer and viewer.get("has_js"):
             plugin_context = {
                 "containerId": "project-plugin-viewer",
+                "projectId": project_id,
                 "filePath": path,
                 "extension": extension,
                 "fileUrl": f"/api/v1/projects/{project_id}/files/raw?path={quote_plus(path)}",
@@ -466,6 +580,10 @@ async def preview_project_file(
                 }})();
             </script>
             """
+        elif preview_mode == "text":
+            body_html = (
+                f'<pre style="margin: 0; max-height: 420px; overflow: auto; padding: var(--spacing-md); background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px;">{html.escape(preview_text or "")}</pre>'
+            )
         else:
             body_html = '<p style="margin: 0; color: var(--text-secondary);">Binary preview is not rendered in v1. Use a viewer plugin for this file type.</p>'
 
@@ -476,9 +594,9 @@ async def preview_project_file(
                     <h4 style="margin: 0;">{html.escape(os.path.basename(path))}</h4>
                     <p style="margin: var(--spacing-xs) 0 0 0; color: var(--text-secondary); font-size: 0.875rem;">{html.escape(path)} · {_format_size(len(content))}</p>
                 </div>
-                <div style="padding: var(--spacing-md); border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary);">
+                <div style="display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-md); border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary);">
                     <p style="margin: 0; font-weight: 600;">{html.escape(viewer_header)}</p>
-                    <p style="margin: var(--spacing-xs) 0 0 0; color: var(--text-secondary); font-size: 0.875rem;">{html.escape(viewer_details)}</p>
+                    <span title="{viewer_tooltip}" style="display: inline-flex; width: 1.25rem; height: 1.25rem; align-items: center; justify-content: center; border: 1px solid var(--border-color); border-radius: 999px; cursor: help; color: var(--text-secondary); font-size: 0.8rem;">i</span>
                 </div>
                 {body_html}
             </div>

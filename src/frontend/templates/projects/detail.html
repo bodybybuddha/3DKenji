@@ -482,6 +482,11 @@
             window.location.href = `/api/v1/projects/${projectId}/files/download?${params.toString()}`;
         }
 
+        function openEditor(relativePath) {
+            const params = new URLSearchParams({ path: relativePath });
+            window.open(`/projects/${projectId}/files/editor?${params.toString()}`, '_blank', 'noopener');
+        }
+
         function openFolder(relativePath) {
             loadDirectory(relativePath);
         }
@@ -499,6 +504,7 @@
                     title: 'Name',
                     field: 'name',
                     minWidth: 260,
+                    responsive: 0,
                     formatter: function (cell) {
                         const data = cell.getRow().getData();
                         let icon = '📄';
@@ -508,26 +514,21 @@
                             const ext = (data.extension || '').toLowerCase();
                             if (['stl', '3mf', 'obj', 'gcode'].includes(ext)) icon = '🗿';
                             else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) icon = '🖼️';
-                            else if (['txt', 'md', 'pdf'].includes(ext)) icon = '📄';
+                            else if (['md', 'markdown'].includes(ext)) icon = '📝';
+                            else if (['txt', 'log', 'rtf'].includes(ext)) icon = '📄';
+                            else if (['json', 'yaml', 'yml', 'toml', 'xml', 'ini', 'cfg', 'conf'].includes(ext)) icon = '🧩';
+                            else if (['js', 'ts', 'py', 'sh', 'sql'].includes(ext)) icon = '💻';
+                            else if (['pdf'].includes(ext)) icon = '📕';
                             else if (['zip', 'tar', 'gz', 'rar'].includes(ext)) icon = '📦';
                         }
                         return `${icon} <strong>${data.name}</strong>`;
                     },
                 },
                 {
-                    title: 'Type',
-                    field: 'extension',
-                    width: 110,
-                    hozAlign: 'left',
-                    formatter: function (cell) {
-                        const value = cell.getValue();
-                        return value ? value.toUpperCase() : '-';
-                    },
-                },
-                {
                     title: 'Size',
                     field: 'size',
                     width: 120,
+                    responsive: 2,
                     hozAlign: 'left',
                     formatter: function (cell) {
                         const data = cell.getRow().getData();
@@ -538,7 +539,9 @@
                 {
                     title: 'Actions',
                     field: 'relative_path',
-                    width: 150,
+                    width: 240,
+                    minWidth: 210,
+                    responsive: 0,
                     headerSort: false,
                     hozAlign: 'right',
                     formatter: function (cell) {
@@ -548,8 +551,9 @@
                         }
                         return [
                             '<div class="file-actions">',
+                            data.is_editable ? '<button type="button" class="file-action-btn" data-action="edit" title="Edit">✏️ Edit</button>' : '',
                             '<button type="button" class="file-action-btn" data-action="preview" title="Preview">👁️ View</button>',
-                            '<button type="button" class="file-action-btn" data-action="download" title="Download">⬇️ Save</button>',
+                            data.is_editable ? '' : '<button type="button" class="file-action-btn" data-action="download" title="Download">⬇️ Save</button>',
                             '</div>',
                         ].join('');
                     },
@@ -565,6 +569,10 @@
                         }
                         if (action === 'preview') {
                             openPreview(data.relative_path);
+                            return;
+                        }
+                        if (action === 'edit') {
+                            openEditor(data.relative_path);
                             return;
                         }
                         if (action === 'download') {
