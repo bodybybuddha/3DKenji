@@ -121,11 +121,19 @@
         if (evt.detail.xhr.status === 409) {
             HTMXHelper.showToast('Username or email already exists', 'danger');
             evt.detail.shouldSwap = false;
+        } else if (evt.detail.xhr.status === 303 || evt.detail.xhr.status === 302 || evt.detail.xhr.status === 301) {
+            const redirectUrl = evt.detail.xhr.getResponseHeader('HX-Redirect') || evt.detail.xhr.getResponseHeader('Location') || '/projects';
+            HTMXHelper.showToast('Account created! Logging you in...', 'success', 2000);
+            setTimeout(() => {
+                window.location.href = redirectUrl;
+            }, 1000);
+            evt.detail.shouldSwap = false;
         } else if (evt.detail.xhr.status === 201) {
             HTMXHelper.showToast('Account created! Logging you in...', 'success', 2000);
             setTimeout(() => {
                 window.location.href = '/projects';
             }, 1000);
+            evt.detail.shouldSwap = false;
         }
     });
 </script>

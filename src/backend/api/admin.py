@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -681,3 +681,43 @@ async def get_upload_plugin_modal(
       </div>
     </div>
     """
+
+
+@router.post("/plugins/upload", response_class=HTMLResponse)
+async def upload_plugin(
+    request: Request,
+    plugin_file: UploadFile = File(...),
+    admin_user: str = Depends(require_admin),
+) -> HTMLResponse:
+    """Handle plugin upload form submission (validation + placeholder install flow)."""
+    if not plugin_file.filename:
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {
+                "request": request,
+                "message": "No plugin file provided",
+                "errors": {"plugin_file": ["Please choose a plugin ZIP file"]},
+            },
+            status_code=400,
+        )
+
+    if not plugin_file.filename.lower().endswith(".zip"):
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {
+                "request": request,
+                "message": "Invalid plugin package",
+                "errors": {"plugin_file": ["Plugin package must be a .zip file"]},
+            },
+            status_code=400,
+        )
+
+    # Placeholder for plugin installation workflow.
+    return templates.TemplateResponse(
+        "fragments/success-alert.html",
+        {
+            "request": request,
+            "message": f"Plugin package '{plugin_file.filename}' uploaded successfully",
+        },
+        status_code=201,
+    )

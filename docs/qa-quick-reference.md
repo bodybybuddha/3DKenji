@@ -22,6 +22,9 @@ make test-validation
 # Requires server to be running first!
 make test-e2e
 
+# E2E smoke tests (public + user + admin, no manual admin env required)
+make test-e2e-smoke
+
 # Full test suite - ~15 minutes
 make test-full
 
@@ -39,6 +42,7 @@ make test-security
 ./scripts/run-qa-tests.sh standard
 ./scripts/run-qa-tests.sh validation
 ./scripts/run-qa-tests.sh e2e
+./scripts/run-qa-tests.sh e2e-smoke
 ./scripts/run-qa-tests.sh full
 ./scripts/run-qa-tests.sh coverage
 ./scripts/run-qa-tests.sh security

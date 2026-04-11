@@ -31,7 +31,7 @@
     </td>
     <td style="padding: var(--spacing-md); text-align: right;">
         <button class="btn btn-sm btn-danger" hx-delete="/api/v1/keys/{{ key.id }}" hx-confirm="Are you sure?"
-            hx-target="nearest tr" hx-swap="swap 1s" title="Revoke">
+            hx-target="nearest tr" hx-swap="delete swap:1s" title="Revoke">
             🗑️
         </button>
     </td>

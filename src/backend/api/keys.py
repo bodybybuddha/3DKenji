@@ -3,8 +3,8 @@
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 import secrets
@@ -47,6 +47,7 @@ class APIKeyResponse(BaseModel):
 class APIKeyWithSecretResponse(APIKeyResponse):
     """API Key with secret (only shown at creation time)."""
 
+    key: str
     secret: str
 
 
@@ -78,7 +79,10 @@ def _generate_key_pair() -> tuple[str, str, str]:
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=APIKeyWithSecretResponse)
 async def create_api_key(
-    request: CreateAPIKeyRequest,
+    req: Request,
+    name: Optional[str] = Form(None),
+    scopes: Optional[list[str]] = Form(None),
+    expiry_days: Optional[int] = Form(None),
     current_user_id: str = Depends(get_current_user),
     session: Session = Depends(get_db),
 ) -> APIKeyWithSecretResponse:
@@ -105,6 +109,25 @@ async def create_api_key(
     from datetime import datetime, timedelta
 
     try:
+        # Support both JSON API clients and HTMX form submissions.
+        content_type = req.headers.get("content-type", "")
+        if "application/json" in content_type:
+            body = await req.json()
+            request = CreateAPIKeyRequest(**body)
+        else:
+            from backend.core.validation import CreateAPIKeyRequest as ValidatedKeyRequest
+
+            validated = ValidatedKeyRequest(
+                name=name or "",
+                scopes=scopes or ["read:models"],
+                expiry_days=expiry_days,
+            )
+            request = CreateAPIKeyRequest(
+                name=validated.name,
+                scopes=validated.scopes,
+                expires_at=None,
+            )
+
         # Validate and parse expires_at if provided
         expires_at_dt = None
         if request.expires_at:
@@ -166,11 +189,17 @@ async def create_api_key(
             scopes=api_key.scopes,  # type: ignore[arg-type]
             created_at=api_key.created_at.isoformat(),  # type: ignore[arg-type]
             expires_at=api_key.expires_at.isoformat() if api_key.expires_at else None,  # type: ignore[arg-type]
+            key=secret,
             secret=secret,  # This is the only time it's returned!
         )
 
     except HTTPException:
         raise
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors(),
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -242,10 +271,11 @@ async def list_api_keys(
 
 @router.delete("/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def revoke_api_key(
+    request: Request,
     key_id: str,
     current_user_id: str = Depends(get_current_user),
     session: Session = Depends(get_db),
-) -> None:
+) -> Response:
     """
     Revoke (delete) an API key.
 
@@ -284,6 +314,11 @@ async def revoke_api_key(
     try:
         session.delete(key)
         session.commit()
+
+        if request.headers.get("HX-Request") == "true":
+            return HTMLResponse(content="", status_code=200)
+
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
