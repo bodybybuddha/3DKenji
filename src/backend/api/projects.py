@@ -1,5 +1,6 @@
 """Projects API endpoints for 3D Kenji."""
 
+import html
 import os
 from typing import Optional
 
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 from backend.api.auth import get_current_user, require_scopes
 from backend.db import get_db
 from backend.core.validation import CreateProjectRequest as ValidatedProjectRequest, format_validation_errors, sanitize_text_input
+from backend.services.project_directory import PathNotFoundError, PathTraversalError, service_for_project
 from backend.services.project_service import ProjectDTO, ProjectService
 from backend.api.frontend import templates
 
@@ -58,6 +60,246 @@ class ProjectListResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+
+def _format_size(size_bytes: int) -> str:
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    if size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
+def _resolve_project_for_owner(
+    project_id: str,
+    owner_id: str,
+    session: Session,
+):
+    project_service = ProjectService(session)
+    project = project_service.get_project_by_id(project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project '{project_id}' not found",
+        )
+    if project.owner_id != owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this project",
+        )
+    return project
+
+
+def _resolve_viewer_info(request: Request, extension: str) -> Optional[dict]:
+    manager = getattr(request.app.state, "plugin_manager", None)
+    if manager is None:
+        return None
+    viewer = manager.get_viewer_for_extension(extension)
+    if viewer is None:
+        return None
+    return {
+        "viewer_id": viewer.viewer_id,
+        "plugin_id": viewer.plugin_id,
+        "name": viewer.name,
+        "extensions": viewer.extensions,
+        "has_js": viewer.js_file is not None,
+        "backend_entrypoint": viewer.backend_entrypoint,
+    }
+
+
+@router.get("/{project_id}/files")
+async def list_project_files(
+    project_id: str,
+    request: Request,
+    format: Optional[str] = None,
+    path: str = "",
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
+    session: Session = Depends(get_db),
+):
+    """List files in a project directory with extension-based viewer resolution."""
+    project = _resolve_project_for_owner(project_id, current_user_id, session)
+    directory_service = service_for_project(project.category, project.slug)
+
+    try:
+        entries = directory_service.list_files(path)
+    except PathTraversalError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Directory not found") from exc
+    except NotADirectoryError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path is not a directory") from exc
+
+    current_path = path.strip("/")
+    parent_path = ""
+    if current_path:
+        parts = current_path.split("/")
+        parent_path = "/".join(parts[:-1])
+
+    rows = []
+    for entry in entries:
+        viewer = _resolve_viewer_info(request, entry.extension)
+        rows.append(
+            {
+                "name": entry.name,
+                "relative_path": entry.relative_path,
+                "is_dir": entry.is_dir,
+                "size_bytes": entry.size_bytes,
+                "size": _format_size(entry.size_bytes),
+                "extension": entry.extension,
+                "viewer": viewer,
+            }
+        )
+
+    if format == "html":
+        controls = []
+        if current_path:
+            controls.append(
+                f'<button class="btn btn-sm btn-secondary" hx-get="/api/v1/projects/{project_id}/files?format=html&path={parent_path}" hx-target="#project-files-browser" hx-swap="innerHTML">← Up</button>'
+            )
+
+        lines = []
+        for row in rows:
+            icon = "📁" if row["is_dir"] else "📄"
+            if row["is_dir"]:
+                action_html = (
+                    f'<button class="btn btn-sm btn-secondary" '
+                    f'hx-get="/api/v1/projects/{project_id}/files?format=html&path={row["relative_path"]}" '
+                    f'hx-target="#project-files-browser" hx-swap="innerHTML">Open</button>'
+                )
+            else:
+                action_html = (
+                    f'<button class="btn btn-sm btn-primary" '
+                    f'hx-get="/api/v1/projects/{project_id}/files/preview?format=html&path={row["relative_path"]}" '
+                    f'hx-target="#project-file-preview" hx-swap="innerHTML">Preview</button>'
+                )
+
+            viewer_name = row["viewer"]["name"] if row["viewer"] else "Fallback"
+            lines.append(
+                f"""
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: var(--spacing-sm);">{icon} {html.escape(row['name'])}</td>
+                    <td style="padding: var(--spacing-sm); color: var(--text-secondary);">{html.escape(row['extension'] or '-')}</td>
+                    <td style="padding: var(--spacing-sm); color: var(--text-secondary);">{html.escape(row['size']) if not row['is_dir'] else '-'}</td>
+                    <td style="padding: var(--spacing-sm); color: var(--text-secondary);">{html.escape(viewer_name)}</td>
+                    <td style="padding: var(--spacing-sm); text-align: right;">{action_html}</td>
+                </tr>
+                """
+            )
+
+        controls_html = "".join(controls) or ""
+        empty_html = ""
+        if not lines:
+            empty_html = (
+                '<p style="margin: 0; color: var(--text-secondary); padding: var(--spacing-md) 0;">No files found in this directory.</p>'
+            )
+
+        return HTMLResponse(
+            f"""
+            <div style="display: grid; gap: var(--spacing-md);">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-md);">
+                    <p style="margin: 0; color: var(--text-secondary); font-size: 0.875rem;">Path: /{html.escape(current_path) if current_path else ''}</p>
+                    <div style="display: flex; gap: var(--spacing-sm);">{controls_html}</div>
+                </div>
+                {empty_html}
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                    <thead style="border-bottom: 1px solid var(--border-color);">
+                        <tr>
+                            <th style="padding: var(--spacing-sm); text-align: left;">Name</th>
+                            <th style="padding: var(--spacing-sm); text-align: left;">Type</th>
+                            <th style="padding: var(--spacing-sm); text-align: left;">Size</th>
+                            <th style="padding: var(--spacing-sm); text-align: left;">Viewer</th>
+                            <th style="padding: var(--spacing-sm); text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {''.join(lines)}
+                    </tbody>
+                </table>
+            </div>
+            """
+        )
+
+    return {
+        "project_id": project_id,
+        "path": current_path,
+        "parent_path": parent_path,
+        "items": rows,
+    }
+
+
+@router.get("/{project_id}/files/preview")
+async def preview_project_file(
+    project_id: str,
+    request: Request,
+    path: str,
+    format: Optional[str] = None,
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Preview a project file and indicate which viewer hook is selected."""
+    project = _resolve_project_for_owner(project_id, current_user_id, session)
+    directory_service = service_for_project(project.category, project.slug)
+
+    try:
+        content = directory_service.read_file(path)
+    except PathTraversalError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found") from exc
+    except IsADirectoryError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path is a directory") from exc
+
+    extension = os.path.splitext(path)[1].lstrip(".").lower()
+    viewer = _resolve_viewer_info(request, extension)
+
+    preview_text = None
+    preview_mode = "binary"
+    if extension in {"md", "txt", "log", "yaml", "yml", "json", "gcode", "csv", "py"}:
+        preview_mode = "text"
+        preview_text = content.decode("utf-8", errors="replace")[:20000]
+
+    payload = {
+        "path": path,
+        "extension": extension,
+        "size_bytes": len(content),
+        "viewer": viewer,
+        "preview_mode": preview_mode,
+        "preview_text": preview_text,
+    }
+
+    if format == "html":
+        viewer_header = "No viewer plugin enabled for this extension"
+        viewer_details = "Using core fallback preview."
+        if viewer:
+            viewer_header = f"Viewer hook: {viewer['name']}"
+            viewer_details = (
+                f"Plugin {viewer['plugin_id']} matched extension '.{extension}'. "
+                "v1 currently routes file preview through core-owned UI endpoints."
+            )
+
+        body_html = (
+            f'<pre style="margin: 0; max-height: 420px; overflow: auto; padding: var(--spacing-md); background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px;">{html.escape(preview_text or "")}</pre>'
+            if preview_mode == "text"
+            else '<p style="margin: 0; color: var(--text-secondary);">Binary preview is not rendered in v1. Use a viewer plugin for this file type.</p>'
+        )
+
+        return HTMLResponse(
+            f"""
+            <div style="display: grid; gap: var(--spacing-md);">
+                <div>
+                    <h4 style="margin: 0;">{html.escape(os.path.basename(path))}</h4>
+                    <p style="margin: var(--spacing-xs) 0 0 0; color: var(--text-secondary); font-size: 0.875rem;">{html.escape(path)} · {_format_size(len(content))}</p>
+                </div>
+                <div style="padding: var(--spacing-md); border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary);">
+                    <p style="margin: 0; font-weight: 600;">{html.escape(viewer_header)}</p>
+                    <p style="margin: var(--spacing-xs) 0 0 0; color: var(--text-secondary); font-size: 0.875rem;">{html.escape(viewer_details)}</p>
+                </div>
+                {body_html}
+            </div>
+            """
+        )
+
+    return payload
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
