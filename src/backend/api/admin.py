@@ -594,6 +594,42 @@ async def toggle_plugin_enabled(
     return await get_admin_plugins_list(format="html", request=request, admin_user=admin_user)
 
 
+@router.post("/plugins/reload", response_class=HTMLResponse)
+async def reload_plugins(
+    request: Request,
+    admin_user: str = Depends(require_admin),
+) -> HTMLResponse:
+    """Reload plugin registry and derived theme/viewer contributions at runtime."""
+    del admin_user
+    plugin_manager = _get_plugin_manager(request)
+
+    try:
+        await plugin_manager.load_plugins(request.app, {})
+        theme_manager = getattr(request.app.state, "theme_manager", None)
+        if theme_manager is not None:
+            await theme_manager.load_themes()
+    except Exception as exc:
+        logger.error("Failed to reload plugins: %s", exc)
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {
+                "request": request,
+                "message": "Plugin reload failed",
+                "errors": {"plugins": [str(exc)]},
+            },
+            status_code=500,
+        )
+
+    return templates.TemplateResponse(
+        "fragments/success-alert.html",
+        {
+            "request": request,
+            "message": "Plugins reloaded. New viewer hooks are now active.",
+        },
+        status_code=200,
+    )
+
+
 # Logs endpoints
 @router.get("/logs", response_class=HTMLResponse)
 async def get_admin_logs(

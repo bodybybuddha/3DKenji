@@ -2,14 +2,236 @@
 
 {% block title %}{{ project.title }} - 3DKenji{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.5/dist/css/tabulator.min.css">
+<style>
+    /* Project Files Browser */
+    #project-files-browser {
+        display: grid;
+        gap: var(--spacing-md);
+    }
+
+    .file-browser-main {
+        display: grid;
+        grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr);
+        gap: var(--spacing-md);
+        align-items: start;
+    }
+
+    .file-browser-table-pane {
+        min-width: 0;
+    }
+
+    .file-browser-preview-pane {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        background: var(--bg-primary);
+        min-height: 420px;
+        overflow: hidden;
+    }
+
+    .file-browser-preview-head {
+        margin: 0;
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    #project-file-preview {
+        padding: var(--spacing-md);
+    }
+
+    .file-browser-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--spacing-sm);
+        flex-wrap: wrap;
+    }
+
+    .file-browser-toolbar-actions {
+        display: flex;
+        gap: var(--spacing-sm);
+        align-items: center;
+    }
+
+    .file-browser-path {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        flex-wrap: wrap;
+        min-height: 2rem;
+        flex: 1;
+    }
+
+    .file-path-pill {
+        border: 1px solid var(--border-color);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-radius: 999px;
+        padding: 0.15rem 0.6rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .file-path-pill:hover {
+        background: color-mix(in srgb, var(--color-primary) 15%, var(--bg-secondary));
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+    }
+
+    .file-path-pill[disabled] {
+        cursor: default;
+        color: var(--text-tertiary);
+        background: var(--bg-secondary);
+    }
+
+    /* Tabulator Overrides */
+    .tabulator {
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-size: 0.95rem;
+    }
+
+    .tabulator .tabulator-header {
+        background: linear-gradient(135deg, var(--color-primary) 0%, #1e40af 100%);
+        border-bottom: 2px solid var(--color-primary);
+        color: white;
+        font-weight: 600;
+        padding: 0.75rem 0;
+    }
+
+    .tabulator .tabulator-header .tabulator-col {
+        background: transparent !important;
+        color: white !important;
+        text-align: left;
+        border-right: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .tabulator .tabulator-header .tabulator-col .tabulator-col-title {
+        color: #ffffff !important;
+        opacity: 1 !important;
+        font-weight: 700;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+    }
+
+    .tabulator .tabulator-header .tabulator-col .tabulator-arrow {
+        border-bottom-color: rgba(255, 255, 255, 0.85) !important;
+    }
+
+    .tabulator .tabulator-row {
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        height: 2.5rem;
+        transition: background-color var(--transition-fast);
+    }
+
+    .tabulator .tabulator-row:nth-child(even) {
+        background: var(--bg-primary);
+    }
+
+    .tabulator .tabulator-row:hover {
+        background: color-mix(in srgb, var(--color-primary) 15%, var(--bg-secondary)) !important;
+    }
+
+    .tabulator .tabulator-cell {
+        color: var(--text-primary);
+        padding: 0.5rem 0.75rem;
+    }
+
+    .tabulator .tabulator-row.tabulator-row-even .tabulator-cell {
+        background: var(--bg-primary);
+    }
+
+    .tabulator .tabulator-cell.tabulator-sortable:hover {
+        background: rgba(59, 130, 246, 0.1) !important;
+    }
+
+    /* Row clickability for folders */
+    .tabulator .tabulator-row.folder-row {
+        cursor: pointer;
+    }
+
+    .tabulator .tabulator-row.folder-row:hover {
+        background: color-mix(in srgb, var(--color-info) 20%, var(--bg-secondary)) !important;
+    }
+
+    .file-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--spacing-xs);
+    }
+
+    .file-action-btn {
+        border: 1px solid var(--border-color);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-radius: 6px;
+        cursor: pointer;
+        padding: 0.35rem 0.6rem;
+        line-height: 1;
+        font-size: 0.8rem;
+        transition: all var(--transition-fast);
+    }
+
+    .file-action-btn:hover {
+        border-color: var(--color-primary);
+        color: white;
+        background: var(--color-primary);
+    }
+
+    .file-table-error {
+        color: var(--color-danger);
+        margin: 0;
+        font-size: 0.875rem;
+        padding: var(--spacing-sm) 0;
+    }
+
+    .file-table-loading {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        padding: var(--spacing-sm) 0;
+    }
+
+    .project-meta-grid {
+        grid-column: 1 / 4;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--spacing-lg);
+    }
+
+    @media (max-width: 768px) {
+        .file-browser-main {
+            grid-template-columns: 1fr;
+        }
+
+        .project-meta-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .file-browser-preview-pane {
+            min-height: 280px;
+        }
+
+        #project-files-table {
+            overflow: auto;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container" style="padding: var(--spacing-2xl) var(--spacing-lg);">
-    <!-- Breadcrumb -->
     <div style="margin-bottom: var(--spacing-lg);">
         <a href="/projects" style="color: var(--color-primary);">← Back to Projects</a>
     </div>
 
-    <!-- Project Header -->
     <div class="section-header">
         <div id="project-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
@@ -31,62 +253,46 @@
     </div>
 
     <div class="grid grid-3" style="gap: var(--spacing-2xl); margin-top: var(--spacing-2xl);">
-        <!-- Models Section -->
-        <div style="grid-column: 1 / 3;">
+        <!-- Project Files Card - Full Width, First Priority -->
+        <div style="grid-column: 1 / 4;">
             <div class="card">
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin: 0;">3D Models</h3>
-                    <button class="btn btn-sm btn-primary" hx-get="/projects/{{ project_id }}/upload-modal"
-                        hx-target="body" hx-swap="beforeend">
-                        + Upload Model
-                    </button>
-                </div>
-
-                <div id="models-list" class="card-body">
-                    <p
-                        style="color: var(--text-secondary); text-align: center; padding: var(--spacing-lg) 0; margin: 0;">
-                        Loading models...
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- File Browser Section -->
-        <div style="grid-column: 1 / 3;">
-            <div class="card">
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="card-header"
+                    style="display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-md);">
                     <h3 style="margin: 0;">Project Files</h3>
-                    <p style="margin: 0; color: var(--text-secondary); font-size: 0.875rem;">Extension-based viewer
-                        hooks + fallback preview</p>
+                    <p style="margin: 0; color: var(--text-secondary); font-size: 0.875rem;">Browse and manage project
+                        files</p>
                 </div>
 
                 <div id="project-files-browser" class="card-body">
-                    <p
-                        style="color: var(--text-secondary); text-align: center; padding: var(--spacing-lg) 0; margin: 0;">
-                        Loading files...
-                    </p>
+                    <div class="file-browser-toolbar">
+                        <div class="file-browser-path" id="project-files-path"></div>
+                        <div class="file-browser-toolbar-actions">
+                            <input id="project-files-upload-input" type="file" hidden>
+                            <button class="btn btn-sm btn-primary" id="project-files-upload" type="button">Upload
+                                File</button>
+                            <button class="btn btn-sm btn-secondary" id="project-files-refresh"
+                                type="button">Refresh</button>
+                        </div>
+                    </div>
+                    <p id="project-files-feedback" class="file-table-loading">Loading files...</p>
+                    <div class="file-browser-main">
+                        <div class="file-browser-table-pane">
+                            <div id="project-files-table"></div>
+                        </div>
+                        <aside class="file-browser-preview-pane">
+                            <p class="file-browser-preview-head">Preview</p>
+                            <div id="project-file-preview">
+                                <p style="color: var(--text-secondary); margin: 0;">
+                                    Select a file from Project Files to preview it.
+                                </p>
+                            </div>
+                        </aside>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- File Preview Section -->
-        <div style="grid-column: 1 / 3;">
-            <div class="card">
-                <div class="card-header">
-                    <h3 style="margin: 0;">File Preview</h3>
-                </div>
-
-                <div id="project-file-preview" class="card-body">
-                    <p
-                        style="color: var(--text-secondary); text-align: center; padding: var(--spacing-lg) 0; margin: 0;">
-                        Select a file from Project Files to preview it.
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Project Info Section -->
-        <div>
+        <div class="project-meta-grid">
             <div class="card card-compact">
                 <div class="card-header">
                     <h4 style="margin: 0;">Info</h4>
@@ -98,54 +304,393 @@
                             project.created_at | timeago }}</p>
                     </div>
                     <div>
-                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Models</p>
-                        <p id="model-count" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">0</p>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Files</p>
+                        <p id="file-count" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Folders</p>
+                        <p id="folder-count" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
                     </div>
                     <div>
                         <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Total Size</p>
-                        <p id="total-size" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">{{
-                            project.disk_size_bytes or 0 }} B</p>
+                        <p id="total-size" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
                     </div>
                 </div>
             </div>
 
-            <div class="card card-compact" style="margin-top: var(--spacing-lg);">
+            <div class="card card-compact">
                 <div class="card-header">
                     <h4 style="margin: 0;">Storage Details</h4>
                 </div>
                 <div class="card-body stack-md">
                     <div>
                         <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Directory Path</p>
-                        <p style="margin: var(--spacing-xs) 0 0 0; font-weight: 500; word-break: break-all;">{{
+                        <p id="storage-directory-path"
+                            style="margin: var(--spacing-xs) 0 0 0; font-weight: 500; word-break: break-all;">{{
                             project_fs_path }}</p>
                     </div>
                     <div>
                         <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Directory Exists</p>
-                        <p style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">{% if project_directory_exists
+                        <p id="storage-directory-exists" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">{%
+                            if project_directory_exists
                             %}Yes{% else %}No{% endif %}</p>
                     </div>
                     <div>
                         <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">ProjectInfo.md</p>
-                        <p style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">{% if project_info_exists
+                        <p id="storage-project-info" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">{% if
+                            project_info_exists
                             %}Present{% else %}Missing{% endif %}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">PrintHistory.md</p>
+                        <p id="storage-print-history" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
+<script src="https://unpkg.com/tabulator-tables@6.2.5/dist/js/tabulator.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (!window.htmx || typeof htmx.ajax !== 'function') {
             return;
         }
 
-        // Load project models
-        htmx.ajax('GET', '/api/v1/projects/{{ project_id }}/models?format=html', '#models-list');
+        const projectId = '{{ project_id }}';
 
-        // Load project file browser
-        htmx.ajax('GET', '/api/v1/projects/{{ project_id }}/files?format=html', '#project-files-browser');
+        if (!window.Tabulator) {
+            htmx.ajax('GET', `/api/v1/projects/${projectId}/files?format=html`, '#project-files-browser');
+            return;
+        }
+
+        const tableElement = document.getElementById('project-files-table');
+        const pathElement = document.getElementById('project-files-path');
+        const feedbackElement = document.getElementById('project-files-feedback');
+        const refreshButton = document.getElementById('project-files-refresh');
+        const uploadInput = document.getElementById('project-files-upload-input');
+        const uploadButton = document.getElementById('project-files-upload');
+
+        const fileCountElement = document.getElementById('file-count');
+        const folderCountElement = document.getElementById('folder-count');
+        const totalSizeElement = document.getElementById('total-size');
+        const storagePathElement = document.getElementById('storage-directory-path');
+        const storageDirectoryExistsElement = document.getElementById('storage-directory-exists');
+        const storageProjectInfoElement = document.getElementById('storage-project-info');
+        const storagePrintHistoryElement = document.getElementById('storage-print-history');
+
+        let currentPath = '';
+
+        function setFeedback(message, isError = false) {
+            feedbackElement.textContent = message;
+            feedbackElement.className = isError ? 'file-table-error' : 'file-table-loading';
+        }
+
+        function renderPathPills(path) {
+            pathElement.innerHTML = '';
+
+            const rootPill = document.createElement('button');
+            rootPill.type = 'button';
+            rootPill.className = 'file-path-pill';
+            rootPill.textContent = '/';
+            if (path === '') {
+                rootPill.disabled = true;
+            } else {
+                rootPill.addEventListener('click', function () {
+                    loadDirectory('');
+                });
+            }
+            pathElement.appendChild(rootPill);
+
+            if (!path) {
+                return;
+            }
+
+            const parts = path.split('/');
+            let soFar = '';
+            for (const part of parts) {
+                soFar = soFar ? `${soFar}/${part}` : part;
+                const separator = document.createElement('span');
+                separator.textContent = '/';
+                separator.style.color = 'var(--text-tertiary)';
+                pathElement.appendChild(separator);
+
+                const pill = document.createElement('button');
+                pill.type = 'button';
+                pill.className = 'file-path-pill';
+                pill.textContent = part;
+                if (soFar === path) {
+                    pill.disabled = true;
+                } else {
+                    const target = soFar;
+                    pill.addEventListener('click', function () {
+                        loadDirectory(target);
+                    });
+                }
+                pathElement.appendChild(pill);
+            }
+        }
+
+        function setElementText(element, value, fallback = '-') {
+            if (!element) {
+                return;
+            }
+            element.textContent = value || fallback;
+        }
+
+        async function loadProjectSummary() {
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/summary`, {
+                    credentials: 'same-origin',
+                    headers: {
+                        Accept: 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load summary (${response.status})`);
+                }
+
+                const payload = await response.json();
+                setElementText(fileCountElement, String(payload.file_count ?? 0));
+                setElementText(folderCountElement, String(payload.directory_count ?? 0));
+                setElementText(totalSizeElement, payload.total_size || '-');
+
+                const storage = payload.storage || {};
+                setElementText(storagePathElement, storage.directory_path || '-');
+                setElementText(storageDirectoryExistsElement, storage.directory_exists ? 'Yes' : 'No');
+                setElementText(storageProjectInfoElement, storage.project_info_exists ? 'Present' : 'Missing');
+                setElementText(storagePrintHistoryElement, storage.print_history_exists ? 'Present' : 'Missing');
+            } catch (_error) {
+                // Keep existing server-rendered values if summary fetch fails.
+            }
+        }
+
+        function openPreview(relativePath) {
+            const params = new URLSearchParams({
+                format: 'html',
+                path: relativePath,
+            });
+            htmx.ajax('GET', `/api/v1/projects/${projectId}/files/preview?${params.toString()}`, '#project-file-preview');
+        }
+
+        function downloadFile(relativePath) {
+            const params = new URLSearchParams({ path: relativePath });
+            window.location.href = `/api/v1/projects/${projectId}/files/download?${params.toString()}`;
+        }
+
+        function openFolder(relativePath) {
+            loadDirectory(relativePath);
+        }
+
+        const table = new Tabulator(tableElement, {
+            layout: 'fitColumns',
+            responsiveLayout: 'hide',
+            placeholder: 'No files found in this directory.',
+            initialSort: [
+                { column: 'is_dir', dir: 'desc' },
+                { column: 'name', dir: 'asc' },
+            ],
+            columns: [
+                {
+                    title: 'Name',
+                    field: 'name',
+                    minWidth: 260,
+                    formatter: function (cell) {
+                        const data = cell.getRow().getData();
+                        let icon = '📄';
+                        if (data.is_dir) {
+                            icon = '📁';
+                        } else {
+                            const ext = (data.extension || '').toLowerCase();
+                            if (['stl', '3mf', 'obj', 'gcode'].includes(ext)) icon = '🗿';
+                            else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) icon = '🖼️';
+                            else if (['txt', 'md', 'pdf'].includes(ext)) icon = '📄';
+                            else if (['zip', 'tar', 'gz', 'rar'].includes(ext)) icon = '📦';
+                        }
+                        return `${icon} <strong>${data.name}</strong>`;
+                    },
+                },
+                {
+                    title: 'Type',
+                    field: 'extension',
+                    width: 110,
+                    hozAlign: 'left',
+                    formatter: function (cell) {
+                        const value = cell.getValue();
+                        return value ? value.toUpperCase() : '-';
+                    },
+                },
+                {
+                    title: 'Size',
+                    field: 'size',
+                    width: 120,
+                    hozAlign: 'left',
+                    formatter: function (cell) {
+                        const data = cell.getRow().getData();
+                        if (data.is_dir) return '-';
+                        return cell.getValue() || '-';
+                    },
+                },
+                {
+                    title: 'Actions',
+                    field: 'relative_path',
+                    width: 150,
+                    headerSort: false,
+                    hozAlign: 'right',
+                    formatter: function (cell) {
+                        const data = cell.getRow().getData();
+                        if (data.is_dir) {
+                            return '<div class="file-actions"><button type="button" class="file-action-btn" data-action="open" title="Open folder">📂 Open</button></div>';
+                        }
+                        return [
+                            '<div class="file-actions">',
+                            '<button type="button" class="file-action-btn" data-action="preview" title="Preview">👁️ View</button>',
+                            '<button type="button" class="file-action-btn" data-action="download" title="Download">⬇️ Save</button>',
+                            '</div>',
+                        ].join('');
+                    },
+                    cellClick: function (e, cell) {
+                        const action = e.target && e.target.dataset ? e.target.dataset.action : null;
+                        if (!action) {
+                            return;
+                        }
+                        const data = cell.getRow().getData();
+                        if (action === 'open') {
+                            openFolder(data.relative_path);
+                            return;
+                        }
+                        if (action === 'preview') {
+                            openPreview(data.relative_path);
+                            return;
+                        }
+                        if (action === 'download') {
+                            downloadFile(data.relative_path);
+                        }
+                    },
+                },
+            ],
+            rowFormatter: function (row) {
+                const data = row.getData();
+                row.getElement().style.cursor = 'pointer';
+                if (data.is_dir) {
+                    row.getElement().classList.add('folder-row');
+                }
+            },
+            rowClick: function (e, row) {
+                const data = row.getData();
+                const target = e && e.target ? e.target : null;
+                const isActionClick = !!(target && typeof target.closest === 'function' && target.closest('.file-action-btn'));
+                if (isActionClick) {
+                    return;
+                }
+
+                if (data.is_dir) {
+                    openFolder(data.relative_path);
+                } else {
+                    openPreview(data.relative_path);
+                }
+            },
+            rowDblClick: function (_e, row) {
+                const data = row.getData();
+                if (data.is_dir) {
+                    openFolder(data.relative_path);
+                } else {
+                    openPreview(data.relative_path);
+                }
+            },
+        });
+
+        async function loadDirectory(path) {
+            currentPath = path || '';
+            renderPathPills(currentPath);
+            setFeedback(`Loading /${currentPath}...`);
+
+            const params = new URLSearchParams();
+            if (currentPath) {
+                params.set('path', currentPath);
+            }
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files?${params.toString()}`, {
+                    credentials: 'same-origin',
+                    headers: {
+                        Accept: 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load files (${response.status})`);
+                }
+
+                const payload = await response.json();
+                table.replaceData(payload.items || []);
+                setFeedback(payload.items && payload.items.length ? `Showing ${payload.items.length} item(s)` : 'Directory is empty.');
+            } catch (error) {
+                table.replaceData([]);
+                setFeedback(error.message || 'Unable to load files.', true);
+            }
+        }
+
+        uploadButton.addEventListener('click', function () {
+            uploadInput.click();
+        });
+
+        uploadInput.addEventListener('change', async function (event) {
+            const selected = event.target && event.target.files ? event.target.files[0] : null;
+            if (!selected) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', selected);
+            formData.append('path', currentPath || '');
+
+            uploadButton.disabled = true;
+            const originalLabel = uploadButton.textContent;
+            uploadButton.textContent = 'Uploading...';
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/upload`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    let detail = 'Upload failed.';
+                    try {
+                        const payload = await response.json();
+                        if (payload && payload.detail) {
+                            detail = payload.detail;
+                        }
+                    } catch (_jsonError) {
+                        // Keep default detail text when response is not JSON.
+                    }
+                    throw new Error(detail);
+                }
+
+                await loadDirectory(currentPath);
+                await loadProjectSummary();
+                setFeedback(`Uploaded ${selected.name}.`);
+            } catch (error) {
+                setFeedback(error.message || 'Unable to upload file.', true);
+            } finally {
+                uploadButton.disabled = false;
+                uploadButton.textContent = originalLabel;
+                uploadInput.value = '';
+            }
+        });
+
+        refreshButton.addEventListener('click', function () {
+            loadDirectory(currentPath);
+        });
+
+        loadProjectSummary();
+        loadDirectory('');
     });
 </script>
 {% endblock %}

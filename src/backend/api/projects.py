@@ -1,22 +1,28 @@
 """Projects API endpoints for 3D Kenji."""
 
 import html
+import json
+import mimetypes
 import os
+from pathlib import Path
+from urllib.parse import quote_plus
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, UploadFile, File
+from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from backend.api.auth import get_current_user, require_scopes
 from backend.db import get_db
 from backend.core.validation import CreateProjectRequest as ValidatedProjectRequest, format_validation_errors, sanitize_text_input
-from backend.services.project_directory import PathNotFoundError, PathTraversalError, service_for_project
+from backend.services.project_directory import PathNotFoundError, PathTraversalError, UnsafeFilenameError, service_for_project
 from backend.services.project_service import ProjectDTO, ProjectService
 from backend.api.frontend import templates
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+MAX_PROJECT_FILE_UPLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
 # Request Models
@@ -90,11 +96,29 @@ def _resolve_project_for_owner(
     return project
 
 
-def _resolve_viewer_info(request: Request, extension: str) -> Optional[dict]:
+async def _resolve_viewer_info(
+    request: Request,
+    extension: str,
+    *,
+    refresh_if_missing: bool = False,
+) -> Optional[dict]:
     manager = getattr(request.app.state, "plugin_manager", None)
     if manager is None:
         return None
-    viewer = manager.get_viewer_for_extension(extension)
+
+    normalized_extension = extension.lower().lstrip(".")
+    if not normalized_extension:
+        return None
+
+    viewer = manager.get_viewer_for_extension(normalized_extension)
+    if viewer is None and refresh_if_missing:
+        try:
+            await manager.load_plugins(request.app, {})
+        except Exception:
+            viewer = None
+        else:
+            viewer = manager.get_viewer_for_extension(normalized_extension)
+
     if viewer is None:
         return None
     return {
@@ -105,6 +129,14 @@ def _resolve_viewer_info(request: Request, extension: str) -> Optional[dict]:
         "has_js": viewer.js_file is not None,
         "backend_entrypoint": viewer.backend_entrypoint,
     }
+
+
+def _guess_raw_media_type(path: str) -> str:
+    extension = os.path.splitext(path)[1].lower()
+    if extension == ".stl":
+        return "model/stl"
+    guessed, _ = mimetypes.guess_type(path)
+    return guessed or "application/octet-stream"
 
 
 @router.get("/{project_id}/files")
@@ -136,8 +168,16 @@ async def list_project_files(
         parent_path = "/".join(parts[:-1])
 
     rows = []
+    viewer_cache: dict[str, Optional[dict]] = {}
     for entry in entries:
-        viewer = _resolve_viewer_info(request, entry.extension)
+        extension_key = entry.extension.lower().lstrip(".")
+        if extension_key not in viewer_cache:
+            viewer_cache[extension_key] = await _resolve_viewer_info(
+                request,
+                extension_key,
+                refresh_if_missing=True,
+            )
+        viewer = viewer_cache[extension_key]
         rows.append(
             {
                 "name": entry.name,
@@ -164,13 +204,17 @@ async def list_project_files(
                 action_html = (
                     f'<button class="btn btn-sm btn-secondary" '
                     f'hx-get="/api/v1/projects/{project_id}/files?format=html&path={row["relative_path"]}" '
-                    f'hx-target="#project-files-browser" hx-swap="innerHTML">Open</button>'
+                    f'hx-target="#project-files-browser" hx-swap="innerHTML" title="Open folder">📂</button>'
                 )
             else:
+                encoded_path = quote_plus(row["relative_path"])
                 action_html = (
+                    f'<div style="display: flex; gap: var(--spacing-xs); justify-content: flex-end;">'
                     f'<button class="btn btn-sm btn-primary" '
                     f'hx-get="/api/v1/projects/{project_id}/files/preview?format=html&path={row["relative_path"]}" '
-                    f'hx-target="#project-file-preview" hx-swap="innerHTML">Preview</button>'
+                    f'hx-target="#project-file-preview" hx-swap="innerHTML" title="Preview file">👁</button>'
+                    f'<a class="btn btn-sm btn-secondary" href="/api/v1/projects/{project_id}/files/download?path={encoded_path}" title="Download file">⬇</a>'
+                    f'</div>'
                 )
 
             viewer_name = row["viewer"]["name"] if row["viewer"] else "Fallback"
@@ -227,6 +271,119 @@ async def list_project_files(
     }
 
 
+@router.get("/{project_id}/files/summary")
+async def get_project_files_summary(
+    project_id: str,
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Return filesystem-backed project summary stats for the detail page cards."""
+    project = _resolve_project_for_owner(project_id, current_user_id, session)
+    directory_service = service_for_project(project.category, project.slug)
+
+    created_at = project.created_at
+    if created_at is not None and hasattr(created_at, "isoformat"):
+        created_at = created_at.isoformat()
+
+    root = Path(directory_service._root)
+    directory_exists = root.is_dir()
+
+    total_size_bytes = 0
+    file_count = 0
+    directory_count = 0
+    model_file_count = 0
+
+    if directory_exists:
+        for item in root.rglob("*"):
+            try:
+                relative = item.relative_to(root)
+            except ValueError:
+                continue
+
+            if any(part.startswith(".") for part in relative.parts):
+                continue
+
+            if item.is_dir():
+                directory_count += 1
+                continue
+
+            if item.is_file() and not item.is_symlink():
+                file_count += 1
+                total_size_bytes += item.stat().st_size
+                if relative.parts and relative.parts[0] == "models":
+                    model_file_count += 1
+
+    return {
+        "project_id": project_id,
+        "created_at": created_at,
+        "file_count": file_count,
+        "directory_count": directory_count,
+        "model_file_count": model_file_count,
+        "total_size_bytes": total_size_bytes,
+        "total_size": _format_size(total_size_bytes),
+        "storage": {
+            "directory_path": str(root),
+            "directory_exists": directory_exists,
+            "project_info_exists": (root / "ProjectInfo.md").is_file(),
+            "print_history_exists": (root / "PrintHistory.md").is_file(),
+        },
+    }
+
+
+@router.post("/{project_id}/files/upload", status_code=status.HTTP_201_CREATED)
+async def upload_project_file(
+    project_id: str,
+    file: UploadFile = File(...),
+    path: str = Form(""),
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Upload a file into a project directory path (root by default)."""
+    if not file or not file.filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No file provided")
+
+    project = _resolve_project_for_owner(project_id, current_user_id, session)
+    directory_service = service_for_project(project.category, project.slug)
+
+    target_path = path.strip("/")
+    if target_path:
+        try:
+            directory_service.list_files(target_path)
+        except PathTraversalError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        except PathNotFoundError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Directory not found") from exc
+        except NotADirectoryError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path is not a directory") from exc
+
+    content = await file.read()
+    if len(content) > MAX_PROJECT_FILE_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File size exceeds {MAX_PROJECT_FILE_UPLOAD_SIZE} bytes",
+        )
+
+    try:
+        safe_name = directory_service.sanitize_filename(file.filename)
+        relative_path = f"{target_path}/{safe_name}" if target_path else safe_name
+        directory_service.write_file(relative_path, content, create_parents=False)
+    except UnsafeFilenameError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathTraversalError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Directory not found") from exc
+
+    return {
+        "project_id": project_id,
+        "path": target_path,
+        "relative_path": relative_path,
+        "name": safe_name,
+        "size_bytes": len(content),
+        "size": _format_size(len(content)),
+    }
+
+
 @router.get("/{project_id}/files/preview")
 async def preview_project_file(
     project_id: str,
@@ -250,7 +407,7 @@ async def preview_project_file(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path is a directory") from exc
 
     extension = os.path.splitext(path)[1].lstrip(".").lower()
-    viewer = _resolve_viewer_info(request, extension)
+    viewer = await _resolve_viewer_info(request, extension, refresh_if_missing=True)
 
     preview_text = None
     preview_mode = "binary"
@@ -274,14 +431,43 @@ async def preview_project_file(
             viewer_header = f"Viewer hook: {viewer['name']}"
             viewer_details = (
                 f"Plugin {viewer['plugin_id']} matched extension '.{extension}'. "
-                "v1 currently routes file preview through core-owned UI endpoints."
+                "Rendering through plugin-provided viewer script."
             )
 
-        body_html = (
-            f'<pre style="margin: 0; max-height: 420px; overflow: auto; padding: var(--spacing-md); background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px;">{html.escape(preview_text or "")}</pre>'
-            if preview_mode == "text"
-            else '<p style="margin: 0; color: var(--text-secondary);">Binary preview is not rendered in v1. Use a viewer plugin for this file type.</p>'
-        )
+        if preview_mode == "text":
+            body_html = (
+                f'<pre style="margin: 0; max-height: 420px; overflow: auto; padding: var(--spacing-md); background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px;">{html.escape(preview_text or "")}</pre>'
+            )
+        elif viewer and viewer.get("has_js"):
+            plugin_context = {
+                "containerId": "project-plugin-viewer",
+                "filePath": path,
+                "extension": extension,
+                "fileUrl": f"/api/v1/projects/{project_id}/files/raw?path={quote_plus(path)}",
+            }
+            context_json = html.escape(json.dumps(plugin_context), quote=False)
+            viewer_script_url = (
+                f"/api/v1/projects/{project_id}/files/viewer-script?viewer_id={quote_plus(str(viewer['viewer_id']))}"
+            )
+            body_html = f"""
+            <div id="project-plugin-viewer" style="height: 420px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); overflow: hidden; display: grid; place-items: center; color: var(--text-secondary);">
+                Loading viewer...
+            </div>
+            <script id="project-plugin-viewer-context" type="application/json">{context_json}</script>
+            <script>
+                (function () {{
+                    const container = document.getElementById('project-plugin-viewer');
+                    import('{viewer_script_url}')
+                        .catch(function (error) {{
+                            if (container) {{
+                                container.innerHTML = '<p style="margin:0;padding:1rem;color:#fca5a5;">Viewer failed to load: ' + String(error) + '</p>';
+                            }}
+                        }});
+                }})();
+            </script>
+            """
+        else:
+            body_html = '<p style="margin: 0; color: var(--text-secondary);">Binary preview is not rendered in v1. Use a viewer plugin for this file type.</p>'
 
         return HTMLResponse(
             f"""
@@ -300,6 +486,78 @@ async def preview_project_file(
         )
 
     return payload
+
+
+@router.get("/{project_id}/files/viewer-script")
+async def get_project_file_viewer_script(
+    project_id: str,
+    viewer_id: str,
+    request: Request,
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Serve the JavaScript module for an enabled viewer contribution."""
+    _resolve_project_for_owner(project_id, current_user_id, session)
+    manager = getattr(request.app.state, "plugin_manager", None)
+    if manager is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plugin manager unavailable")
+
+    viewer = manager.viewers.get(viewer_id)
+    if viewer is None or viewer.js_file is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viewer script not found")
+
+    return FileResponse(viewer.js_file, media_type="text/javascript")
+
+
+@router.get("/{project_id}/files/raw")
+async def get_project_file_raw(
+    project_id: str,
+    path: str,
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Return raw file bytes with an inferred media type for in-browser viewers."""
+    project = _resolve_project_for_owner(project_id, current_user_id, session)
+    directory_service = service_for_project(project.category, project.slug)
+
+    try:
+        content = directory_service.read_file(path)
+    except PathTraversalError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found") from exc
+    except IsADirectoryError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path is a directory") from exc
+
+    return Response(content=content, media_type=_guess_raw_media_type(path))
+
+
+@router.get("/{project_id}/files/download")
+async def download_project_file(
+    project_id: str,
+    path: str,
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Download a file from the project filesystem."""
+    project = _resolve_project_for_owner(project_id, current_user_id, session)
+    directory_service = service_for_project(project.category, project.slug)
+
+    try:
+        content = directory_service.read_file(path)
+    except PathTraversalError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found") from exc
+    except IsADirectoryError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path is a directory") from exc
+
+    filename = os.path.basename(path) or "download.bin"
+    return Response(
+        content=content,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### 🔧 Fixed - Project Files Browser UX and Path Consistency
+
+- Improved Project Files table header contrast so column labels and sort arrows remain legible across theme backgrounds.
+- Moved file preview into the same Project Files card with a side-by-side layout for faster browsing and preview workflows.
+- Fixed project filesystem root default mismatch so file browser listings align with storage backend uploads in local/dev environments.
+
 ### ⚙️ Changed - Developer MCP Bootstrap
 
 - VS Code MCP auto-start now provisions GitHub, Postgres, Playwright, and Chrome DevTools servers from workspace config.

@@ -1,5 +1,6 @@
 """Models API endpoints for 3D Kenji."""
 
+import html
 import os
 from typing import Optional
 
@@ -14,6 +15,7 @@ from backend.api.auth import get_current_user
 from backend.db import get_db
 from backend.storage import get_storage
 from backend.services.model_service import ModelDTO, ModelService
+from backend.services.project_directory import ProjectDirectoryService
 from backend.services.project_service import ProjectService
 from backend.core.plugin_interfaces import StorageBackend
 
@@ -93,9 +95,10 @@ def _validate_model_file(filename: str, file_size: int) -> None:
 async def upload_model(
     project_id: str,
     file: UploadFile = File(...),
-    source_url: Optional[str] = None,
-    tags: Optional[str] = None,  # JSON-encoded list
-    custom_metadata: Optional[str] = None,  # JSON-encoded dict
+    source_url: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),  # Comma-separated list for form uploads
+    custom_metadata: Optional[str] = Form(None),  # JSON-encoded dict
+    description: Optional[str] = Form(None),
     current_user_id: str = Depends(get_current_user),
     session: Session = Depends(get_db),
     storage: StorageBackend = Depends(get_storage),
@@ -153,8 +156,16 @@ async def upload_model(
         file_content = await file.read()
         _validate_model_file(file.filename, len(file_content))
 
-        # Store file
-        storage_key = f"projects/{project_id}/models/{file.filename}"
+        safe_filename = ProjectDirectoryService.sanitize_filename(file.filename)
+
+        # Store under the canonical project filesystem tree used by project page features.
+        storage_key = (
+            Path("Projects")
+            / project.category
+            / project.slug
+            / "models"
+            / safe_filename
+        ).as_posix()
         
         # Write to temporary file for storage
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -182,11 +193,13 @@ async def upload_model(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Invalid JSON in custom_metadata",
                     )
+            if description:
+                parsed_metadata["description"] = description
 
             model_dto = model_service.create_model(
                 project_id=project_id,
                 uploaded_by_id=current_user_id,
-                filename=file.filename,
+                filename=safe_filename,
                 storage_key=storage_key,
                 source_url=source_url,
                 tags=parsed_tags,
@@ -211,8 +224,10 @@ async def upload_model(
 @router.get("/{project_id}/models", response_model=ModelListResponse)
 async def list_project_models(
     project_id: str,
+    format: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
+    request=None,
     current_user_id: str = Depends(get_current_user),
     session: Session = Depends(get_db),
 ) -> ModelListResponse:
@@ -263,6 +278,44 @@ async def list_project_models(
 
     model_service = ModelService(session)
     models = model_service.list_project_models(project_id, skip=skip, limit=limit)
+
+    if format == "html":
+        if not models:
+            return HTMLResponse(
+                '<p style="color: var(--text-secondary); text-align: center; padding: var(--spacing-lg) 0; margin: 0;">No models uploaded yet.</p>'
+            )
+
+        rows = []
+        for model in models:
+            description = ""
+            if isinstance(model.custom_metadata, dict):
+                description = str(model.custom_metadata.get("description", ""))
+            rows.append(
+                f"""
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: var(--spacing-sm);">{html.escape(model.filename)}</td>
+                    <td style="padding: var(--spacing-sm); color: var(--text-secondary);">{html.escape(description) if description else '-'}</td>
+                    <td style="padding: var(--spacing-sm); color: var(--text-secondary);">{html.escape(', '.join(model.tags) if model.tags else '-')}</td>
+                </tr>
+                """
+            )
+
+        return HTMLResponse(
+            f"""
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                <thead style="border-bottom: 1px solid var(--border-color);">
+                    <tr>
+                        <th style="padding: var(--spacing-sm); text-align: left;">Filename</th>
+                        <th style="padding: var(--spacing-sm); text-align: left;">Description</th>
+                        <th style="padding: var(--spacing-sm); text-align: left;">Tags</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {''.join(rows)}
+                </tbody>
+            </table>
+            """
+        )
 
     return ModelListResponse(
         items=[ModelResponse(**m.__dict__) for m in models],
@@ -317,64 +370,3 @@ async def get_model(
         )
 
     return ModelResponse(**model.__dict__)
-
-# File upload endpoint for HTMX forms
-@router.post("/models/upload", status_code=status.HTTP_201_CREATED)
-async def upload_model_form(
-    project_id: str = Form(...),
-    model_name: str = Form(...),
-    model_file: UploadFile = File(...),
-    description: Optional[str] = Form(None),
-    framework: Optional[str] = Form(None),
-    version: Optional[str] = Form(None),
-    current_user_id: str = Depends(get_current_user),
-    session: Session = Depends(get_db),
-    storage: StorageBackend = Depends(get_storage),
-):
-    """
-    Upload a model file via HTMX form.
-    
-    This endpoint handles file uploads from the HTML form with additional
-    metadata fields. Returns JSON response suitable for HTMX handling.
-    """
-    if not model_file or not model_file.filename:
-        return JSONResponse(
-            {"error": "No file provided"},
-            status_code=status.HTTP_400_BAD_REQUEST,
-        )
-
-    project_service = ProjectService(session)
-    project = project_service.get_project_by_id(project_id)
-
-    if not project:
-        return JSONResponse(
-            {"error": f"Project '{project_id}' not found"},
-            status_code=status.HTTP_404_NOT_FOUND,
-        )
-
-    # Check ownership
-    if project.owner_id != current_user_id:
-        return JSONResponse(
-            {"error": "You do not have permission to upload to this project"},
-            status_code=status.HTTP_403_FORBIDDEN,
-        )
-
-    try:
-        # TODO: Implement actual file upload logic
-        # For now, just return success
-        return {
-            "success": True,
-            "message": "Model uploaded successfully",
-            "model": {
-                "id": "model_123",
-                "name": model_name,
-                "framework": framework,
-                "version": version,
-                "size": 1024,
-            }
-        }
-    except Exception as e:
-        return JSONResponse(
-            {"error": f"Upload failed: {str(e)}"},
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )

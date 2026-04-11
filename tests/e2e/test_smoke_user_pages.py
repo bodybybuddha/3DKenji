@@ -97,9 +97,9 @@ def test_project_upload_modal_route_exists(authenticated_page: Page, e2e_base_ur
     authenticated_page.click("button:has-text('Upload Model')")
     authenticated_page.wait_for_selector("#upload-model-modal", state="visible", timeout=5000)
     assert authenticated_page.locator("#upload-model-modal h2:has-text('Upload Model')").count() == 1
-    assert authenticated_page.locator("#upload-model-modal input[name='project_id'][type='hidden']").count() == 1
-    assert authenticated_page.locator("#upload-model-modal input[name='model_file']").count() == 1
-    assert authenticated_page.locator("#upload-model-modal input[name='model_name']").count() == 1
+    assert authenticated_page.locator("#upload-model-modal input[name='file']").count() == 1
+    assert authenticated_page.locator("#upload-model-modal input[name='source_url']").count() == 1
+    assert authenticated_page.locator("#upload-model-modal input[name='tags']").count() == 1
     assert authenticated_page.locator("#upload-model-modal button[type='submit']:has-text('Upload')").count() == 1
 
 
