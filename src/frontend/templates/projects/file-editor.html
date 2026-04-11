@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Editing {{ file_name }} - 3DKenji{% endblock %}
+
+{% block extra_css %}
+<style>
+    .editor-shell {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: var(--spacing-md);
+        height: calc(100vh - 10rem);
+    }
+
+    .editor-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--spacing-md);
+        flex-wrap: wrap;
+    }
+
+    .editor-toolbar-meta {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .editor-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: var(--spacing-md);
+        min-height: 0;
+        height: 100%;
+    }
+
+    .editor-pane {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        background: var(--bg-primary);
+        display: grid;
+        grid-template-rows: auto 1fr;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .editor-pane-header {
+        margin: 0;
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    #text-editor {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        border: 0;
+        outline: none;
+        resize: none;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.9rem;
+        line-height: 1.55;
+        padding: var(--spacing-md);
+    }
+
+    #markdown-preview {
+        overflow: auto;
+        padding: var(--spacing-md);
+    }
+
+    #markdown-preview pre {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: var(--spacing-sm);
+        overflow: auto;
+    }
+
+    #editor-status.error {
+        color: var(--color-danger);
+    }
+
+    #editor-status.success {
+        color: var(--color-success);
+    }
+
+    @media (max-width: 1024px) {
+        .editor-layout {
+            grid-template-columns: 1fr;
+            grid-template-rows: minmax(320px, 1fr) minmax(220px, 0.8fr);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="padding: var(--spacing-xl) var(--spacing-lg);">
+    <div id="editor-config" data-file-path="{{ file_path }}"
+        data-is-markdown="{% if is_markdown %}1{% else %}0{% endif %}" style="display: none;"></div>
+    <div
+        style="margin-bottom: var(--spacing-md); display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-md); flex-wrap: wrap;">
+        <a href="/project/{{ project_id }}" style="color: var(--color-primary);">← Back to Project</a>
+        <p id="editor-status" class="editor-toolbar-meta" style="margin: 0;">Loading file...</p>
+    </div>
+
+    <div class="editor-shell">
+        <div class="editor-toolbar">
+            <div>
+                <h2 style="margin: 0;">{{ file_name }}</h2>
+                <p class="editor-toolbar-meta" style="margin: var(--spacing-xs) 0 0 0;">{{ file_path }}</p>
+            </div>
+            <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                <button id="save-file-btn" class="btn btn-primary" type="button">Save</button>
+            </div>
+        </div>
+
+        <div class="editor-layout" id="editor-layout">
+            <section class="editor-pane">
+                <p class="editor-pane-header">Editor</p>
+                <textarea id="text-editor" spellcheck="false"></textarea>
+            </section>
+
+            <section class="editor-pane" id="preview-pane" {% if not is_markdown %}style="display: none;" {% endif %}>
+                <p class="editor-pane-header">Markdown Preview</p>
+                <div id="markdown-preview">
+                    <p style="margin: 0; color: var(--text-secondary);">Preview will render as you type.</p>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const projectId = '{{ project_id }}';
+        const config = document.getElementById('editor-config');
+        const filePath = config ? config.dataset.filePath : '';
+        const isMarkdown = config ? config.dataset.isMarkdown === '1' : false;
+
+        const editor = document.getElementById('text-editor');
+        const statusEl = document.getElementById('editor-status');
+        const previewEl = document.getElementById('markdown-preview');
+        const saveButton = document.getElementById('save-file-btn');
+
+        let saveInFlight = false;
+        let previewTimer = null;
+
+        function setStatus(message, kind) {
+            statusEl.textContent = message;
+            statusEl.className = 'editor-toolbar-meta';
+            if (kind) {
+                statusEl.classList.add(kind);
+            }
+        }
+
+        async function loadContent() {
+            const params = new URLSearchParams({ path: filePath });
+            const response = await fetch(`/api/v1/projects/${projectId}/files/content?${params.toString()}`, {
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load file (${response.status})`);
+            }
+
+            const payload = await response.json();
+            editor.value = payload.content || '';
+            setStatus(`Loaded ${payload.path}`, 'success');
+
+            if (isMarkdown) {
+                renderMarkdownPreview();
+            }
+        }
+
+        async function saveContent() {
+            if (saveInFlight) {
+                return;
+            }
+
+            saveInFlight = true;
+            saveButton.disabled = true;
+            const originalLabel = saveButton.textContent;
+            saveButton.textContent = 'Saving...';
+            setStatus('Saving file...');
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/content`, {
+                    method: 'PUT',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: filePath,
+                        content: editor.value,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let detail = `Save failed (${response.status})`;
+                    try {
+                        const payload = await response.json();
+                        if (payload && payload.detail) {
+                            detail = payload.detail;
+                        }
+                    } catch (_jsonError) {
+                        // Use default detail message.
+                    }
+                    throw new Error(detail);
+                }
+
+                setStatus('Saved successfully.', 'success');
+            } catch (error) {
+                setStatus(error.message || 'Unable to save file.', 'error');
+            } finally {
+                saveInFlight = false;
+                saveButton.disabled = false;
+                saveButton.textContent = originalLabel;
+            }
+        }
+
+        async function renderMarkdownPreview() {
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/markdown-preview`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({ content: editor.value }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Preview failed (${response.status})`);
+                }
+
+                const payload = await response.json();
+                previewEl.innerHTML = payload.html || '<p style="margin: 0; color: var(--text-secondary);">Nothing to preview.</p>';
+            } catch (_error) {
+                previewEl.innerHTML = '<p style="margin: 0; color: var(--color-danger);">Unable to render markdown preview.</p>';
+            }
+        }
+
+        editor.addEventListener('keydown', function (event) {
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+                event.preventDefault();
+                saveContent();
+            }
+        });
+
+        editor.addEventListener('input', function () {
+            if (!isMarkdown) {
+                return;
+            }
+
+            if (previewTimer) {
+                clearTimeout(previewTimer);
+            }
+            previewTimer = setTimeout(renderMarkdownPreview, 220);
+        });
+
+        saveButton.addEventListener('click', saveContent);
+
+        loadContent().catch(function (error) {
+            setStatus(error.message || 'Failed to load file.', 'error');
+            editor.value = '';
+        });
+    });
+</script>
+{% endblock %}

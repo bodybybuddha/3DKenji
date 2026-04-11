@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### ✨ Added - Project File Editor and Markdown Viewer
+
+- Added a dedicated text-file editor window launched from Project Files actions for editable formats (`.md`, `.txt`, `.rtf`, and related text/config/code files).
+- Added save support for editable files through secure project file content APIs, including keyboard shortcut support (`Ctrl/Cmd+S`) in the editor.
+- Added live markdown preview support in the editor via backend markdown render endpoint.
+- Added a markdown viewer plugin (`markdown-viewer`) so markdown files render as formatted content in the Project Files preview pane.
+
+### 🔧 Changed - Project Files Table Actions
+
+- Reworked file table actions so editable files show `Edit` and `View`, while non-editable files retain `Save` download action.
+- Removed the Type column and emphasized file/folder type icons in the Name column; retained Size for quick scanning.
+- Moved viewer-hook detail messaging into a compact hover info icon to reduce preview panel clutter.
+
 ### 🔧 Fixed - Project Files Browser UX and Path Consistency
 
 - Improved Project Files table header contrast so column labels and sort arrows remain legible across theme backgrounds.

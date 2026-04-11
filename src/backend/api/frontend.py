@@ -12,7 +12,12 @@ from sqlalchemy.orm import Session
 from backend.core.validation import SetupRequest, format_validation_errors
 from backend.core.auth import decode_token
 from backend.db import get_db
-from backend.services.project_directory import get_projects_dir
+from backend.services.project_directory import (
+    PathNotFoundError,
+    PathTraversalError,
+    get_projects_dir,
+    service_for_project,
+)
 from backend.services.project_service import ProjectService
 from backend.services.user_service import UserService
 
@@ -363,6 +368,57 @@ async def get_upload_model_modal(
         "projects/upload-modal.html",
         {"request": request, "project_id": project_id},
     ).body.decode()
+
+
+@router.get("/projects/{project_id}/files/editor", response_class=HTMLResponse)
+async def project_file_editor_page(
+    request: Request,
+    project_id: str,
+    path: str,
+    session: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Open the standalone text editor window for a project file."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    project_service = ProjectService(session)
+    project = project_service.get_project_by_id(project_id)
+    if not project or project.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    extension = path.rsplit(".", 1)[-1].lower() if "." in path else ""
+    editable_extensions = {
+        "txt", "md", "markdown", "rtf", "log", "json", "yaml", "yml", "csv",
+        "ini", "cfg", "conf", "toml", "xml", "html", "css", "js", "ts", "py",
+        "gcode", "sql", "sh",
+    }
+    if extension not in editable_extensions:
+        raise HTTPException(status_code=400, detail="File type is not editable")
+
+    directory_service = service_for_project(project.category, project.slug)
+    try:
+        directory_service.read_file(path)
+    except PathTraversalError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PathNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="File not found") from exc
+    except IsADirectoryError as exc:
+        raise HTTPException(status_code=400, detail="Path is a directory") from exc
+
+    return templates.TemplateResponse(
+        "projects/file-editor.html",
+        {
+            "request": request,
+            "project_id": project_id,
+            "project": project,
+            "file_path": path,
+            "file_name": path.split("/")[-1],
+            "extension": extension,
+            "is_markdown": extension in {"md", "markdown"},
+            "user": user,
+        },
+    )
 
 
 @router.get("/keys", response_class=HTMLResponse)

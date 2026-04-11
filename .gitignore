@@ -13,6 +13,7 @@ __pycache__/
 *.db-journal
 *.db-wal
 *.db-shm
+/tests/storage/projects/Uncategorized/viewer-test-*/
 /backend
 /frontend
 

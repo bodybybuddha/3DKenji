@@ -168,3 +168,52 @@ def test_project_file_summary_reports_storage_and_counts():
     assert payload["storage"]["directory_exists"] is True
     assert payload["storage"]["project_info_exists"] is True
     assert payload["storage"]["print_history_exists"] is True
+
+
+def test_project_file_editor_content_get_and_save_roundtrip():
+    headers = _auth_headers()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    _write_project_file(project, "notes/readme.md", b"# Initial\n\nhello\n")
+
+    get_response = requests.get(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files/content",
+        headers=headers,
+        params={"path": "notes/readme.md"},
+        timeout=10,
+    )
+    assert get_response.status_code == 200, get_response.text
+    get_payload = get_response.json()
+    assert get_payload["is_markdown"] is True
+    assert "# Initial" in get_payload["content"]
+
+    updated_content = "# Updated\n\nSaved through editor API.\n"
+    put_response = requests.put(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files/content",
+        headers=headers,
+        json={"path": "notes/readme.md", "content": updated_content},
+        timeout=10,
+    )
+    assert put_response.status_code == 200, put_response.text
+
+    project_root = Path(os.environ["STORAGE_ROOT"]) / "Projects" / project["category"] / project["slug"]
+    assert (project_root / "notes/readme.md").read_text(encoding="utf-8") == updated_content
+
+
+def test_project_markdown_preview_endpoint_renders_html():
+    headers = _auth_headers()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    response = requests.post(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files/markdown-preview",
+        headers=headers,
+        json={"content": "# Header\n\n- Item"},
+        timeout=10,
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert "<h1>Header</h1>" in payload["html"]
+    assert "<li>Item</li>" in payload["html"]
