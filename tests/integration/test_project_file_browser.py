@@ -223,6 +223,47 @@ def test_project_file_list_marks_rtf_as_editable():
     assert item["is_editable"] is True
 
 
+def test_project_file_create_endpoint_creates_template_file():
+    headers = _auth_headers()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    response = requests.post(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files/create",
+        headers=headers,
+        json={"path": "models", "name": "notes", "file_type": "md"},
+        timeout=10,
+    )
+
+    assert response.status_code == 201, response.text
+    payload = response.json()
+    assert payload["name"] == "notes.md"
+    assert payload["relative_path"] == "models/notes.md"
+
+    storage_root = Path(os.environ["STORAGE_ROOT"])
+    project_root = storage_root / "Projects" / project["category"] / project["slug"]
+    created_file = project_root / "models" / "notes.md"
+    assert created_file.exists()
+    assert "# Title" in created_file.read_text(encoding="utf-8")
+
+
+def test_project_file_create_endpoint_rejects_duplicate_name():
+    headers = _auth_headers()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    _write_project_file(project, "models/notes.md", b"# Existing\n")
+
+    response = requests.post(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files/create",
+        headers=headers,
+        json={"path": "models", "name": "notes", "file_type": "md"},
+        timeout=10,
+    )
+
+    assert response.status_code == 409, response.text
+
+
 def test_project_markdown_preview_endpoint_renders_html():
     headers = _auth_headers()
     project = _create_project(headers)
