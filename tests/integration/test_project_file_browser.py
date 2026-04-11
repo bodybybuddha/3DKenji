@@ -201,6 +201,28 @@ def test_project_file_editor_content_get_and_save_roundtrip():
     assert (project_root / "notes/readme.md").read_text(encoding="utf-8") == updated_content
 
 
+def test_project_file_list_marks_rtf_as_editable():
+    headers = _auth_headers()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    _write_project_file(project, "notes/instructions.rtf", b"{\\rtf1\\ansi Test} ")
+
+    response = requests.get(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files",
+        headers=headers,
+        params={"path": "notes"},
+        timeout=10,
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    item = next((entry for entry in payload["items"] if entry["name"] == "instructions.rtf"), None)
+    assert item is not None
+    assert item["extension"] == "rtf"
+    assert item["is_editable"] is True
+
+
 def test_project_markdown_preview_endpoint_renders_html():
     headers = _auth_headers()
     project = _create_project(headers)

@@ -416,6 +416,7 @@ async def project_file_editor_page(
             "file_name": path.split("/")[-1],
             "extension": extension,
             "is_markdown": extension in {"md", "markdown"},
+            "is_rtf": extension == "rtf",
             "user": user,
         },
     )

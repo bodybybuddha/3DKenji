@@ -66,6 +66,48 @@
         padding: var(--spacing-md);
     }
 
+    #rtf-editor-wrapper {
+        height: 100%;
+        min-height: 0;
+        display: none;
+        grid-template-rows: auto 1fr;
+    }
+
+    .rtf-toolbar {
+        display: flex;
+        gap: var(--spacing-xs);
+        align-items: center;
+        padding: var(--spacing-sm);
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-secondary);
+        flex-wrap: wrap;
+    }
+
+    .rtf-tool-btn {
+        border: 1px solid var(--border-color);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-radius: 4px;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+
+    .rtf-tool-btn:hover {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+    }
+
+    #rtf-editor {
+        padding: var(--spacing-md);
+        overflow: auto;
+        min-height: 0;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        line-height: 1.6;
+        outline: none;
+    }
+
     #markdown-preview {
         overflow: auto;
         padding: var(--spacing-md);
@@ -99,7 +141,8 @@
 {% block content %}
 <div class="container" style="padding: var(--spacing-xl) var(--spacing-lg);">
     <div id="editor-config" data-file-path="{{ file_path }}"
-        data-is-markdown="{% if is_markdown %}1{% else %}0{% endif %}" style="display: none;"></div>
+        data-is-markdown="{% if is_markdown %}1{% else %}0{% endif %}"
+        data-is-rtf="{% if is_rtf %}1{% else %}0{% endif %}" style="display: none;"></div>
     <div
         style="margin-bottom: var(--spacing-md); display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-md); flex-wrap: wrap;">
         <a href="/project/{{ project_id }}" style="color: var(--color-primary);">← Back to Project</a>
@@ -121,6 +164,16 @@
             <section class="editor-pane">
                 <p class="editor-pane-header">Editor</p>
                 <textarea id="text-editor" spellcheck="false"></textarea>
+                <div id="rtf-editor-wrapper">
+                    <div class="rtf-toolbar">
+                        <button class="rtf-tool-btn" type="button" data-cmd="bold"><strong>B</strong></button>
+                        <button class="rtf-tool-btn" type="button" data-cmd="italic"><em>I</em></button>
+                        <button class="rtf-tool-btn" type="button" data-cmd="underline"><u>U</u></button>
+                        <button class="rtf-tool-btn" type="button" data-cmd="insertUnorderedList">• List</button>
+                        <button class="rtf-tool-btn" type="button" data-cmd="insertOrderedList">1. List</button>
+                    </div>
+                    <div id="rtf-editor" contenteditable="true"></div>
+                </div>
             </section>
 
             <section class="editor-pane" id="preview-pane" {% if not is_markdown %}style="display: none;" {% endif %}>
@@ -141,20 +194,144 @@
         const config = document.getElementById('editor-config');
         const filePath = config ? config.dataset.filePath : '';
         const isMarkdown = config ? config.dataset.isMarkdown === '1' : false;
+        const isRtf = config ? config.dataset.isRtf === '1' : false;
 
         const editor = document.getElementById('text-editor');
         const statusEl = document.getElementById('editor-status');
         const previewEl = document.getElementById('markdown-preview');
         const saveButton = document.getElementById('save-file-btn');
+        const rtfEditorWrapper = document.getElementById('rtf-editor-wrapper');
+        const rtfEditor = document.getElementById('rtf-editor');
 
         let saveInFlight = false;
         let previewTimer = null;
+        let rtfLibraryReady = false;
+
+        if (isRtf) {
+            editor.style.display = 'none';
+            rtfEditorWrapper.style.display = 'grid';
+        }
 
         function setStatus(message, kind) {
             statusEl.textContent = message;
             statusEl.className = 'editor-toolbar-meta';
             if (kind) {
                 statusEl.classList.add(kind);
+            }
+        }
+
+        function stringToArrayBuffer(value) {
+            return new TextEncoder().encode(value).buffer;
+        }
+
+        function escapeForRtf(value) {
+            return value
+                .replace(/\\/g, '\\\\')
+                .replace(/{/g, '\\{')
+                .replace(/}/g, '\\}')
+                .replace(/\r?\n/g, '\\par\n');
+        }
+
+        function htmlToSimpleRtf(html) {
+            const container = document.createElement('div');
+            container.innerHTML = html;
+
+            function convert(node, state = { bold: false, italic: false, underline: false }) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    return escapeForRtf(node.textContent || '');
+                }
+                if (node.nodeType !== Node.ELEMENT_NODE) {
+                    return '';
+                }
+
+                const tag = node.tagName.toLowerCase();
+                let prefix = '';
+                let suffix = '';
+                const nextState = { ...state };
+
+                if ((tag === 'strong' || tag === 'b') && !state.bold) {
+                    prefix += '\\b ';
+                    suffix = '\\b0 ' + suffix;
+                    nextState.bold = true;
+                }
+                if ((tag === 'em' || tag === 'i') && !state.italic) {
+                    prefix += '\\i ';
+                    suffix = '\\i0 ' + suffix;
+                    nextState.italic = true;
+                }
+                if (tag === 'u' && !state.underline) {
+                    prefix += '\\ul ';
+                    suffix = '\\ulnone ' + suffix;
+                    nextState.underline = true;
+                }
+
+                let body = '';
+                node.childNodes.forEach(function (child) {
+                    body += convert(child, nextState);
+                });
+
+                if (tag === 'br') {
+                    return '\\line ';
+                }
+                if (tag === 'div' || tag === 'p' || tag === 'li') {
+                    return prefix + body + suffix + '\\par\n';
+                }
+                if (tag === 'ul' || tag === 'ol') {
+                    return body + '\\par\n';
+                }
+
+                return prefix + body + suffix;
+            }
+
+            let rtfBody = '';
+            container.childNodes.forEach(function (node) {
+                rtfBody += convert(node);
+            });
+            return `{\\rtf1\\ansi\\deff0 {${rtfBody}}}`;
+        }
+
+        async function ensureRtfLibrary() {
+            if (rtfLibraryReady) {
+                return;
+            }
+
+            await new Promise(function (resolve, reject) {
+                const existing = document.querySelector('script[data-rtfjs-lib="1"]');
+                if (existing && window.RTFJS) {
+                    resolve();
+                    return;
+                }
+
+                const script = existing || document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/rtf.js/dist/RTFJS.bundle.min.js';
+                script.async = true;
+                script.dataset.rtfjsLib = '1';
+                script.onload = function () { resolve(); };
+                script.onerror = function () { reject(new Error('Unable to load RTF runtime')); };
+                if (!existing) {
+                    document.head.appendChild(script);
+                }
+            });
+
+            if (!window.RTFJS) {
+                throw new Error('RTF runtime unavailable');
+            }
+            if (window.RTFJS.loggingEnabled) {
+                window.RTFJS.loggingEnabled(false);
+            }
+            rtfLibraryReady = true;
+        }
+
+        async function renderRtfEditor(rtfContent) {
+            await ensureRtfLibrary();
+            const doc = new window.RTFJS.Document(stringToArrayBuffer(rtfContent || ''));
+            const htmlElements = await doc.render();
+            rtfEditor.innerHTML = '';
+            htmlElements.forEach(function (element) {
+                rtfEditor.appendChild(element);
+            });
+            if (!rtfEditor.innerHTML.trim()) {
+                rtfEditor.innerHTML = '<p><br></p>';
             }
         }
 
@@ -174,6 +351,11 @@
             const payload = await response.json();
             editor.value = payload.content || '';
             setStatus(`Loaded ${payload.path}`, 'success');
+
+            if (isRtf) {
+                await renderRtfEditor(payload.content || '');
+                return;
+            }
 
             if (isMarkdown) {
                 renderMarkdownPreview();
@@ -201,7 +383,7 @@
                     },
                     body: JSON.stringify({
                         path: filePath,
-                        content: editor.value,
+                        content: isRtf ? htmlToSimpleRtf(rtfEditor.innerHTML) : editor.value,
                     }),
                 });
 
@@ -258,6 +440,15 @@
             }
         });
 
+        if (rtfEditor) {
+            rtfEditor.addEventListener('keydown', function (event) {
+                if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+                    event.preventDefault();
+                    saveContent();
+                }
+            });
+        }
+
         editor.addEventListener('input', function () {
             if (!isMarkdown) {
                 return;
@@ -271,9 +462,23 @@
 
         saveButton.addEventListener('click', saveContent);
 
+        document.querySelectorAll('.rtf-tool-btn').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const cmd = button.dataset.cmd;
+                if (!cmd) {
+                    return;
+                }
+                document.execCommand(cmd, false, null);
+                rtfEditor.focus();
+            });
+        });
+
         loadContent().catch(function (error) {
             setStatus(error.message || 'Failed to load file.', 'error');
             editor.value = '';
+            if (isRtf) {
+                rtfEditor.innerHTML = '<p style="margin:0;color:var(--color-danger);">Unable to load RTF content.</p>';
+            }
         });
     });
 </script>
