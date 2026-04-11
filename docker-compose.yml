@@ -19,8 +19,10 @@ services:
     volumes:
       - ./src:/app/src
       - ./data:/data
+      - ./plugins:/data/plugins
     environment:
       DATABASE_URL: postgres://kenji:kenji@db:5432/kenji
+      PLUGINS_ROOT: /data/plugins
     depends_on:
       - db
     ports:

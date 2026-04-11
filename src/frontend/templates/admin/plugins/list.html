@@ -5,12 +5,19 @@
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
         <div>
             <h2>Plugins</h2>
-            <p class="section-description">Manage plugins and extensions</p>
+            <p class="section-description">Manage external plugin folders, edit settings.yaml, and control restart-time
+                activation.</p>
         </div>
-        <button class="btn btn-primary" hx-get="/api/v1/admin/plugins/upload-modal" hx-target="body"
-            hx-swap="beforeend">
-            + Upload Plugin
-        </button>
+    </div>
+
+    <div class="card" style="margin-bottom: var(--spacing-lg);">
+        <div class="card-body" style="display: grid; gap: var(--spacing-sm);">
+            <p style="margin: 0; color: var(--text-secondary);">Plugins are installed manually by creating one folder
+                per plugin under the configured <strong>PLUGINS_ROOT</strong>.</p>
+            <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">This page edits plugin-owned
+                <strong>settings.yaml</strong> files and the central enable-state registry. Discovery and activation
+                still happen on application restart in v1.</p>
+        </div>
     </div>
 
     <!-- Plugins List -->

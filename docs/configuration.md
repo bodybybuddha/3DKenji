@@ -54,6 +54,40 @@ mkdir -p /data/storage
 chmod 755 /data/storage
 ```
 
+**PLUGINS_ROOT** (Optional, default: `/data/plugins`)
+Root directory for installation-specific plugins.
+
+```bash
+PLUGINS_ROOT=/data/plugins
+```
+
+Plugins are discovered only at application startup in v1. Each plugin lives in its own folder beneath `PLUGINS_ROOT` and must include a `plugin.yaml` manifest.
+
+```text
+PLUGINS_ROOT/
+├── _system/
+│   └── plugin-registry.yaml
+└── core-themes/
+  ├── plugin.yaml
+  ├── settings.yaml
+  └── assets/
+    └── themes/
+```
+
+Notes:
+- `plugin.yaml` is the read-only manifest/control file for the package.
+- `settings.yaml` is the admin-editable plugin configuration.
+- `PLUGINS_ROOT/_system/plugin-registry.yaml` stores installation enable/disable state.
+- Cosmetic plugins contribute CSS assets.
+- Viewer plugins may also contribute JS assets and backend entrypoint metadata, but public API routes remain core-owned.
+
+Ensure the plugin root exists and is writable:
+
+```bash
+mkdir -p /data/plugins/_system
+chmod -R 755 /data/plugins
+```
+
 ### Project Structure and Frontmatter
 
 Project creation seeds each project directory with:
@@ -158,6 +192,7 @@ Create `.env` file in project root:
 ```bash
 DATABASE_URL=postgresql://kenji:kenji@localhost:5432/kenji
 STORAGE_ROOT=/workspace/data/storage
+PLUGINS_ROOT=/workspace/working/plugins
 LOG_DIR=/workspace/data/logs
 LOG_LEVEL=DEBUG
 SECRET_KEY=dev-secret-key-change-in-production
@@ -184,6 +219,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://kenji:kenji@postgres:5432/kenji
       - STORAGE_ROOT=/data/storage
+      - PLUGINS_ROOT=/data/plugins
       - LOG_DIR=/data/logs
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
       - LOG_LEVEL=INFO
@@ -201,6 +237,7 @@ For Docker Compose, create `.env` file:
 SECRET_KEY=your-production-secret-key
 DATABASE_URL=postgresql://kenji:kenji@postgres:5432/kenji
 STORAGE_ROOT=/data/storage
+PLUGINS_ROOT=/data/plugins
 LOG_DIR=/data/logs
 ```
 
@@ -218,6 +255,7 @@ docker-compose --env-file .env up
 SECRET_KEY=your-very-secure-random-key-min-32-chars
 DATABASE_URL=postgresql://user:secure-password@db.example.com/kenji_prod
 STORAGE_ROOT=/var/lib/kenji/storage
+PLUGINS_ROOT=/var/lib/kenji/plugins
 
 # RECOMMENDED
 LOG_DIR=/var/log/kenji
@@ -258,6 +296,10 @@ Create and set permissions:
 sudo mkdir -p /var/lib/kenji/storage
 sudo chown kenji:kenji /var/lib/kenji/storage
 sudo chmod 750 /var/lib/kenji/storage
+
+sudo mkdir -p /var/lib/kenji/plugins/_system
+sudo chown -R kenji:kenji /var/lib/kenji/plugins
+sudo chmod -R 750 /var/lib/kenji/plugins
 ```
 
 ### Log Directory

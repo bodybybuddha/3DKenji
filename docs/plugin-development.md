@@ -5,259 +5,129 @@ title: Plugin Development
 
 # Plugin Development Guide
 
-3DKenji uses a plugin architecture for extensibility. This guide explains how to build custom plugins.
+3DKenji now loads plugins from an installation-specific external plugin root instead of from `src/backend/plugins`. This guide explains the v1 package layout and how to build plugins that can be discovered safely at startup.
 
 ## Plugin System Overview
 
 The plugin system allows you to extend 3DKenji with custom implementations for:
 
-- **AuthProvider** – Custom authentication (GitHub OAuth, SAML, LDAP)
-- **StorageBackend** – Custom storage (S3, Azure Blob, GCS)
-- **MediaProcessor** – Custom media processing
-- **Viewer** – Custom 3D viewers
-- **MetadataHandler** – Custom metadata extraction
+- **Cosmetic plugins** – CSS-driven themes and visual overrides
+- **Viewer plugins** – File viewers matched by extension for project page previews
+
+Public API routes are not plugin-defined in v1. Core code owns request routing, permission checks, and response shaping.
+
+## Plugin Root
+
+Plugins are discovered from `PLUGINS_ROOT` at application startup.
+
+Default locations:
+- App containers: `/data/plugins`
+- Devcontainer: `/working/plugins`
+
+Each plugin package is one directory under `PLUGINS_ROOT`:
+
+```text
+PLUGINS_ROOT/
+├── _system/
+│   └── plugin-registry.yaml
+└── core-themes/
+    ├── plugin.yaml
+    ├── settings.yaml
+    └── assets/
+        └── themes/
+            ├── dark.css
+            └── light.css
+```
 
 ## Core Concepts
 
 ### PluginManager
 
-The `PluginManager` discovers and loads plugins from the `backend/plugins/` directory.
+The runtime `PluginManager` discovers plugin folders from `PLUGINS_ROOT`, validates `plugin.yaml`, ensures `settings.yaml` exists, merges central enable-state from `_system/plugin-registry.yaml`, and then exposes active theme and viewer contributions to the application.
 
 ```python
 from backend.core.plugins import PluginManager
 
 manager = PluginManager()
+await manager.load_plugins(app, {})
 
-# List available plugins
-auth_plugins = manager.get_plugins('AuthProvider')
-storage_plugins = manager.get_plugins('StorageBackend')
-
-# Load a plugin
-auth = manager.load('PasswordAuthProvider')
+themes = manager.get_by_type("theme")
+plugins = manager.list_plugins()
 ```
 
-### Plugin Interfaces
+### Manifest Files
 
-All plugins inherit from base interfaces in `backend/core/plugin_interfaces.py`.
+Each plugin package must contain a `plugin.yaml` manifest. Example:
 
-## Building an AuthProvider Plugin
-
-### 1. Create the Plugin File
-
-Create `backend/plugins/auth_github.py`:
-
-```python
-import httpx
-from typing import Optional
-from backend.core.plugin_interfaces import AuthProvider, AuthResult, UserIdentity
-
-class GitHubAuthProvider(AuthProvider):
-    """GitHub OAuth authentication provider"""
-    
-    name = "GitHubOAuth"
-    version = "1.0.0"
-    
-    def __init__(self, client_id: str, client_secret: str):
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.client = httpx.AsyncClient()
-    
-    async def authenticate(self, provider_data: dict) -> Optional[AuthResult]:
-        """
-        Authenticate using GitHub OAuth code.
-        
-        Args:
-            provider_data: {"code": "github-auth-code"}
-        
-        Returns:
-            AuthResult with user identity and token, or None if failed
-        """
-        code = provider_data.get("code")
-        if not code:
-            return None
-        
-        # Exchange code for access token
-        token_response = await self.client.post(
-            "https://github.com/login/oauth/access_token",
-            data={
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-                "code": code,
-            },
-            headers={"Accept": "application/json"}
-        )
-        
-        if token_response.status_code != 200:
-            return None
-        
-        token_data = token_response.json()
-        access_token = token_data.get("access_token")
-        
-        if not access_token:
-            return None
-        
-        # Get user info from GitHub
-        user_response = await self.client.get(
-            "https://api.github.com/user",
-            headers={"Authorization": f"Bearer {access_token}"}
-        )
-        
-        if user_response.status_code != 200:
-            return None
-        
-        user_data = user_response.json()
-        
-        # Return AuthResult with user identity
-        return AuthResult(
-            success=True,
-            user_identity=UserIdentity(
-                provider="github",
-                provider_user_id=str(user_data["id"]),
-                email=user_data.get("email"),
-                display_name=user_data.get("name", user_data["login"]),
-                avatar_url=user_data.get("avatar_url"),
-            ),
-            token=access_token,
-            refresh_token=None,
-        )
-    
-    async def verify_token(self, token: str) -> Optional[UserIdentity]:
-        """Verify a GitHub access token is still valid"""
-        response = await self.client.get(
-            "https://api.github.com/user",
-            headers={"Authorization": f"Bearer {token}"}
-        )
-        
-        if response.status_code != 200:
-            return None
-        
-        user_data = response.json()
-        return UserIdentity(
-            provider="github",
-            provider_user_id=str(user_data["id"]),
-            email=user_data.get("email"),
-            display_name=user_data.get("name", user_data["login"]),
-        )
-    
-    async def refresh_token(self, refresh_token: str) -> Optional[str]:
-        """GitHub OAuth tokens don't have refresh tokens"""
-        return None
-    
-    async def revoke_token(self, token: str) -> bool:
-        """Revoke a GitHub access token"""
-        # GitHub doesn't provide a revoke endpoint, just return True
-        return True
+```yaml
+id: core-themes
+name: Core Themes
+version: 1.0.0
+author: 3DKenji
+type: cosmetic
+description: Bundled dark and light themes.
+themes:
+  - name: dark
+    label: Dark
+    css_file: assets/themes/dark.css
+    default: true
+  - name: light
+    label: Light
+    css_file: assets/themes/light.css
+settings_defaults:
+  default_theme: dark
 ```
 
-### 2. Register the Plugin
+### settings.yaml
 
-Update `backend/plugins/__init__.py` to enable the plugin:
+Each plugin owns an editable `settings.yaml`. The admin plugin page serves this file in a text editor and writes it back after YAML validation.
 
-```python
-from .auth_github import GitHubAuthProvider
+Example:
 
-__all__ = ["GitHubAuthProvider"]
+```yaml
+default_theme: dark
 ```
 
-### 3. Use in Main App
+### Central Enable State
 
-Update `backend/main.py`:
+Plugin enable/disable state is installation-level and stored outside the plugin package in:
 
-```python
-from backend.plugins.auth_github import GitHubAuthProvider
-from backend.core.plugins import PluginManager
-
-# Initialize GitHub OAuth provider
-github_provider = GitHubAuthProvider(
-    client_id=os.getenv("GITHUB_CLIENT_ID"),
-    client_secret=os.getenv("GITHUB_CLIENT_SECRET"),
-)
-
-# Add GitHub OAuth endpoint
-@app.post("/api/v1/auth/github")
-async def github_login(request: dict, db: Session = Depends(get_db)):
-    """Login with GitHub OAuth"""
-    result = await github_provider.authenticate(request)
-    if not result or not result.success:
-        raise HTTPException(status_code=401, detail="GitHub auth failed")
-    
-    # ... create/update user and issue JWT token
+```yaml
+plugins:
+  core-themes:
+    enabled: true
 ```
 
-## Building a StorageBackend Plugin
+This data lives in `PLUGINS_ROOT/_system/plugin-registry.yaml`.
 
-### 1. Create the Plugin File
+## Cosmetic Plugins
 
-Create `backend/plugins/storage_s3.py`:
+Cosmetic plugins contribute CSS assets only in v1. A single plugin package can expose multiple named theme variants, which is how the bundled dark and light themes are implemented now.
 
-```python
-import boto3
-from typing import Optional
-from pathlib import Path
-from backend.core.plugin_interfaces import StorageBackend, ProcessResult
+## Viewer Plugins
 
-class S3StorageBackend(StorageBackend):
-    """Amazon S3 storage backend"""
-    
-    name = "S3Storage"
-    version = "1.0.0"
-    
-    def __init__(
-        self,
-        bucket_name: str,
-        region_name: str = "us-east-1",
-        access_key: str = None,
-        secret_key: str = None,
-    ):
-        self.bucket_name = bucket_name
-        self.s3_client = boto3.client(
-            "s3",
-            region_name=region_name,
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-        )
-    
-    async def store(self, source_path: Path, destination_key: str) -> str:
-        """
-        Upload file to S3.
-        
-        Args:
-            source_path: Local file path
-            destination_key: S3 object key
-        
-        Returns:
-            The destination_key
-        """
-        with open(source_path, "rb") as f:
-            self.s3_client.upload_fileobj(
-                f,
-                self.bucket_name,
-                destination_key,
-                ExtraArgs={"ContentType": "application/octet-stream"}
-            )
-        
-        return destination_key
-    
-    async def retrieve(self, storage_key: str) -> bytes:
-        """Download file from S3"""
-        obj = self.s3_client.get_object(
-            Bucket=self.bucket_name,
-            Key=storage_key,
-        )
-        return obj["Body"].read()
-    
-    async def delete(self, storage_key: str) -> bool:
-        """Delete file from S3"""
-        self.s3_client.delete_object(
-            Bucket=self.bucket_name,
-            Key=storage_key,
-        )
-        return True
-    
-    async def get_url(self, storage_key: str) -> str:
-        """Get public URL for S3 object"""
-        return f"https://{self.bucket_name}.s3.amazonaws.com/{storage_key}"
-    
+Viewer plugins are matched by file extension declared in `plugin.yaml`.
+
+Example manifest fragment:
+
+```yaml
+viewers:
+  - id: stl-viewer
+    name: STL Viewer
+    extensions:
+      - stl
+    js_file: assets/viewers/stl-viewer.js
+    backend_entrypoint: viewer.renderers.stl:render
+```
+
+Viewer plugins may ship JS assets and backend entrypoint metadata, but core routes still decide when they execute.
+
+## Operational Notes
+
+- Startup discovery only: new plugin folders and manifest changes are picked up on application restart.
+- The admin plugin page edits `settings.yaml` and the central enable-state registry only.
+- If a plugin manifest is malformed, the package is skipped and reported as invalid in admin.
+- If `settings.yaml` is missing, the runtime creates it from `settings_defaults` declared in `plugin.yaml`.
     async def health_check(self) -> ProcessResult:
         """Check S3 connectivity"""
         try:
