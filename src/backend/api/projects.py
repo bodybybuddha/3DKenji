@@ -30,6 +30,18 @@ EDITABLE_EXTENSIONS = {
     "ini", "cfg", "conf", "toml", "xml", "html", "css", "js", "ts", "py",
     "gcode", "sql", "sh",
 }
+CREATEABLE_FILE_TEMPLATES = {
+    "md": "# Title\n\nStart writing here.\n",
+    "txt": "",
+    "rtf": "{\\rtf1\\ansi\\deff0 {\\fonttbl{\\f0 Arial;}}\\f0\\fs24 New document\\par\n}",
+    "json": "{\n  \"key\": \"value\"\n}\n",
+    "yaml": "key: value\n",
+    "csv": "column1,column2\n",
+    "log": "",
+    "py": "# New Python file\n",
+    "sql": "-- New SQL file\n",
+    "html": "<!doctype html>\n<html>\n<head><title>New File</title></head>\n<body>\n\n</body>\n</html>\n",
+}
 
 
 # Request Models
@@ -86,6 +98,14 @@ class MarkdownPreviewRequest(BaseModel):
     """Request payload for markdown preview rendering."""
 
     content: str = Field(default="")
+
+
+class CreateProjectFileRequest(BaseModel):
+    """Request payload for creating a new file from supported templates."""
+
+    path: str = Field(default="")
+    name: str = Field(..., min_length=1, max_length=255)
+    file_type: str = Field(..., min_length=1, max_length=20)
 
 
 def _format_size(size_bytes: int) -> str:
@@ -161,6 +181,10 @@ def _guess_raw_media_type(path: str) -> str:
 
 def _is_editable_extension(extension: str) -> bool:
     return extension.lower().lstrip(".") in EDITABLE_EXTENSIONS
+
+
+def _normalize_file_type(file_type: str) -> str:
+    return file_type.lower().lstrip(".").strip()
 
 
 @router.get("/{project_id}/files")
@@ -495,6 +519,78 @@ async def upload_project_file(
         "path": target_path,
         "relative_path": relative_path,
         "name": safe_name,
+        "size_bytes": len(content),
+        "size": _format_size(len(content)),
+    }
+
+
+@router.post("/{project_id}/files/create", status_code=status.HTTP_201_CREATED)
+async def create_project_file(
+    project_id: str,
+    payload: CreateProjectFileRequest,
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Create a new file in a project directory from supported type templates."""
+    project = _resolve_project_for_owner(project_id, current_user_id, session)
+    directory_service = service_for_project(project.category, project.slug)
+
+    target_path = payload.path.strip("/")
+    if target_path:
+        try:
+            entries = directory_service.list_files(target_path)
+        except PathTraversalError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        except PathNotFoundError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Directory not found") from exc
+        except NotADirectoryError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path is not a directory") from exc
+    else:
+        entries = directory_service.list_files("")
+
+    file_type = _normalize_file_type(payload.file_type)
+    if file_type not in CREATEABLE_FILE_TEMPLATES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported file type")
+
+    requested_name = payload.name.strip()
+    if not requested_name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File name is required")
+
+    safe_name = directory_service.sanitize_filename(requested_name)
+    if "." in safe_name:
+        ext = safe_name.rsplit(".", 1)[-1].lower()
+        if ext != file_type:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File extension '.{ext}' does not match requested type '.{file_type}'",
+            )
+        final_name = safe_name
+    else:
+        final_name = f"{safe_name}.{file_type}"
+
+    existing_names = {entry.name.lower() for entry in entries}
+    if final_name.lower() in existing_names:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="File already exists")
+
+    content_text = CREATEABLE_FILE_TEMPLATES[file_type]
+    content = content_text.encode("utf-8")
+    relative_path = f"{target_path}/{final_name}" if target_path else final_name
+
+    try:
+        directory_service.write_file(relative_path, content, create_parents=False)
+    except UnsafeFilenameError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathTraversalError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Directory not found") from exc
+
+    return {
+        "project_id": project_id,
+        "path": target_path,
+        "relative_path": relative_path,
+        "name": final_name,
+        "extension": file_type,
         "size_bytes": len(content),
         "size": _format_size(len(content)),
     }

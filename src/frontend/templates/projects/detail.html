@@ -268,6 +268,7 @@
                         <div class="file-browser-path" id="project-files-path"></div>
                         <div class="file-browser-toolbar-actions">
                             <input id="project-files-upload-input" type="file" hidden>
+                            <button class="btn btn-sm btn-secondary" id="project-files-create" type="button">New File</button>
                             <button class="btn btn-sm btn-primary" id="project-files-upload" type="button">Upload
                                 File</button>
                             <button class="btn btn-sm btn-secondary" id="project-files-refresh"
@@ -373,6 +374,7 @@
         const refreshButton = document.getElementById('project-files-refresh');
         const uploadInput = document.getElementById('project-files-upload-input');
         const uploadButton = document.getElementById('project-files-upload');
+        const createFileButton = document.getElementById('project-files-create');
 
         const fileCountElement = document.getElementById('file-count');
         const folderCountElement = document.getElementById('folder-count');
@@ -643,6 +645,69 @@
             }
         }
 
+        async function createNewFile() {
+            const suggested = currentPath ? `${currentPath.replace(/\//g, '-')}-note` : 'new-file';
+            const nameInput = window.prompt('New file name (extension optional):', suggested);
+            if (nameInput === null) {
+                return;
+            }
+
+            const typeInput = window.prompt('File type: md, txt, rtf, json, yaml, csv, log, py, sql, html', 'md');
+            if (typeInput === null) {
+                return;
+            }
+
+            const name = nameInput.trim();
+            const fileType = typeInput.trim().toLowerCase();
+            if (!name || !fileType) {
+                setFeedback('File name and file type are required.', true);
+                return;
+            }
+
+            createFileButton.disabled = true;
+            const originalLabel = createFileButton.textContent;
+            createFileButton.textContent = 'Creating...';
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/create`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: currentPath || '',
+                        name,
+                        file_type: fileType,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let detail = `Create failed (${response.status})`;
+                    try {
+                        const payload = await response.json();
+                        if (payload && payload.detail) {
+                            detail = payload.detail;
+                        }
+                    } catch (_jsonError) {
+                        // Keep default error message.
+                    }
+                    throw new Error(detail);
+                }
+
+                const payload = await response.json();
+                await loadDirectory(currentPath);
+                await loadProjectSummary();
+                setFeedback(`Created ${payload.name}.`);
+            } catch (error) {
+                setFeedback(error.message || 'Unable to create file.', true);
+            } finally {
+                createFileButton.disabled = false;
+                createFileButton.textContent = originalLabel;
+            }
+        }
+
         uploadButton.addEventListener('click', function () {
             uploadInput.click();
         });
@@ -695,6 +760,10 @@
 
         refreshButton.addEventListener('click', function () {
             loadDirectory(currentPath);
+        });
+
+        createFileButton.addEventListener('click', function () {
+            createNewFile();
         });
 
         loadProjectSummary();

@@ -15,6 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added an RTF viewer plugin (`rtf-viewer`) so `.rtf` files render in the Project Files preview pane.
 - Added rich-text editor mode for `.rtf` files with inline formatting controls and direct save workflow.
 
+### ✨ Added - Project Files New File Flow
+
+- Added a `New File` action in Project Files toolbar to create files directly in the current directory.
+- Added backend endpoint `POST /api/v1/projects/{project_id}/files/create` with supported type templates (`md`, `txt`, `rtf`, `json`, `yaml`, `csv`, `log`, `py`, `sql`, `html`).
+- Added duplicate-name protection and extension/type validation for created files.
+
 ### 🔧 Changed - Project Files Table Actions
 
 - Reworked file table actions so editable files show `Edit` and `View`, while non-editable files retain `Save` download action.
