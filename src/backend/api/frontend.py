@@ -244,7 +244,6 @@ async def setup_submit(
                 "message": "Validation failed",
                 "errors": errors,
             },
-            status_code=400,
         )
     except ValueError as e:
         return templates.TemplateResponse(
@@ -254,7 +253,6 @@ async def setup_submit(
                 "message": str(e),
                 "errors": {"general": [str(e)]},
             },
-            status_code=400,
         )
 
 
