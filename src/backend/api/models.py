@@ -59,7 +59,7 @@ class ModelListResponse(BaseModel):
 
 
 # Constants
-MAX_MODEL_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_MODEL_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 ALLOWED_EXTENSIONS = {".stl", ".3mf", ".obj", ".gcode"}
 
 
@@ -105,7 +105,7 @@ async def upload_model(
 
     Only the project owner can upload models. File must be one of the
     allowed formats (.stl, .3mf, .obj, .gcode) and must not exceed
-    the maximum file size (10 MB).
+    the maximum file size (50 MB).
 
     Args:
         project_id: ID of project to upload model to.

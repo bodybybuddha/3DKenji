@@ -17,8 +17,10 @@ from sqlalchemy.orm import Session
 from backend.api.auth import get_current_user
 from backend.db import get_db
 from backend.models.user import User
+from backend.models.project import Project
+from backend.models.model import Model
 from backend.api.frontend import templates
-from sqlalchemy import select
+from sqlalchemy import select, func
 from backend.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
@@ -78,7 +80,16 @@ def _parse_log_line(line: str) -> dict[str, str]:
 
 # Request Models
 class AdminSettingsRequest(BaseModel):
-    """Request to update admin settings."""
+    """Request to update admin settings.
+    
+    Attributes:
+        api_title: Display name for the API shown in OpenAPI/Swagger documentation.
+                   Used in API explorer and documentation headers. Default: '3DKenji API'.
+        api_version: API version string displayed in OpenAPI/Swagger documentation.
+                    Follows semantic versioning (e.g., '1.0.0', 'v1.0.0').
+        max_upload_mb: Maximum file upload size in megabytes. Applies to model file uploads.
+                      Default: 50 MB. Changes require application restart to take effect.
+    """
     api_title: Optional[str] = None
     api_version: Optional[str] = None
     max_upload_mb: Optional[int] = None
@@ -136,6 +147,7 @@ async def require_admin(
 async def get_admin_stats(
     format: Optional[str] = None,
     request: Request = None,
+    session: Session = Depends(get_db),
     admin_user: str = Depends(require_admin),
 ) -> StatsResponse:
     """
@@ -144,11 +156,29 @@ async def get_admin_stats(
     Returns system-wide statistics like user count, project count, etc.
     Supports HTML format via ?format=html for dashboard display.
     """
+    # Query actual database values
+    total_users = session.execute(
+        select(func.count(User.id))
+    ).scalar() or 0
+    
+    total_projects = session.execute(
+        select(func.count(Project.id))
+    ).scalar() or 0
+    
+    total_models = session.execute(
+        select(func.count(Model.id))
+    ).scalar() or 0
+    
+    # Sum disk_size_bytes from all projects
+    total_storage_bytes = session.execute(
+        select(func.sum(Project.disk_size_bytes))
+    ).scalar() or 0
+    
     stats = StatsResponse(
-        total_users=42,  # TODO: Query from database
-        total_projects=128,  # TODO: Query from database
-        total_models=356,  # TODO: Query from database
-        total_storage_bytes=1024 * 1024 * 512,  # 512 MB TODO: Calculate from storage
+        total_users=total_users,
+        total_projects=total_projects,
+        total_models=total_models,
+        total_storage_bytes=int(total_storage_bytes),
         api_status="healthy",
         db_status="healthy",
         storage_status="healthy",
@@ -411,7 +441,22 @@ async def update_api_settings(
     request: AdminSettingsRequest,
     admin_user: str = Depends(require_admin),
 ):
-    """Update API settings."""
+    """Update API settings.
+    
+    Configure API metadata displayed in OpenAPI/Swagger documentation and file upload limits.
+    
+    Args:
+        request: AdminSettingsRequest with optional fields:
+            - api_title: Display name shown in API explorer (e.g., '3DKenji API')
+            - api_version: Version string in OpenAPI spec (e.g., '1.0.0')
+            - max_upload_mb: Maximum file upload size in MB (default 50 MB)
+    
+    Returns:
+        JSON response with updated settings and confirmation message.
+    
+    Note:
+        Settings are stored but not yet persisted to database. TODO: Database integration.
+    """
     # TODO: Save to database/config
     return {"message": "Settings updated", "settings": request.model_dump()}
 
