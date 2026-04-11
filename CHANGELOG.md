@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added save support for editable files through secure project file content APIs, including keyboard shortcut support (`Ctrl/Cmd+S`) in the editor.
 - Added live markdown preview support in the editor via backend markdown render endpoint.
 - Added a markdown viewer plugin (`markdown-viewer`) so markdown files render as formatted content in the Project Files preview pane.
+- Added an RTF viewer plugin (`rtf-viewer`) so `.rtf` files render in the Project Files preview pane.
+- Added rich-text editor mode for `.rtf` files with inline formatting controls and direct save workflow.
 
 ### 🔧 Changed - Project Files Table Actions
 
