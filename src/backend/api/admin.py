@@ -22,12 +22,64 @@ from backend.models.model import Model
 from backend.api.frontend import templates
 from sqlalchemy import select, func
 from backend.services.user_service import UserService
+from backend.observability import get_runtime_metrics
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 LOG_LINE_LIMIT = 200
+
+
+def _get_memory_usage_percent() -> float:
+    """Return system memory utilization percentage from /proc/meminfo."""
+    try:
+        total_kb = 0
+        available_kb = 0
+        with open("/proc/meminfo", "r", encoding="utf-8") as meminfo:
+            for line in meminfo:
+                if line.startswith("MemTotal:"):
+                    total_kb = int(line.split()[1])
+                elif line.startswith("MemAvailable:"):
+                    available_kb = int(line.split()[1])
+
+        if total_kb <= 0:
+            return 0.0
+
+        used_percent = ((total_kb - available_kb) / total_kb) * 100.0
+        return max(0.0, min(used_percent, 100.0))
+    except Exception:
+        return 0.0
+
+
+def _get_cpu_usage_percent() -> float:
+    """Return an approximate CPU utilization based on 1-minute load average."""
+    try:
+        load1, _, _ = os.getloadavg()
+        cpu_count = os.cpu_count() or 1
+        percent = (load1 / cpu_count) * 100.0
+        return max(0.0, min(percent, 100.0))
+    except Exception:
+        return 0.0
+
+
+def _is_database_healthy(session: Session) -> bool:
+    """Validate database connectivity for health status."""
+    try:
+        session.execute(select(1)).scalar_one_or_none()
+        return True
+    except Exception:
+        return False
+
+
+def _is_storage_healthy() -> bool:
+    """Validate storage root accessibility."""
+    storage_root = os.getenv("STORAGE_ROOT", "data/storage")
+    try:
+        os.makedirs(storage_root, exist_ok=True)
+        return os.path.isdir(storage_root) and os.access(storage_root, os.R_OK | os.W_OK)
+    except Exception:
+        return False
 
 
 def _get_log_file_path() -> Path:
@@ -197,16 +249,20 @@ async def get_admin_stats(
 @router.get("/health", response_class=HTMLResponse)
 async def get_admin_health(
     request: Request,
+    session: Session = Depends(get_db),
     format: Optional[str] = None,
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get system health status as HTML."""
+    db_healthy = _is_database_healthy(session)
+    storage_healthy = _is_storage_healthy()
+
     health = HealthResponse(
         api_healthy=True,
-        db_healthy=True,
-        storage_healthy=True,
-        memory_usage_percent=45.2,
-        cpu_usage_percent=32.1,
+        db_healthy=db_healthy,
+        storage_healthy=storage_healthy,
+        memory_usage_percent=_get_memory_usage_percent(),
+        cpu_usage_percent=_get_cpu_usage_percent(),
         timestamp=datetime.utcnow().isoformat(),
     )
     
@@ -269,7 +325,9 @@ async def get_admin_metrics(
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get performance metrics as HTML."""
-    return """
+    runtime_metrics = get_runtime_metrics()
+
+    return f"""
     <div style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color);">
         <h3>Performance Metrics</h3>
     </div>
@@ -277,19 +335,19 @@ async def get_admin_metrics(
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-lg);">
             <div style="background: var(--bg-secondary); padding: var(--spacing-lg); border-radius: 4px; text-align: center;">
                 <div style="font-size: 0.875rem; color: var(--text-secondary);">Requests/sec</div>
-                <div style="font-size: 1.75rem; font-weight: 600; margin-top: var(--spacing-sm);">234</div>
+                <div style="font-size: 1.75rem; font-weight: 600; margin-top: var(--spacing-sm);">{runtime_metrics['requests_per_sec']:.2f}</div>
             </div>
             <div style="background: var(--bg-secondary); padding: var(--spacing-lg); border-radius: 4px; text-align: center;">
                 <div style="font-size: 0.875rem; color: var(--text-secondary);">Avg Response Time</div>
-                <div style="font-size: 1.75rem; font-weight: 600; margin-top: var(--spacing-sm);">45ms</div>
+                <div style="font-size: 1.75rem; font-weight: 600; margin-top: var(--spacing-sm);">{runtime_metrics['avg_response_ms']:.1f}ms</div>
             </div>
             <div style="background: var(--bg-secondary); padding: var(--spacing-lg); border-radius: 4px; text-align: center;">
                 <div style="font-size: 0.875rem; color: var(--text-secondary);">Error Rate</div>
-                <div style="font-size: 1.75rem; font-weight: 600; margin-top: var(--spacing-sm);">0.2%</div>
+                <div style="font-size: 1.75rem; font-weight: 600; margin-top: var(--spacing-sm);">{runtime_metrics['error_rate_percent']:.1f}%</div>
             </div>
             <div style="background: var(--bg-secondary); padding: var(--spacing-lg); border-radius: 4px; text-align: center;">
                 <div style="font-size: 0.875rem; color: var(--text-secondary);">DB Query Time</div>
-                <div style="font-size: 1.75rem; font-weight: 600; margin-top: var(--spacing-sm);">12ms</div>
+                <div style="font-size: 1.75rem; font-weight: 600; margin-top: var(--spacing-sm);">{runtime_metrics['avg_db_query_ms']:.1f}ms</div>
             </div>
         </div>
     </div>

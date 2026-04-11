@@ -1,6 +1,7 @@
 import asyncio
 import os
 from datetime import datetime
+from time import monotonic
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -15,6 +16,7 @@ from backend.storage import initialize_storage
 from backend.logging_config import logger
 from backend.core.plugins import PluginManager
 from backend.themes import ThemeManager
+from backend.observability import register_sqlalchemy_metrics, record_request_metric
 import backend.storage as storage_module
 from backend.db import get_session_factory, get_engine
 from backend.db.base import Base
@@ -39,6 +41,7 @@ def create_app() -> FastAPI:
         # Create database tables if they don't exist
         try:
             engine = get_engine()
+            register_sqlalchemy_metrics(engine)
             Base.metadata.create_all(bind=engine)
             logger.info("Database tables initialized")
         except Exception as e:
@@ -80,20 +83,33 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def setup_guard(request, call_next):
-        if getattr(app.state, "setup_required", False):
-            path = request.url.path
-            if (
-                path.startswith("/setup")
-                or path.startswith("/static/")
-                or path.startswith("/api/v1/theme/css")
-                or path.startswith("/api/v1/theme/list")
-                or path.startswith("/api/v1/theme/variables")
-                or path.startswith("/api/v1/health")
-                or path.startswith("/api/v1/auth")
-            ):
-                return await call_next(request)
-            return RedirectResponse(url="/setup", status_code=303)
-        return await call_next(request)
+        request_start = monotonic()
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        response = None
+
+        try:
+            if getattr(app.state, "setup_required", False):
+                path = request.url.path
+                if (
+                    path.startswith("/setup")
+                    or path.startswith("/static/")
+                    or path.startswith("/api/v1/theme/css")
+                    or path.startswith("/api/v1/theme/list")
+                    or path.startswith("/api/v1/theme/variables")
+                    or path.startswith("/api/v1/health")
+                    or path.startswith("/api/v1/auth")
+                ):
+                    response = await call_next(request)
+                else:
+                    response = RedirectResponse(url="/setup", status_code=303)
+            else:
+                response = await call_next(request)
+
+            status_code = response.status_code
+            return response
+        finally:
+            duration_ms = (monotonic() - request_start) * 1000.0
+            record_request_metric(duration_ms=duration_ms, status_code=status_code)
 
     # Register API routes
     app.include_router(auth_router, prefix="/api/v1")

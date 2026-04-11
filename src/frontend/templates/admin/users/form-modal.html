@@ -84,32 +84,32 @@
         const userForm = document.getElementById('user-form');
         const userIdValue = {% if user %}'{{ user.id }}'{% else %} ''{% endif %};
 
-        userForm.addEventListener('htmx:afterRequest', function (event) {
-            if (event.detail.xhr.status === 200 || event.detail.xhr.status === 201) {
-                // Show success message
-                if (window.HTMXHelper && typeof HTMXHelper.showToast === 'function') {
-                    HTMXHelper.showToast('User ' + (userIdValue ? 'updated' : 'created') + ' successfully', 'success');
-                }
-                
-                // Close modal and reload users table
-                setTimeout(() => {
-                    const modal = document.getElementById('user-form-modal');
-                    if (modal) modal.remove();
-                    
-                    // Reload users table using proper HTMX request
-                    const usersTable = document.getElementById('users-table');
-                    if (usersTable) {
-                        htmx.ajax('GET', '/api/v1/admin/users?format=html', {target: usersTable, swap: 'innerHTML'});
-                    }
-                }, 1500);
+    userForm.addEventListener('htmx:afterRequest', function (event) {
+        if (event.detail.xhr.status === 200 || event.detail.xhr.status === 201) {
+            // Show success message
+            if (window.HTMXHelper && typeof HTMXHelper.showToast === 'function') {
+                HTMXHelper.showToast('User ' + (userIdValue ? 'updated' : 'created') + ' successfully', 'success');
             }
-        });
 
-        userForm.addEventListener('htmx:responseError', function (event) {
-            const alertTarget = document.getElementById('user-form-alert');
-            if (alertTarget && event.detail && event.detail.xhr) {
-                alertTarget.innerHTML = event.detail.xhr.responseText || '<div class="alert alert-error">Failed to save user.</div>';
-            }
-        });
-    })();
+            // Close modal and reload users table
+            setTimeout(() => {
+                const modal = document.getElementById('user-form-modal');
+                if (modal) modal.remove();
+
+                // Reload users table using proper HTMX request
+                const usersTable = document.getElementById('users-table');
+                if (usersTable) {
+                    htmx.ajax('GET', '/api/v1/admin/users?format=html', { target: usersTable, swap: 'innerHTML' });
+                }
+            }, 1500);
+        }
+    });
+
+    userForm.addEventListener('htmx:responseError', function (event) {
+        const alertTarget = document.getElementById('user-form-alert');
+        if (alertTarget && event.detail && event.detail.xhr) {
+            alertTarget.innerHTML = event.detail.xhr.responseText || '<div class="alert alert-error">Failed to save user.</div>';
+        }
+    });
+    }) ();
 </script>
