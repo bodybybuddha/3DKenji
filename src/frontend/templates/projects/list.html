@@ -170,6 +170,30 @@
         border-color: color-mix(in srgb, var(--color-danger) 40%, var(--border-color));
     }
 
+    .project-tags-cell {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+
+    .project-tag-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.15rem 0.45rem;
+        border-radius: 999px;
+        border: 1px solid color-mix(in srgb, var(--color-primary) 28%, var(--border-color));
+        background: color-mix(in srgb, var(--color-primary) 10%, var(--bg-secondary));
+        color: var(--text-primary);
+        font-size: 0.76rem;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+
+    .project-tags-empty {
+        color: var(--text-secondary);
+        font-size: 0.82rem;
+    }
+
     @media (max-width: 768px) {
         .projects-page-shell {
             padding: var(--spacing-xl) var(--spacing-md);
@@ -369,6 +393,29 @@
                     hozAlign: 'left',
                     formatter: function (cell) {
                         return formatBytes(cell.getValue());
+                    }
+                },
+                {
+                    title: 'Tags',
+                    field: 'tags',
+                    minWidth: 220,
+                    responsive: 2,
+                    headerSort: false,
+                    formatter: function (cell) {
+                        const tags = Array.isArray(cell.getValue())
+                            ? cell.getValue().map((tag) => String(tag || '').trim()).filter(Boolean)
+                            : [];
+
+                        if (!tags.length) {
+                            return '<span class="project-tags-empty">No tags</span>';
+                        }
+
+                        const visible = tags.slice(0, 3).map((tag) => `<span class="project-tag-pill">${escapeHtml(tag)}</span>`);
+                        if (tags.length > 3) {
+                            visible.push(`<span class="project-tag-pill">+${tags.length - 3}</span>`);
+                        }
+
+                        return `<div class="project-tags-cell">${visible.join('')}</div>`;
                     }
                 },
                 {

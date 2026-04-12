@@ -1,6 +1,6 @@
 """Project model."""
 
-from sqlalchemy import Column, String, Boolean, BigInteger, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, Boolean, BigInteger, ForeignKey, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship
 
 from backend.db.base import BaseModel
@@ -21,6 +21,7 @@ class Project(BaseModel):
     visibility = Column(String(20), nullable=False, default="private", index=True)
     directory_path = Column(String(1024), nullable=True)
     disk_size_bytes = Column(BigInteger, nullable=True, default=0)
+    tags_cache = Column(JSON, nullable=True)
     is_archived = Column(Boolean, nullable=False, default=False)
     
     # Deletion policy: 'archive' (default) or 'hard_delete'

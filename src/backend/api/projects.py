@@ -8,7 +8,7 @@ import secrets
 import hashlib
 import uuid
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import quote_plus
 from typing import Optional
 
@@ -85,6 +85,7 @@ class ProjectResponse(BaseModel):
     title: str
     slug: str
     category: str
+    tags: list[str] = Field(default_factory=list)
     visibility: str = "private"
     directory_path: Optional[str] = None
     disk_size_bytes: Optional[int] = 0
@@ -203,6 +204,12 @@ def _format_size(size_bytes: int) -> str:
     if size_bytes < 1024 * 1024:
         return f"{size_bytes / 1024:.1f} KB"
     return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
+def _is_project_info_path(path: str) -> bool:
+    """Return True when path points to ProjectInfo.md at project root."""
+    normalized = str(PurePosixPath(path.replace("\\", "/"))).lstrip("/")
+    return normalized == "ProjectInfo.md"
 
 
 def _resolve_project_for_owner(
@@ -513,12 +520,21 @@ async def update_project_file_content(
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found") from exc
 
-    return {
+    updated_tags: list[str] | None = None
+    if _is_project_info_path(payload.path):
+        service = ProjectService(session)
+        updated_tags = service.refresh_project_tags_cache(project_id)
+
+    response_payload = {
         "project_id": project_id,
         "path": payload.path,
         "size_bytes": len(content_bytes),
         "size": _format_size(len(content_bytes)),
     }
+    if updated_tags is not None:
+        response_payload["tags"] = updated_tags
+
+    return response_payload
 
 
 @router.post("/{project_id}/files/markdown-preview")
