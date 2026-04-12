@@ -283,6 +283,156 @@ def test_project_file_create_endpoint_rejects_duplicate_name():
     assert response.status_code == 409, response.text
 
 
+def test_project_file_create_folder_endpoint_creates_subfolder():
+    headers = _auth_headers()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    response = requests.post(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files/create-folder",
+        headers=headers,
+        json={"path": "models", "name": "submodels"},
+        timeout=10,
+    )
+
+    assert response.status_code == 201, response.text
+    payload = response.json()
+    assert payload["relative_path"] == "models/submodels"
+
+    list_response = requests.get(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files",
+        headers=headers,
+        params={"path": "models"},
+        timeout=10,
+    )
+    assert list_response.status_code == 200, list_response.text
+    folder_item = next((item for item in list_response.json()["items"] if item["name"] == "submodels"), None)
+    assert folder_item is not None
+    assert folder_item["is_dir"] is True
+
+
+def test_project_file_rename_endpoint_renames_path():
+    headers = _auth_headers()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    _write_project_file(project, "models/rename-me.stl", b"solid rename\nendsolid rename\n")
+
+    response = requests.post(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files/rename",
+        headers=headers,
+        json={"path": "models/rename-me.stl", "new_name": "renamed.stl"},
+        timeout=10,
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["new_path"] == "models/renamed.stl"
+
+    project_root = Path(os.environ["STORAGE_ROOT"]) / "Projects" / project["category"] / project["slug"]
+    assert not (project_root / "models/rename-me.stl").exists()
+    assert (project_root / "models/renamed.stl").exists()
+
+
+def test_project_file_move_endpoint_moves_multiple_paths():
+    headers = _auth_headers()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    _write_project_file(project, "models/a.stl", b"solid a\nendsolid a\n")
+    _write_project_file(project, "models/b.stl", b"solid b\nendsolid b\n")
+
+    response = requests.post(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files/move",
+        headers=headers,
+        json={
+            "paths": ["models/a.stl", "models/b.stl"],
+            "destination_path": "cad_files",
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["moved_count"] == 2
+    assert "cad_files/a.stl" in payload["moved_paths"]
+    assert "cad_files/b.stl" in payload["moved_paths"]
+
+    project_root = Path(os.environ["STORAGE_ROOT"]) / "Projects" / project["category"] / project["slug"]
+    assert not (project_root / "models/a.stl").exists()
+    assert not (project_root / "models/b.stl").exists()
+    assert (project_root / "cad_files/a.stl").exists()
+    assert (project_root / "cad_files/b.stl").exists()
+
+
+def test_project_file_create_folder_endpoint_rejects_duplicate_folder_name():
+    headers = _auth_headers()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    first_response = requests.post(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files/create-folder",
+        headers=headers,
+        json={"path": "models", "name": "duplicates"},
+        timeout=10,
+    )
+    assert first_response.status_code == 201, first_response.text
+
+    second_response = requests.post(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files/create-folder",
+        headers=headers,
+        json={"path": "models", "name": "duplicates"},
+        timeout=10,
+    )
+
+    assert second_response.status_code == 409, second_response.text
+
+
+def test_project_file_move_endpoint_rejects_missing_destination_directory():
+    headers = _auth_headers()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    _write_project_file(project, "models/will-move.stl", b"solid m\nendsolid m\n")
+
+    response = requests.post(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files/move",
+        headers=headers,
+        json={
+            "paths": ["models/will-move.stl"],
+            "destination_path": "does-not-exist",
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 404, response.text
+
+
+def test_project_file_move_endpoint_rejects_parent_and_child_selection():
+    headers = _auth_headers()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    _write_project_file(project, "models/assembly/part-a.stl", b"solid pa\nendsolid pa\n")
+
+    response = requests.post(
+        f"{_api_base_url()}/api/v1/projects/{project_id}/files/move",
+        headers=headers,
+        json={
+            "paths": ["models/assembly", "models/assembly/part-a.stl"],
+            "destination_path": "cad_files",
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 400, response.text
+
+    project_root = Path(os.environ["STORAGE_ROOT"]) / "Projects" / project["category"] / project["slug"]
+    assert (project_root / "models/assembly").is_dir()
+    assert (project_root / "models/assembly/part-a.stl").exists()
+    assert not (project_root / "cad_files/assembly").exists()
+
+
 def test_project_file_editor_page_uses_toast_ui_for_markdown():
     headers = _auth_headers()
     session = _auth_form_session()

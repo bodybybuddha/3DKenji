@@ -171,7 +171,7 @@
         border-bottom: 2px solid var(--color-primary);
         color: white;
         font-weight: 600;
-        padding: 0.75rem 0;
+        padding: 0.2rem 0;
     }
 
     .tabulator .tabulator-header .tabulator-col {
@@ -186,6 +186,11 @@
         opacity: 1 !important;
         font-weight: 700;
         text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+        line-height: 1.1;
+    }
+
+    .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+        padding: 0.3rem 0.55rem;
     }
 
     .tabulator .tabulator-header .tabulator-col .tabulator-arrow {
@@ -199,10 +204,6 @@
         transition: background-color var(--transition-fast);
     }
 
-    .tabulator .tabulator-row:nth-child(even) {
-        background: var(--bg-primary);
-    }
-
     .tabulator .tabulator-row:hover {
         background: color-mix(in srgb, var(--color-primary) 15%, var(--bg-secondary)) !important;
     }
@@ -212,8 +213,29 @@
         padding: 0.5rem 0.75rem;
     }
 
-    .tabulator .tabulator-row.tabulator-row-even .tabulator-cell {
-        background: var(--bg-primary);
+    .tabulator .tabulator-header .tabulator-col.tabulator-row-header,
+    .tabulator .tabulator-row .tabulator-cell.tabulator-row-header {
+        border-right: 1px solid var(--border-color);
+        text-align: center;
+        width: 36px;
+        min-width: 36px;
+        max-width: 36px;
+    }
+
+    .tabulator .tabulator-header .tabulator-col.tabulator-row-header {
+        background: transparent !important;
+        padding: 0.2rem 0 !important;
+    }
+
+    .tabulator .tabulator-row .tabulator-cell.tabulator-row-header {
+        background: var(--bg-secondary) !important;
+        padding: 0.5rem 0 !important;
+    }
+
+    .tabulator .tabulator-header .tabulator-col.tabulator-row-header input[type="checkbox"],
+    .tabulator .tabulator-row .tabulator-cell.tabulator-row-header input[type="checkbox"] {
+        margin: 0;
+        vertical-align: middle;
     }
 
     .tabulator .tabulator-cell.tabulator-sortable:hover {
@@ -346,6 +368,11 @@
                             <input id="project-files-upload-input" type="file" multiple hidden>
                             <button class="btn btn-sm btn-secondary" id="project-files-create" type="button">New
                                 File</button>
+                            <button class="btn btn-sm btn-secondary" id="project-files-create-folder" type="button">New
+                                Folder</button>
+                            <button class="btn btn-sm btn-secondary" id="project-files-rename"
+                                type="button">Rename</button>
+                            <button class="btn btn-sm btn-secondary" id="project-files-move" type="button">Move</button>
                             <button class="btn btn-sm btn-primary" id="project-files-upload" type="button">Upload
                                 File</button>
                             <button class="btn btn-sm btn-secondary" id="project-files-drop-toggle" type="button">Drop
@@ -461,6 +488,9 @@
         const uploadButton = document.getElementById('project-files-upload');
         const dropToggleButton = document.getElementById('project-files-drop-toggle');
         const createFileButton = document.getElementById('project-files-create');
+        const createFolderButton = document.getElementById('project-files-create-folder');
+        const renameButton = document.getElementById('project-files-rename');
+        const moveButton = document.getElementById('project-files-move');
         const uploaderElement = document.getElementById('project-files-uploader');
 
         const fileCountElement = document.getElementById('file-count');
@@ -745,10 +775,22 @@
             layout: 'fitColumns',
             responsiveLayout: 'hide',
             placeholder: 'No files found in this directory.',
+            selectableRows: true,
             initialSort: [
                 { column: 'is_dir', dir: 'desc' },
                 { column: 'name', dir: 'asc' },
             ],
+            rowHeader: {
+                formatter: 'rowSelection',
+                titleFormatter: 'rowSelection',
+                hozAlign: 'center',
+                headerSort: false,
+                minWidth: 36,
+                width: 36,
+                cellClick: function (_event, cell) {
+                    cell.getRow().toggleSelect();
+                },
+            },
             columns: [
                 {
                     title: 'Name',
@@ -852,7 +894,11 @@
                 const data = row.getData();
                 const target = e && e.target ? e.target : null;
                 const isActionClick = !!(target && typeof target.closest === 'function' && target.closest('.file-action-btn'));
+                const isSelectionClick = !!(target && typeof target.closest === 'function' && target.closest('.tabulator-row-header'));
                 if (isActionClick) {
+                    return;
+                }
+                if (isSelectionClick) {
                     return;
                 }
 
@@ -966,6 +1012,216 @@
             } finally {
                 createFileButton.disabled = false;
                 createFileButton.textContent = originalLabel;
+            }
+        }
+
+        async function createNewFolder() {
+            const suggested = currentPath ? `${currentPath.replace(/\//g, '-')}-folder` : 'new-folder';
+            const nameInput = window.prompt('New folder name:', suggested);
+            if (nameInput === null) {
+                return;
+            }
+
+            const name = nameInput.trim();
+            if (!name) {
+                setFeedback('Folder name is required.', true);
+                return;
+            }
+
+            if (createFolderButton) {
+                createFolderButton.disabled = true;
+            }
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/create-folder`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: currentPath || '',
+                        name,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let detail = `Create folder failed (${response.status})`;
+                    try {
+                        const payload = await response.json();
+                        if (payload && payload.detail) {
+                            detail = payload.detail;
+                        }
+                    } catch (_jsonError) {
+                        // Keep default error message.
+                    }
+                    throw new Error(detail);
+                }
+
+                const payload = await response.json();
+                await loadDirectory(currentPath);
+                await loadProjectSummary();
+                setFeedback(`Created folder ${payload.name}.`);
+            } catch (error) {
+                setFeedback(error.message || 'Unable to create folder.', true);
+            } finally {
+                if (createFolderButton) {
+                    createFolderButton.disabled = false;
+                }
+            }
+        }
+
+        function getSelectedEntries() {
+            return table.getSelectedData() || [];
+        }
+
+        function hasOverlappingSelections(paths) {
+            const cleaned = (paths || []).map(function (path) {
+                return String(path || '').trim().replace(/^\/+|\/+$/g, '');
+            }).filter(Boolean);
+
+            const sorted = cleaned.slice().sort(function (a, b) {
+                return a.length - b.length;
+            });
+
+            for (let i = 0; i < sorted.length; i += 1) {
+                for (let j = i + 1; j < sorted.length; j += 1) {
+                    if (sorted[j].startsWith(`${sorted[i]}/`)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        async function renameSelectedEntry() {
+            const selected = getSelectedEntries();
+            if (selected.length !== 1) {
+                setFeedback('Select exactly one file or folder to rename.', true);
+                return;
+            }
+
+            const item = selected[0];
+            const nameInput = window.prompt('New name:', item.name || '');
+            if (nameInput === null) {
+                return;
+            }
+
+            const newName = nameInput.trim();
+            if (!newName) {
+                setFeedback('New name is required.', true);
+                return;
+            }
+
+            if (renameButton) {
+                renameButton.disabled = true;
+            }
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/rename`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: item.relative_path,
+                        new_name: newName,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let detail = `Rename failed (${response.status})`;
+                    try {
+                        const payload = await response.json();
+                        if (payload && payload.detail) {
+                            detail = payload.detail;
+                        }
+                    } catch (_jsonError) {
+                        // Keep default error message.
+                    }
+                    throw new Error(detail);
+                }
+
+                const payload = await response.json();
+                await loadDirectory(currentPath);
+                setFeedback(`Renamed to ${payload.name}.`);
+            } catch (error) {
+                setFeedback(error.message || 'Unable to rename selection.', true);
+            } finally {
+                if (renameButton) {
+                    renameButton.disabled = false;
+                }
+            }
+        }
+
+        async function moveSelectedEntries() {
+            const selected = getSelectedEntries();
+            if (!selected.length) {
+                setFeedback('Select one or more files/folders to move.', true);
+                return;
+            }
+
+            const selectedPaths = selected.map(function (item) { return item.relative_path; });
+            if (hasOverlappingSelections(selectedPaths)) {
+                setFeedback('Cannot move a folder together with one of its nested items.', true);
+                return;
+            }
+
+            const destinationInput = window.prompt(
+                'Destination folder path (leave blank for project root):',
+                currentPath || ''
+            );
+            if (destinationInput === null) {
+                return;
+            }
+
+            const destinationPath = destinationInput.trim();
+
+            if (moveButton) {
+                moveButton.disabled = true;
+            }
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/move`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        paths: selectedPaths,
+                        destination_path: destinationPath,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let detail = `Move failed (${response.status})`;
+                    try {
+                        const payload = await response.json();
+                        if (payload && payload.detail) {
+                            detail = payload.detail;
+                        }
+                    } catch (_jsonError) {
+                        // Keep default error message.
+                    }
+                    throw new Error(detail);
+                }
+
+                const payload = await response.json();
+                table.deselectRow();
+                await loadDirectory(currentPath);
+                setFeedback(`Moved ${payload.moved_count} item(s).`);
+            } catch (error) {
+                setFeedback(error.message || 'Unable to move selection.', true);
+            } finally {
+                if (moveButton) {
+                    moveButton.disabled = false;
+                }
             }
         }
 
@@ -1178,6 +1434,24 @@
         createFileButton.addEventListener('click', function () {
             createNewFile();
         });
+
+        if (createFolderButton) {
+            createFolderButton.addEventListener('click', function () {
+                createNewFolder();
+            });
+        }
+
+        if (renameButton) {
+            renameButton.addEventListener('click', function () {
+                renameSelectedEntry();
+            });
+        }
+
+        if (moveButton) {
+            moveButton.addEventListener('click', function () {
+                moveSelectedEntries();
+            });
+        }
 
         initializeUppy();
         setUploaderExpanded(false);

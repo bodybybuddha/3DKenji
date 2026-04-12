@@ -253,6 +253,136 @@ class ProjectDirectoryService:
     # File browser
     # ------------------------------------------------------------------
 
+    def create_directory(self, relative_path: str = "", name: str = "") -> str:
+        """Create a new directory under *relative_path* and return its relative path.
+
+        Raises
+        ------
+        PathTraversalError
+            If any supplied path escapes the project root.
+        PathNotFoundError
+            If the parent directory does not exist.
+        NotADirectoryError
+            If the parent path is not a directory.
+        UnsafeFilenameError
+            If *name* is unsafe or empty after sanitisation.
+        FileExistsError
+            If the target directory already exists.
+        """
+        safe_name = self.sanitize_filename(name)
+
+        if relative_path:
+            parent = self._safe_resolve(relative_path)
+        else:
+            parent = self._root
+
+        if not parent.exists():
+            raise PathNotFoundError(str(parent))
+        if not parent.is_dir():
+            raise NotADirectoryError(str(parent))
+
+        target = parent / safe_name
+        target_relative = target.relative_to(self._root).as_posix()
+        target = self._safe_resolve(target_relative)
+
+        if target.exists():
+            raise FileExistsError(str(target))
+
+        target.mkdir(parents=False, exist_ok=False)
+        return target_relative
+
+    def rename_path(self, relative_path: str, new_name: str) -> str:
+        """Rename a file or directory and return the new relative path."""
+        source = self._safe_resolve(relative_path)
+        if source == self._root:
+            raise ValueError("Project root cannot be renamed")
+        if not source.exists():
+            raise PathNotFoundError(str(source))
+
+        safe_name = self.sanitize_filename(new_name)
+        target = source.with_name(safe_name)
+        target_relative = target.relative_to(self._root).as_posix()
+        target = self._safe_resolve(target_relative)
+
+        if target.exists() and target != source:
+            raise FileExistsError(str(target))
+
+        source.rename(target)
+        return target_relative
+
+    def move_paths(self, relative_paths: Sequence[str], destination_path: str = "") -> list[str]:
+        """Move one or more files/directories to *destination_path*.
+
+        Returns the moved destination paths in the same order as input.
+        """
+        if destination_path:
+            destination_dir = self._safe_resolve(destination_path)
+        else:
+            destination_dir = self._root
+
+        if not destination_dir.exists():
+            raise PathNotFoundError(str(destination_dir))
+        if not destination_dir.is_dir():
+            raise NotADirectoryError(str(destination_dir))
+
+        sources: list[Path] = []
+        targets: list[Path] = []
+        target_names: set[str] = set()
+        source_keys: set[str] = set()
+
+        for relative_path in relative_paths:
+            source = self._safe_resolve(relative_path)
+            if source == self._root:
+                raise ValueError("Project root cannot be moved")
+            if not source.exists():
+                raise PathNotFoundError(str(source))
+
+            source_key = source.relative_to(self._root).as_posix().lower()
+            if source_key in source_keys:
+                raise ValueError("Duplicate source paths are not allowed")
+            source_keys.add(source_key)
+
+            target = destination_dir / source.name
+            target_relative = target.relative_to(self._root).as_posix()
+            target = self._safe_resolve(target_relative)
+
+            if source.resolve() == target.resolve():
+                continue
+
+            name_key = target.name.lower()
+            if name_key in target_names:
+                raise FileExistsError(f"Duplicate destination name: {target.name}")
+            target_names.add(name_key)
+
+            if target.exists() and target.resolve() != source.resolve():
+                raise FileExistsError(str(target))
+
+            if source.is_dir():
+                try:
+                    destination_dir.resolve().relative_to(source.resolve())
+                except ValueError:
+                    pass
+                else:
+                    raise ValueError("Cannot move a directory into itself")
+
+            sources.append(source)
+            targets.append(target)
+
+        for source in sources:
+            for other in sources:
+                if source == other:
+                    continue
+                try:
+                    other.relative_to(source)
+                except ValueError:
+                    continue
+                raise ValueError("Cannot move a parent path together with one of its children")
+
+        for source, target in zip(sources, targets):
+            source.rename(target)
+
+        return [target.relative_to(self._root).as_posix() for target in targets]
+
     def list_files(self, relative_path: str = "") -> Sequence[FileEntry]:
         """Return a flat list of :class:`FileEntry` items in *relative_path*.
 

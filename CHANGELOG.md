@@ -20,12 +20,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### ✨ Added - Project Files New File Flow
 
 - Added a `New File` action in Project Files toolbar to create files directly in the current directory.
+- Added a `New Folder` action in Project Files toolbar to create subfolders at the current tree level.
 - Added backend endpoint `POST /api/v1/projects/{project_id}/files/create` with supported type templates (`md`, `txt`, `rtf`, `json`, `yaml`, `csv`, `log`, `py`, `sql`, `html`).
 - Added duplicate-name protection and extension/type validation for created files.
+- Added backend endpoint `POST /api/v1/projects/{project_id}/files/create-folder` for folder creation with duplicate-name protection.
 
 ### 🔧 Changed - Project Files Table Actions
 
 - Reworked file table actions so editable files show `Edit` and `View`, while non-editable files retain `Save` download action.
+- Added multi-select row support with `Rename` (single selection) and `Move` (multi-selection) actions for project files/folders.
+- Added backend endpoints `POST /api/v1/projects/{project_id}/files/rename` and `POST /api/v1/projects/{project_id}/files/move` for path-level file operations.
 - Removed the Type column and emphasized file/folder type icons in the Name column; retained Size for quick scanning.
 - Moved viewer-hook detail messaging into a compact hover info icon to reduce preview panel clutter.
 - Added drag-and-drop file upload directly on the Project Files card and drag-out file download support from file rows.
