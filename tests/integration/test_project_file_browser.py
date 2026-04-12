@@ -493,7 +493,7 @@ async def test_preview_html_cache_busts_viewer_module_import(monkeypatch):
         "_resolve_project_for_owner",
         lambda *args, **kwargs: SimpleNamespace(owner_id="owner-1", category="tests", slug="viewer-preview"),
     )
-    monkeypatch.setattr(projects_api, "service_for_project", lambda *args, **kwargs: DummyDirectoryService())
+    monkeypatch.setattr(projects_api, "service_for_project_owner", lambda *args, **kwargs: DummyDirectoryService())
     monkeypatch.setattr(projects_api, "_resolve_viewer_info", fake_resolve_viewer_info)
 
     request = Request({"type": "http", "method": "GET", "path": "/", "headers": []})
