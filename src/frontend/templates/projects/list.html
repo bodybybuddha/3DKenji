@@ -3,7 +3,7 @@
 {% block title %}Projects - 3DKenji{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.5/dist/css/tabulator.min.css">
+<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.5/dist/css/tabulator.min.css" integrity="sha384-p6hY5g6BjbrEVoCLwj4gZMkotMaHdQrPkd4S0vRpErDxL9/kvjyaUIq/S9RAPQfL" crossorigin="anonymous">
 <style>
     .projects-page-shell {
         padding: var(--spacing-2xl) var(--spacing-lg);
@@ -80,7 +80,6 @@
     }
 
     #projects-table .tabulator-cell {
-        display: flex;
         align-items: center;
     }
 
@@ -180,7 +179,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://unpkg.com/tabulator-tables@6.2.5/dist/js/tabulator.min.js"></script>
+<script src="https://unpkg.com/tabulator-tables@6.2.5/dist/js/tabulator.min.js" integrity="sha384-D0fErOaZUOl6YD0uVXOV4adRMn/r+0AsYsVGYsxpPXC6BoVCP72nief3UntQBR9X" crossorigin="anonymous"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (!window.Tabulator) {
@@ -301,6 +300,9 @@
         projectsTable = new Tabulator(tableElement, {
             layout: 'fitColumns',
             responsiveLayout: 'hide',
+            tableBuilt: function () {
+                this.redraw(true);
+            },
             placeholder: 'No projects yet. Create your first project to get started.',
             initialSort: [
                 { column: 'created_at', dir: 'desc' },
