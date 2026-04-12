@@ -56,6 +56,12 @@
         overflow: hidden;
     }
 
+    #projects-table .tabulator-tableholder,
+    #projects-table .tabulator-table,
+    #projects-table .tabulator-placeholder {
+        background: var(--bg-primary);
+    }
+
     #projects-table .tabulator-header {
         border-bottom: 1px solid var(--border-color);
         background: linear-gradient(135deg,
@@ -70,13 +76,32 @@
         background: transparent;
     }
 
+    #projects-table .tabulator-col .tabulator-col-title,
+    #projects-table .tabulator-col .tabulator-arrow,
+    #projects-table .tabulator-row .tabulator-cell {
+        color: var(--text-primary);
+    }
+
+    #projects-table .tabulator-header-filter input {
+        color: var(--text-primary);
+    }
+
     #projects-table .tabulator-row {
         border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
         background: var(--bg-primary);
     }
 
+    #projects-table .tabulator-row.tabulator-row-even,
+    #projects-table .tabulator-row.tabulator-row-odd {
+        background: var(--bg-primary);
+    }
+
     #projects-table .tabulator-row:hover {
         background: color-mix(in srgb, var(--color-primary) 8%, var(--bg-primary));
+    }
+
+    #projects-table .tabulator-placeholder .tabulator-placeholder-contents {
+        color: var(--text-secondary);
     }
 
     #projects-table .tabulator-cell {
@@ -357,7 +382,7 @@
                 {
                     title: 'Actions',
                     field: 'id',
-                    minWidth: 270,
+                    minWidth: 200,
                     responsive: 0,
                     headerSort: false,
                     hozAlign: 'right',
@@ -369,7 +394,6 @@
                         return [
                             '<div class="project-actions">',
                             `<a class="project-action-btn" href="/project/${encodeURIComponent(project.id)}">View</a>`,
-                            `<button type="button" class="project-action-btn" data-action="edit">Edit</button>`,
                             `<button type="button" class="project-action-btn danger" data-action="delete">Delete</button>`,
                             '</div>'
                         ].join('');
@@ -380,15 +404,6 @@
                             return;
                         }
                         const project = cell.getRow().getData();
-                        if (action === 'edit') {
-                            if (window.htmx && typeof htmx.ajax === 'function') {
-                                htmx.ajax('GET', `/api/v1/projects/${project.id}/edit-modal`, {
-                                    target: 'body',
-                                    swap: 'beforeend'
-                                });
-                            }
-                            return;
-                        }
                         if (action === 'delete') {
                             deleteProject(project);
                         }
