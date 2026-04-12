@@ -398,8 +398,24 @@ class ProjectService:
         
         return bool(project is not None and project.owner_id == user_id)
 
-    @staticmethod
-    def _to_dto(project: Project) -> ProjectDTO:
+    def _resolve_disk_size_bytes(self, project: Project) -> int:
+        """Resolve project disk usage from filesystem, falling back to DB value."""
+        db_size = int(project.disk_size_bytes or 0)
+        try:
+            directory_service = service_for_project_owner(
+                self.session,
+                str(project.owner_id),
+                str(project.slug),
+                legacy_segment=str(project.category),
+            )
+            if not directory_service.project_directory_exists():
+                return db_size
+            return directory_service.compute_disk_size()
+        except Exception:
+            # Never fail API serialization due to filesystem sizing issues.
+            return db_size
+
+    def _to_dto(self, project: Project) -> ProjectDTO:
         """Convert Project model to ProjectDTO."""
         return ProjectDTO(
             id=project.id,  # type: ignore[arg-type]
@@ -409,7 +425,7 @@ class ProjectService:
             category=project.category,  # type: ignore[arg-type]
             visibility=getattr(project, "visibility", "private"),  # type: ignore[arg-type]
             directory_path=project.directory_path,  # type: ignore[arg-type]
-            disk_size_bytes=project.disk_size_bytes or 0,  # type: ignore[arg-type]
+            disk_size_bytes=self._resolve_disk_size_bytes(project),
             is_archived=bool(project.is_archived),  # type: ignore[arg-type]
             deletion_policy=getattr(project, 'deletion_policy', 'archive'),  # type: ignore[arg-type]
             created_at=project.created_at.isoformat(),
