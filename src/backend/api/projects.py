@@ -1293,7 +1293,8 @@ async def list_public_projects(
         .limit(limit)
     ).scalars().all()
 
-    items = [ProjectService._to_dto(project) for project in public_projects]
+    service = ProjectService(session)
+    items = [service._to_dto(project) for project in public_projects]
     return ProjectListResponse(
         items=[ProjectResponse(**p.__dict__) for p in items],
         total=len(items),
@@ -1315,7 +1316,7 @@ async def get_public_project(
             detail="Project not found",
         )
 
-    dto = ProjectService._to_dto(project)
+    dto = ProjectService(session)._to_dto(project)
     return ProjectResponse(**dto.__dict__)
 
 

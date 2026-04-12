@@ -157,6 +157,22 @@
 
 ---
 
+## Recently Resolved (2026-04-12)
+
+### ✅ Bug #25: Projects table rows render stacked vertically
+**Status**: ~~Open~~ **RESOLVED**  
+**Severity**: High  
+**Component**: Frontend/Projects  
+**Resolved In**: Commit f789d49
+
+**Description**: After the recent migration from a card grid to a Tabulator table, the Projects page rows displayed all column data stacked vertically instead of side-by-side columns. The table headers (Title, Category, Size, Created, Actions) appeared correctly but row cell content collapsed into a single stacked block.
+
+**Root Cause**: Custom CSS in `list.html` overrode `.tabulator-cell` with `display: flex` (block-level). Tabulator v6 lays out row cells as `display: inline-flex` (inline-level); replacing this with block flow caused cells to stack vertically instead of flowing horizontally across the row.
+
+**Resolution**: Removed the erroneous `display: flex` property from the custom `.tabulator-cell` rule; kept `align-items: center`. Also added SRI integrity hashes to both Tabulator CDN assets and a `tableBuilt` redraw callback for column-width safety.
+
+---
+
 ## Open Issues (2026-02-22 - Discovered via Validation Testing)
 
 ### 🟡 Bug #24: API key scope validation missing

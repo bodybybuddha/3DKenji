@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### 🔧 Fixed - Projects Table Row Layout (Bug #25)
+
+- Fixed projects list table rows stacking vertically after the card-grid → Tabulator migration. A custom `display: flex` CSS override on `.tabulator-cell` conflicted with Tabulator v6's `inline-flex` row flow model; removed the override and kept `align-items: center` only.
+- Added SRI integrity hashes to both Tabulator CDN assets (`tabulator.min.css` and `tabulator.min.js`) to guard against supply-chain substitution.
+- Added a `tableBuilt` callback that calls `redraw(true)` to ensure correct column widths after initial mount.
+
 ### 🔧 Changed - Projects List Table
 
 - Replaced the Projects page card grid with a sortable Tabulator table that mirrors the Project Files browsing pattern.
