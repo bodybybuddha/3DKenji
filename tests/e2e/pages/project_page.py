@@ -17,7 +17,8 @@ class ProjectPage(BasePage):
     PROJECT_DESCRIPTION_INPUT = "#project_description"
     PROJECT_VISIBILITY_INPUT = "#project_visibility"
     SAVE_BUTTON = "#submit-btn"
-    PROJECT_CARD = ".project-card"
+    PROJECT_TABLE = "#projects-table"
+    PROJECT_ROW = "#projects-table .tabulator-row"
     DELETE_BUTTON = "button[title='Delete']"
     EDIT_BUTTON = "button[title='Edit']"
 
@@ -25,6 +26,7 @@ class ProjectPage(BasePage):
         """Navigate to projects list."""
         self.navigate("/projects")
         self.page.wait_for_selector("h1:has-text('Projects')")
+        self.page.wait_for_selector(self.PROJECT_TABLE)
 
     def open_create_modal(self):
         """Open create project modal."""
@@ -47,33 +49,37 @@ class ProjectPage(BasePage):
         self.page.wait_for_timeout(1800)
         if self.page.locator(self.PROJECT_MODAL).count() and self.page.locator(self.PROJECT_MODAL).first.is_visible():
             self.navigate_to_projects()
-        self.page.wait_for_selector(f"{self.PROJECT_CARD}:has-text('{name}')", timeout=10000)
+        self.page.wait_for_selector(f"{self.PROJECT_ROW}:has-text('{name}')", timeout=10000)
 
-    def get_project_cards(self):
-        """Get all project cards."""
-        return self.page.locator(self.PROJECT_CARD)
+    def get_project_rows(self):
+        """Get all project rows."""
+        return self.page.locator(self.PROJECT_ROW)
+
+    def _project_row(self, name: str):
+        """Locate a project row by project name."""
+        return self.page.locator(self.PROJECT_ROW).filter(has_text=name).first
 
     def project_exists(self, name: str) -> bool:
         """Check if project with name exists."""
-        return self.page.locator(self.PROJECT_CARD).filter(has_text=name).count() > 0
+        return self.page.locator(self.PROJECT_ROW).filter(has_text=name).count() > 0
 
     def open_project(self, name: str):
         """Open project by name."""
-        project = self.page.locator(self.PROJECT_CARD).filter(has_text=name).first
-        project.locator("a:has-text('View Project')").click()
+        project = self._project_row(name)
+        project.locator("a:has-text('View')").click()
         self.page.wait_for_url("**/project/*", timeout=10000)
 
     def delete_project(self, name: str):
         """Delete project by name."""
-        project = self.page.locator(self.PROJECT_CARD).filter(has_text=name).first
+        project = self._project_row(name)
         self.page.once("dialog", lambda dialog: dialog.accept())
-        project.locator(self.DELETE_BUTTON).click()
-        expect(project).to_be_hidden(timeout=10000)
+        project.locator("button:has-text('Delete')").click()
+        expect(self.page.locator(self.PROJECT_ROW).filter(has_text=name)).to_have_count(0, timeout=10000)
 
     def edit_project(self, old_name: str, new_name: str, visibility: str = "public"):
         """Edit an existing project."""
-        project = self.page.locator(self.PROJECT_CARD).filter(has_text=old_name).first
-        project.locator(self.EDIT_BUTTON).click()
+        project = self._project_row(old_name)
+        project.locator("button:has-text('Edit')").click()
         self.page.wait_for_selector(self.PROJECT_MODAL, state="visible")
         self.fill_input(self.PROJECT_NAME_INPUT, new_name)
         if self.page.locator(self.PROJECT_VISIBILITY_INPUT).count():
@@ -83,7 +89,7 @@ class ProjectPage(BasePage):
         self.page.wait_for_timeout(1800)
         if self.page.locator(self.PROJECT_MODAL).count() and self.page.locator(self.PROJECT_MODAL).first.is_visible():
             self.navigate_to_projects()
-        self.page.wait_for_selector(f"{self.PROJECT_CARD}:has-text('{new_name}')", timeout=10000)
+        self.page.wait_for_selector(f"{self.PROJECT_ROW}:has-text('{new_name}')", timeout=10000)
 
     def get_validation_error(self, field: str) -> str:
         """Get validation error for a field."""

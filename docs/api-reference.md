@@ -223,10 +223,15 @@ Authorization: Bearer <token>
 {
   "items": [
     {
-      "id": 1,
+      "id": "project_123",
       "title": "Benchy Calibration",
-      "description": "Printer calibration prints",
       "owner_id": "user_123",
+      "slug": "benchy-calibration",
+      "category": "Calibration",
+      "visibility": "private",
+      "directory_path": "/data/storage/Projects/alice/benchy-calibration",
+      "disk_size_bytes": 24576,
+      "is_archived": false,
       "created_at": "2026-02-21T10:30:45Z",
       "updated_at": "2026-02-21T10:30:45Z"
     }

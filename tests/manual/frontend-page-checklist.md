@@ -55,13 +55,14 @@ Update items found in code:
 
 ## 5. Projects List (`/projects`)
 
-- [ ] Projects list loads via HTMX.
-- [ ] Empty state appears when no projects exist.
-- [ ] Retry/error UI appears on request failure/timeout.
+- [ ] Projects list loads into the table view and shows the total project count.
+- [ ] Empty state appears inside the table when no projects exist.
+- [ ] Retry/error UI appears when the projects table fetch fails.
+- [ ] Sorting works for the visible columns.
 - [ ] New Project modal opens/closes and submits correctly.
 
 ### Project Create/Edit Modal
-- [ ] Create submits and refreshes projects list.
+- [ ] Create submits and refreshes the projects table.
 - [ ] Edit pre-fills fields and saves updates.
 - [ ] Validation errors render in modal alert container.
 - [ ] Cancel/close controls remove modal.
@@ -73,11 +74,11 @@ Update items found in code:
 - [ ] Models list loads and updates model count/size indicators.
 - [ ] Storage info reflects real project directory status.
 
-### Upload Model Modal
-- [ ] Modal opens from detail page.
-- [ ] Upload form includes required `project_id` and submits.
-- [ ] Progress bar updates during upload.
-- [ ] Success refreshes model list.
+### Project Files Upload
+- [ ] Upload File control is visible from the Project Files toolbar.
+- [ ] Hidden file input and uploader drop zone are present.
+- [ ] Upload progress/feedback updates during file upload.
+- [ ] Success refreshes the Project Files table and summary.
 
 Update items found in code:
 - [x] Added route for `/projects/{project_id}/upload-modal`.

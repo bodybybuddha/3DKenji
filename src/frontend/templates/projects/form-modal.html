@@ -82,9 +82,10 @@
                 const modal = document.getElementById('project-form-modal');
                 if (modal) modal.remove();
 
-                const projectsList = document.getElementById('projects-list');
-                if (projectsList) {
-                    htmx.ajax('GET', '/api/v1/projects?format=html', '#projects-list');
+                if (typeof window.refreshProjectsTable === 'function' && document.getElementById('projects-table')) {
+                    window.refreshProjectsTable();
+                } else if (window.location.pathname.startsWith('/project/')) {
+                    window.location.reload();
                 } else {
                     window.location.href = '/projects';
                 }

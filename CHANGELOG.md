@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### 🔧 Changed - Projects List Table
+
+- Replaced the Projects page card grid with a sortable Tabulator table that mirrors the Project Files browsing pattern.
+- Kept inline View, Edit, and Delete actions on each project row and refreshed the table after create, edit, and delete flows.
+- Exposed project `created_at` and `updated_at` fields in the project list API response used by the table.
+
 ### ✨ Added - Project File Editor and Markdown Viewer
 
 - Added a dedicated text-file editor window launched from Project Files actions for editable formats (`.md`, `.txt`, `.rtf`, and related text/config/code files).

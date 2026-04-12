@@ -8,6 +8,7 @@ from playwright.sync_api import Page
 
 def _create_minimal_project(page: Page, e2e_base_url: str, name: str) -> None:
     page.goto(f"{e2e_base_url}/projects")
+    page.wait_for_selector("#projects-table", timeout=10000)
     page.click("button:has-text('New Project')")
     page.wait_for_selector("#project-form-modal", state="visible")
     page.fill("input[name='name']", name)
@@ -16,7 +17,7 @@ def _create_minimal_project(page: Page, e2e_base_url: str, name: str) -> None:
     page.wait_for_timeout(1800)
     if page.locator("#project-form-modal").count() and page.locator("#project-form-modal").first.is_visible():
         page.goto(f"{e2e_base_url}/projects")
-    page.wait_for_selector(f".project-card:has-text('{name}')", timeout=10000)
+    page.wait_for_selector(f"#projects-table .tabulator-row:has-text('{name}')", timeout=10000)
 
 
 @pytest.mark.e2e
@@ -26,7 +27,7 @@ def test_projects_page_loads_for_authenticated_user(authenticated_page: Page, e2
     assert authenticated_page.locator("h1:has-text('Projects')").count() == 1
     assert authenticated_page.locator("text=Manage your 3D printing projects").count() == 1
     assert authenticated_page.locator("button:has-text('New Project')").count() == 1
-    assert authenticated_page.locator("#projects-list").count() == 1
+    assert authenticated_page.locator("#projects-table").count() == 1
     assert authenticated_page.locator("a[href='/keys']").count() > 0
     assert authenticated_page.locator("#user-menu-btn").count() == 1
 
@@ -87,20 +88,16 @@ def test_profile_settings_page_loads(authenticated_page: Page, e2e_base_url: str
 
 @pytest.mark.e2e
 @pytest.mark.smoke
-def test_project_upload_modal_route_exists(authenticated_page: Page, e2e_base_url: str):
+def test_project_file_upload_controls_exist(authenticated_page: Page, e2e_base_url: str):
     project_name = "E2E Upload Modal Project"
     _create_minimal_project(authenticated_page, e2e_base_url, project_name)
 
-    authenticated_page.click(f".project-card:has-text('{project_name}') a:has-text('View Project')")
+    authenticated_page.click(f"#projects-table .tabulator-row:has-text('{project_name}') a:has-text('View')")
     authenticated_page.wait_for_url("**/project/*", timeout=10000)
 
-    authenticated_page.click("button:has-text('Upload Model')")
-    authenticated_page.wait_for_selector("#upload-model-modal", state="visible", timeout=5000)
-    assert authenticated_page.locator("#upload-model-modal h2:has-text('Upload Model')").count() == 1
-    assert authenticated_page.locator("#upload-model-modal input[name='file']").count() == 1
-    assert authenticated_page.locator("#upload-model-modal input[name='source_url']").count() == 1
-    assert authenticated_page.locator("#upload-model-modal input[name='tags']").count() == 1
-    assert authenticated_page.locator("#upload-model-modal button[type='submit']:has-text('Upload')").count() == 1
+    assert authenticated_page.locator("#project-files-upload:has-text('Upload File')").count() == 1
+    assert authenticated_page.locator("#project-files-upload-input[type='file']").count() == 1
+    assert authenticated_page.locator("#project-files-uploader").count() == 1
 
 
 @pytest.mark.e2e

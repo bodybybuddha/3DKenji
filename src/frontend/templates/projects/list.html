@@ -2,8 +2,162 @@
 
 {% block title %}Projects - 3DKenji{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.5/dist/css/tabulator.min.css">
+<style>
+    .projects-page-shell {
+        padding: var(--spacing-2xl) var(--spacing-lg);
+    }
+
+    .projects-table-card {
+        margin-top: var(--spacing-2xl);
+        padding: var(--spacing-lg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        background: var(--bg-primary);
+        box-shadow: 0 12px 40px color-mix(in srgb, var(--color-primary) 8%, transparent);
+    }
+
+    .projects-table-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--spacing-md);
+        flex-wrap: wrap;
+        margin-bottom: var(--spacing-md);
+    }
+
+    .projects-table-meta {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    #projects-feedback {
+        min-height: 1.5rem;
+        margin-bottom: var(--spacing-md);
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    #projects-feedback.is-error {
+        color: var(--color-danger);
+    }
+
+    #projects-table {
+        min-height: 320px;
+    }
+
+    #projects-table .tabulator {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        overflow: hidden;
+    }
+
+    #projects-table .tabulator-header {
+        border-bottom: 1px solid var(--border-color);
+        background: linear-gradient(135deg,
+                color-mix(in srgb, var(--color-primary) 22%, var(--bg-secondary)),
+                color-mix(in srgb, var(--color-primary) 12%, var(--bg-primary)));
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    #projects-table .tabulator-col,
+    #projects-table .tabulator-header-filter input {
+        background: transparent;
+    }
+
+    #projects-table .tabulator-row {
+        border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+        background: var(--bg-primary);
+    }
+
+    #projects-table .tabulator-row:hover {
+        background: color-mix(in srgb, var(--color-primary) 8%, var(--bg-primary));
+    }
+
+    #projects-table .tabulator-cell {
+        display: flex;
+        align-items: center;
+    }
+
+    .project-title-cell {
+        display: grid;
+        gap: 0.1rem;
+    }
+
+    .project-title-cell strong {
+        font-size: 0.96rem;
+    }
+
+    .project-title-cell span {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+    }
+
+    .project-category-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-secondary));
+        color: var(--text-primary);
+        font-size: 0.82rem;
+        font-weight: 500;
+    }
+
+    .project-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.4rem;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .project-action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+        padding: 0.4rem 0.7rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-color);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        cursor: pointer;
+        font-size: 0.82rem;
+        text-decoration: none;
+        transition: background-color var(--transition-fast), border-color var(--transition-fast);
+    }
+
+    .project-action-btn:hover {
+        background: color-mix(in srgb, var(--color-primary) 10%, var(--bg-secondary));
+        border-color: color-mix(in srgb, var(--color-primary) 35%, var(--border-color));
+    }
+
+    .project-action-btn.danger:hover {
+        background: color-mix(in srgb, var(--color-danger) 10%, var(--bg-secondary));
+        border-color: color-mix(in srgb, var(--color-danger) 40%, var(--border-color));
+    }
+
+    @media (max-width: 768px) {
+        .projects-page-shell {
+            padding: var(--spacing-xl) var(--spacing-md);
+        }
+
+        .projects-table-card {
+            padding: var(--spacing-md);
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container" style="padding: var(--spacing-2xl) var(--spacing-lg);">
+<div class="container projects-page-shell">
     <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
             <h1>Projects</h1>
@@ -14,82 +168,289 @@
         </button>
     </div>
 
-    <!-- Projects Grid -->
-    <div id="projects-list" class="grid grid-3" style="margin-top: var(--spacing-2xl);">
-        {% include "fragments/projects-list.html" %}
+    <div class="projects-table-card">
+        <div class="projects-table-toolbar">
+            <p id="projects-count" class="projects-table-meta">Loading projects...</p>
+            <button id="projects-refresh" class="btn btn-secondary btn-sm" type="button">Refresh</button>
+        </div>
+        <div id="projects-feedback" aria-live="polite"></div>
+        <div id="projects-table"></div>
     </div>
 </div>
+{% endblock %}
 
-<!-- HTMX to load projects -->
+{% block extra_js %}
+<script src="https://unpkg.com/tabulator-tables@6.2.5/dist/js/tabulator.min.js"></script>
 <script>
-    // Load projects with error handling
-    if (window.htmx && typeof htmx.ajax === 'function') {
-        htmx.ajax('GET', '/api/v1/projects?format=html', {
-            target: '#projects-list',
-            swap: 'innerHTML'
-        });
-    }
-
-    // Handle HTMX errors
-    document.body.addEventListener('htmx:responseError', function (evt) {
-        if (evt.detail.target && evt.detail.target.id === 'projects-list') {
-            const errorHtml = `
-                <div style="grid-column: 1 / -1; text-align: center; padding: var(--spacing-2xl);">
-                    <p style="color: var(--color-danger); margin: 0 0 var(--spacing-md) 0;">
-                        ⚠️ Failed to load projects
-                    </p>
-                    <p style="color: var(--text-secondary); margin: 0 0 var(--spacing-md) 0;">
-                        There was an error connecting to the server.
-                    </p>
-                    <button class="btn btn-secondary" onclick="location.reload()">
-                        Retry
-                    </button>
-                </div>
-            `;
-            document.getElementById('projects-list').innerHTML = errorHtml;
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.Tabulator) {
+            const feedbackElement = document.getElementById('projects-feedback');
+            if (feedbackElement) {
+                feedbackElement.textContent = 'Projects table could not load because the table library is unavailable.';
+                feedbackElement.classList.add('is-error');
+            }
+            return;
         }
-    });
 
-    document.body.addEventListener('htmx:afterRequest', function (evt) {
-        if (evt.detail.target && evt.detail.target.id === 'projects-list') {
-            const status = evt.detail.xhr.status;
-            if (status >= 400) {
-                const errorHtml = `
-                    <div style="grid-column: 1 / -1; text-align: center; padding: var(--spacing-2xl);">
-                        <p style="color: var(--color-danger); margin: 0 0 var(--spacing-md) 0;">
-                            ⚠️ Failed to load projects (${status})
-                        </p>
-                        <p style="color: var(--text-secondary); margin: 0 0 var(--spacing-md) 0;">
-                            Please try refreshing the page.
-                        </p>
-                        <button class="btn btn-secondary" onclick="location.reload()">
-                            Retry
-                        </button>
-                    </div>
-                `;
-                document.getElementById('projects-list').innerHTML = errorHtml;
+        const tableElement = document.getElementById('projects-table');
+        const feedbackElement = document.getElementById('projects-feedback');
+        const countElement = document.getElementById('projects-count');
+        const refreshButton = document.getElementById('projects-refresh');
+        let projectsTable = null;
+
+        function setFeedback(message, isError) {
+            if (!feedbackElement) {
+                return;
+            }
+            feedbackElement.textContent = message || '';
+            feedbackElement.classList.toggle('is-error', Boolean(isError));
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatBytes(value) {
+            const bytes = Number(value || 0);
+            if (!Number.isFinite(bytes) || bytes <= 0) {
+                return '0 B';
+            }
+
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+            const sized = bytes / Math.pow(1024, exponent);
+            const precision = exponent === 0 ? 0 : sized >= 10 ? 1 : 2;
+            return `${sized.toFixed(precision)} ${units[exponent]}`;
+        }
+
+        function formatRelativeDate(value) {
+            if (!value) {
+                return 'Unknown';
+            }
+
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return 'Unknown';
+            }
+
+            const diffSeconds = Math.round((Date.now() - date.getTime()) / 1000);
+            const absSeconds = Math.abs(diffSeconds);
+            const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+            const units = [
+                ['year', 31536000],
+                ['month', 2592000],
+                ['week', 604800],
+                ['day', 86400],
+                ['hour', 3600],
+                ['minute', 60],
+            ];
+
+            for (const [unit, seconds] of units) {
+                if (absSeconds >= seconds) {
+                    return formatter.format(-Math.round(diffSeconds / seconds), unit);
+                }
+            }
+
+            return formatter.format(-diffSeconds, 'second');
+        }
+
+        async function deleteProject(project) {
+            const confirmed = window.confirm(`Delete project '${project.title}'? This cannot be undone.`);
+            if (!confirmed) {
+                return;
+            }
+
+            setFeedback(`Deleting ${project.title}...`, false);
+            try {
+                const response = await fetch(`/api/v1/projects/${project.id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    let detail = 'Failed to delete project.';
+                    try {
+                        const payload = await response.json();
+                        detail = payload.detail || detail;
+                    } catch (_error) {
+                        // Ignore JSON parse failures and use default detail.
+                    }
+                    throw new Error(detail);
+                }
+
+                if (window.HTMXHelper) {
+                    HTMXHelper.showToast('Project deleted', 'success');
+                }
+                await window.refreshProjectsTable();
+            } catch (error) {
+                const message = error && error.message ? error.message : 'Failed to delete project.';
+                setFeedback(message, true);
+                if (window.HTMXHelper) {
+                    HTMXHelper.showToast(message, 'danger');
+                }
             }
         }
-    });
 
-    // Handle timeout
-    document.body.addEventListener('htmx:timeout', function (evt) {
-        if (evt.detail.target && evt.detail.target.id === 'projects-list') {
-            const errorHtml = `
-                <div style="grid-column: 1 / -1; text-align: center; padding: var(--spacing-2xl);">
-                    <p style="color: var(--color-danger); margin: 0 0 var(--spacing-md) 0;">
-                        ⏱️ Request timed out
-                    </p>
-                    <p style="color: var(--text-secondary); margin: 0 0 var(--spacing-md) 0;">
-                        The server is taking too long to respond.
-                    </p>
-                    <button class="btn btn-secondary" onclick="location.reload()">
-                        Retry
-                    </button>
-                </div>
-            `;
-            document.getElementById('projects-list').innerHTML = errorHtml;
-        }
+        projectsTable = new Tabulator(tableElement, {
+            layout: 'fitColumns',
+            responsiveLayout: 'hide',
+            placeholder: 'No projects yet. Create your first project to get started.',
+            initialSort: [
+                { column: 'created_at', dir: 'desc' },
+                { column: 'title', dir: 'asc' }
+            ],
+            columns: [
+                {
+                    title: 'Title',
+                    field: 'title',
+                    minWidth: 260,
+                    responsive: 0,
+                    formatter: function (cell) {
+                        const project = cell.getRow().getData();
+                        return [
+                            '<div class="project-title-cell">',
+                            `<strong>${escapeHtml(project.title || 'Untitled Project')}</strong>`,
+                            `<span>${escapeHtml(project.slug || '')}</span>`,
+                            '</div>'
+                        ].join('');
+                    }
+                },
+                {
+                    title: 'Category',
+                    field: 'category',
+                    minWidth: 160,
+                    responsive: 1,
+                    formatter: function (cell) {
+                        return `<span class="project-category-pill">${escapeHtml(cell.getValue() || 'Uncategorized')}</span>`;
+                    }
+                },
+                {
+                    title: 'Size',
+                    field: 'disk_size_bytes',
+                    width: 130,
+                    responsive: 2,
+                    sorter: 'number',
+                    hozAlign: 'left',
+                    formatter: function (cell) {
+                        return formatBytes(cell.getValue());
+                    }
+                },
+                {
+                    title: 'Created',
+                    field: 'created_at',
+                    minWidth: 150,
+                    responsive: 1,
+                    sorter: 'datetime',
+                    formatter: function (cell) {
+                        return formatRelativeDate(cell.getValue());
+                    }
+                },
+                {
+                    title: 'Actions',
+                    field: 'id',
+                    minWidth: 270,
+                    responsive: 0,
+                    headerSort: false,
+                    hozAlign: 'right',
+                    formatter: function (_cell, _formatterParams, onRendered) {
+                        onRendered(function () {
+                            // Preserve button layout after Tabulator attaches the cell to the DOM.
+                        });
+                        const project = _cell.getRow().getData();
+                        return [
+                            '<div class="project-actions">',
+                            `<a class="project-action-btn" href="/project/${encodeURIComponent(project.id)}">View</a>`,
+                            `<button type="button" class="project-action-btn" data-action="edit">Edit</button>`,
+                            `<button type="button" class="project-action-btn danger" data-action="delete">Delete</button>`,
+                            '</div>'
+                        ].join('');
+                    },
+                    cellClick: function (event, cell) {
+                        const action = event.target && event.target.dataset ? event.target.dataset.action : null;
+                        if (!action) {
+                            return;
+                        }
+                        const project = cell.getRow().getData();
+                        if (action === 'edit') {
+                            if (window.htmx && typeof htmx.ajax === 'function') {
+                                htmx.ajax('GET', `/api/v1/projects/${project.id}/edit-modal`, {
+                                    target: 'body',
+                                    swap: 'beforeend'
+                                });
+                            }
+                            return;
+                        }
+                        if (action === 'delete') {
+                            deleteProject(project);
+                        }
+                    }
+                }
+            ],
+            rowClick: function (event, row) {
+                const target = event && event.target ? event.target : null;
+                const actionClick = !!(target && typeof target.closest === 'function' && target.closest('.project-action-btn'));
+                if (actionClick) {
+                    return;
+                }
+                const project = row.getData();
+                window.location.href = `/project/${project.id}`;
+            }
+        });
+
+        window.refreshProjectsTable = async function refreshProjectsTable() {
+            setFeedback('Loading projects...', false);
+            refreshButton.disabled = true;
+            try {
+                const response = await fetch('/api/v1/projects?skip=0&limit=1000', {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error(`Failed to load projects (${response.status})`);
+                }
+
+                const payload = await response.json();
+                const items = Array.isArray(payload.items) ? payload.items : [];
+                await projectsTable.replaceData(items);
+                countElement.textContent = `${items.length} project${items.length === 1 ? '' : 's'}`;
+                setFeedback(items.length ? 'Projects loaded.' : 'No projects yet. Create your first project to get started.', false);
+            } catch (error) {
+                const message = error && error.message ? error.message : 'Failed to load projects.';
+                countElement.textContent = 'Projects unavailable';
+                setFeedback(message, true);
+                await projectsTable.replaceData([]);
+            } finally {
+                refreshButton.disabled = false;
+            }
+        };
+
+        refreshButton.addEventListener('click', function () {
+            window.refreshProjectsTable();
+        });
+
+        window.refreshProjectsTable();
+
+        document.body.addEventListener('htmx:responseError', function (event) {
+            const target = event.detail && event.detail.target ? event.detail.target : null;
+            if (target && target.id === 'project-form-alert') {
+                setFeedback('Unable to save changes. Fix the form errors and try again.', true);
+            }
+        });
+
+        document.body.addEventListener('htmx:afterSwap', function (event) {
+            const target = event.detail && event.detail.target ? event.detail.target : null;
+            if (target && target.id === 'project-form-alert') {
+                setFeedback('', false);
+            }
+        });
     });
 </script>
 {% endblock %}

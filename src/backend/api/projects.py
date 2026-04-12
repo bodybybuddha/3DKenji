@@ -89,6 +89,8 @@ class ProjectResponse(BaseModel):
     directory_path: Optional[str] = None
     disk_size_bytes: Optional[int] = 0
     is_archived: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
