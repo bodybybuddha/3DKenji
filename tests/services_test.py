@@ -55,9 +55,72 @@ class TestUserService:
         )
 
         assert user.username == "testuser"
+        assert user.nickname == "testuser"
         assert user.email == "test@example.com"
         assert user.display_name == "Test User"
         assert user.id is not None
+
+    def test_create_user_assigns_unique_nickname(self, user_service: UserService):
+        """Nickname generation should resolve collisions deterministically."""
+        first = user_service.create_user(
+            username="nickowner",
+            nickname="shared-nick",
+            email="nickowner@example.com",
+            display_name="Nick Owner",
+            password="secure_password",
+        )
+        second = user_service.create_user(
+            username="nickowner2",
+            nickname="shared-nick",
+            email="nickowner2@example.com",
+            display_name="Nick Owner 2",
+            password="secure_password",
+        )
+
+        assert first.nickname == "shared-nick"
+        assert second.nickname.startswith("shared-nick-")
+
+    def test_update_profile_renames_owner_directory_and_updates_project_paths(
+        self,
+        user_service: UserService,
+        test_db: Session,
+        monkeypatch,
+        tmp_path,
+    ):
+        """Changing nickname should move owner directory and rewrite project directory_path."""
+        monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
+
+        user = user_service.create_user(
+            username="renameowner",
+            email="renameowner@example.com",
+            display_name="Rename Owner",
+            password="secure_password",
+        )
+
+        project_service = ProjectService(test_db)
+        project = project_service.create_project(
+            owner_id=user.id,
+            title="Nickname Move",
+        )
+
+        old_root = tmp_path / "Projects" / user.nickname
+        new_nickname = "rename-me"
+        new_root = tmp_path / "Projects" / new_nickname
+        assert old_root.exists()
+
+        updated = user_service.update_profile(
+            user_id=user.id,
+            email=user.email,
+            display_name=user.display_name,
+            nickname=new_nickname,
+        )
+
+        refreshed = project_service.get_project_by_id(project.id)
+        assert updated.nickname == new_nickname
+        assert refreshed is not None
+        assert refreshed.directory_path == f"Projects/{new_nickname}/{project.slug}"
+        assert new_root.exists()
+        assert not old_root.exists()
 
     def test_create_user_duplicate_username(self, user_service: UserService):
         """Test that duplicate username raises error."""
@@ -272,7 +335,7 @@ class TestProjectService:
             description="Directory-backed project",
         )
 
-        project_dir = tmp_path / "Projects" / "private" / project.slug
+        project_dir = tmp_path / "Projects" / user.nickname / project.slug
         info_path = project_dir / "ProjectInfo.md"
 
         assert project_dir.is_dir()
@@ -300,7 +363,7 @@ class TestProjectService:
             description=description,
         )
 
-        info_path = tmp_path / "Projects" / "private" / project.slug / "ProjectInfo.md"
+        info_path = tmp_path / "Projects" / user.nickname / project.slug / "ProjectInfo.md"
         assert info_path.exists()
         content = info_path.read_text(encoding="utf-8")
         assert title in content
@@ -369,7 +432,7 @@ class TestProjectService:
         archived = project_service.get_project_by_id(project.id)
         assert archived is not None
         assert archived.is_archived is True
-        assert archived.category == "archive"
+        assert archived.category == "Uncategorized"
 
     def test_delete_project_removes_directory(
         self,
@@ -378,7 +441,7 @@ class TestProjectService:
         monkeypatch,
         tmp_path,
     ):
-        """Project deletion - with default archive policy, directory is moved to archive."""
+        """Project deletion with archive policy preserves owner-scoped directory."""
         monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
 
         project = project_service.create_project(
@@ -387,16 +450,14 @@ class TestProjectService:
             category="private",
         )
 
-        project_dir = tmp_path / "Projects" / "private" / project.slug
+        project_dir = tmp_path / "Projects" / user.nickname / project.slug
         assert project_dir.exists()
 
         deleted = project_service.delete_project(project.id)
 
         assert deleted is True
-        # With archive policy, original directory should be moved
-        assert not project_dir.exists()
-        archive_dir = tmp_path / "Projects" / "archive" / project.slug
-        assert archive_dir.exists()
+        # With archive policy, directory remains under owner path.
+        assert project_dir.exists()
 
     def test_check_project_ownership(
         self, project_service: ProjectService, user, user_service: UserService
@@ -424,7 +485,7 @@ class TestProjectService:
         monkeypatch,
         tmp_path,
     ):
-        """Project deletion with archive policy should move to archive category."""
+        """Project deletion with archive policy marks project archived in place."""
         monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
 
         project = project_service.create_project(
@@ -441,7 +502,7 @@ class TestProjectService:
         orm_project.deletion_policy = "archive"
         project_service.session.commit()
 
-        original_dir = tmp_path / "Projects" / "private" / project.slug
+        original_dir = tmp_path / "Projects" / user.nickname / project.slug
         assert original_dir.exists()
 
         deleted = project_service.delete_project(project.id)
@@ -450,13 +511,11 @@ class TestProjectService:
         # Project should still exist in database but be archived
         archived_project = project_service.get_project_by_id(project.id)
         assert archived_project is not None
-        assert archived_project.category == "archive"
+        assert archived_project.category == "private"
         assert archived_project.is_archived is True
 
-        # Directory should be moved to archive location
-        assert not original_dir.exists()
-        archive_dir = tmp_path / "Projects" / "archive" / project.slug
-        assert archive_dir.exists()
+        # Directory remains at owner-scoped location.
+        assert original_dir.exists()
 
     def test_delete_project_with_hard_delete_policy(
         self,
@@ -482,7 +541,7 @@ class TestProjectService:
         orm_project.deletion_policy = "hard_delete"
         project_service.session.commit()
 
-        project_dir = tmp_path / "Projects" / "private" / project.slug
+        project_dir = tmp_path / "Projects" / user.nickname / project.slug
         assert project_dir.exists()
 
         deleted = project_service.delete_project(project.id)
@@ -510,7 +569,7 @@ class TestProjectService:
         )
         # Don't explicitly set deletion_policy; should default to archive
 
-        project_dir = tmp_path / "Projects" / "Uncategorized" / project.slug
+        project_dir = tmp_path / "Projects" / user.nickname / project.slug
         assert project_dir.exists()
 
         deleted = project_service.delete_project(project.id)
@@ -519,7 +578,7 @@ class TestProjectService:
         # Should be archived (default behavior)
         archived_project = project_service.get_project_by_id(project.id)
         assert archived_project is not None
-        assert archived_project.category == "archive"
+        assert archived_project.category == "Uncategorized"
 
 
 class TestModelService:

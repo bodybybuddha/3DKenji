@@ -54,7 +54,14 @@ def test_multipart_model_upload_persists_model_and_metadata():
     assert uploaded["filename"] == "regression.stl"
     assert uploaded["tags"] == ["prototype", "regression"]
     assert uploaded["custom_metadata"].get("description") == "Upload from project modal"
-    expected_prefix = f"Projects/{project['category']}/{project['slug']}/models/"
+    owner_me = requests.get(
+        f"{_api_base_url()}/api/v1/users/me",
+        headers=headers,
+        timeout=10,
+    )
+    assert owner_me.status_code == 200, owner_me.text
+    owner_nickname = owner_me.json()["nickname"]
+    expected_prefix = f"Projects/{owner_nickname}/{project['slug']}/models/"
     assert uploaded["storage_key"].startswith(expected_prefix)
 
     storage_root = Path(os.environ["STORAGE_ROOT"])

@@ -17,6 +17,19 @@ def validate_username(username: str) -> str:
     return username
 
 
+def validate_nickname(nickname: str) -> str:
+    """Validate nickname format for filesystem owner segments."""
+    if not nickname or len(nickname) < 3:
+        raise ValueError("Nickname must be at least 3 characters")
+    if len(nickname) > 64:
+        raise ValueError("Nickname must be at most 64 characters")
+    if not re.match(r"^[a-z0-9][a-z0-9_-]*$", nickname):
+        raise ValueError(
+            "Nickname can only contain lowercase letters, numbers, underscores, and hyphens"
+        )
+    return nickname
+
+
 # Email validation
 def validate_email(email: str) -> str:
     """Validate email format."""
@@ -112,6 +125,7 @@ class LoginRequest(BaseModel):
 class RegisterRequest(BaseModel):
     """Registration form validation."""
     username: str = Field(..., min_length=3, max_length=32)
+    nickname: Optional[str] = Field(None, min_length=3, max_length=64)
     email: str = Field(...)
     display_name: Optional[str] = Field(None, max_length=100)
     password: str = Field(...)
@@ -124,6 +138,12 @@ class RegisterRequest(BaseModel):
     @validator("email")
     def validate_email_field(cls, v):
         return validate_email(v)
+
+    @validator("nickname")
+    def validate_nickname_field(cls, v):
+        if v is not None and v != "":
+            return validate_nickname(v)
+        return v
 
     @validator("password")
     def validate_password_field(cls, v):
@@ -231,11 +251,18 @@ class UpdateProfileRequest(BaseModel):
     """User profile update validation."""
     email: Optional[str] = Field(None)
     display_name: Optional[str] = Field(None, max_length=100)
+    nickname: Optional[str] = Field(None, min_length=3, max_length=64)
 
     @validator("email")
     def validate_email_field(cls, v):
         if v is not None:
             validate_email(v)
+        return v
+
+    @validator("nickname")
+    def validate_profile_nickname_field(cls, v):
+        if v is not None:
+            return validate_nickname(v)
         return v
 
 

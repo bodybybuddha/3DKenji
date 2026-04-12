@@ -15,7 +15,8 @@ from backend.api.auth import get_current_user
 from backend.db import get_db
 from backend.storage import get_storage
 from backend.services.model_service import ModelDTO, ModelService
-from backend.services.project_directory import ProjectDirectoryService
+from backend.services.project_access import ProjectAccessService
+from backend.services.project_directory import ProjectDirectoryService, resolve_owner_storage_segment
 from backend.services.project_service import ProjectService
 from backend.core.plugin_interfaces import StorageBackend
 
@@ -144,8 +145,8 @@ async def upload_model(
             detail=f"Project '{project_id}' not found",
         )
 
-    # Check ownership
-    if project.owner_id != current_user_id:
+    access_service = ProjectAccessService(session)
+    if not access_service.can_edit(project, current_user_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to upload to this project",
@@ -157,11 +158,12 @@ async def upload_model(
         _validate_model_file(file.filename, len(file_content))
 
         safe_filename = ProjectDirectoryService.sanitize_filename(file.filename)
+        owner_segment = resolve_owner_storage_segment(session, project.owner_id)
 
         # Store under the canonical project filesystem tree used by project page features.
         storage_key = (
             Path("Projects")
-            / project.category
+            / owner_segment
             / project.slug
             / "models"
             / safe_filename
@@ -270,7 +272,8 @@ async def list_project_models(
             detail=f"Project '{project_id}' not found",
         )
 
-    if project.owner_id != current_user_id:
+    access_service = ProjectAccessService(session)
+    if not access_service.can_view(project, current_user_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this project",
@@ -363,7 +366,14 @@ async def get_model(
     project_service = ProjectService(session)
     project = project_service.get_project_by_id(model.project_id)
 
-    if not project or project.owner_id != current_user_id:
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project '{model.project_id}' not found",
+        )
+
+    access_service = ProjectAccessService(session)
+    if not access_service.can_view(project, current_user_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this model",

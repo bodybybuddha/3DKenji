@@ -37,13 +37,13 @@ STORAGE_ROOT=/data/storage
 Projects are stored under:
 
 ```text
-STORAGE_ROOT/Projects/<category>/<slug>
+STORAGE_ROOT/Projects/<owner_nickname>/<slug>
 ```
 
 Example:
 
 ```text
-/data/storage/Projects/private/test-project-2
+/data/storage/Projects/alice-prints/test-project-2
 ```
 
 Note: set `STORAGE_ROOT` to the root path only (for example `/workspace/data/storage`), not to a nested `.../Projects` path.
@@ -53,6 +53,28 @@ Ensure directory exists and is writable:
 mkdir -p /data/storage
 chmod 755 /data/storage
 ```
+
+Legacy project paths (`Projects/<owner_id>/<slug>` or `Projects/<category>/<slug>`) are supported during migration, but new and updated projects are persisted to owner-nickname paths.
+
+### Email (SMTP)
+
+Invitation emails are delivered through SMTP configuration stored in admin settings (`/admin/settings`) and can be overridden for test/dev use with environment flags.
+
+**APP_BASE_URL** (Optional, default: `http://localhost:8000`)
+Base URL used to generate invitation claim links in emails.
+
+```bash
+APP_BASE_URL=http://localhost:8000
+```
+
+**SMTP_MOCK_DELIVERY** (Optional, default: `false`)
+When true, email sending is simulated and no external SMTP server is contacted.
+
+```bash
+SMTP_MOCK_DELIVERY=true
+```
+
+SMTP host, port, credentials, sender identity, and TLS mode are managed in the admin SMTP settings UI and persisted in application settings.
 
 **PLUGINS_ROOT** (Optional, default: `/data/plugins`)
 Root directory for installation-specific plugins.

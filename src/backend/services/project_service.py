@@ -10,7 +10,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from backend.models.project import Project
-from backend.services.project_directory import service_for_project
+from backend.models.project_collaborator import ProjectCollaborator
+from backend.services.project_directory import (
+    resolve_owner_storage_segment,
+    service_for_project_owner,
+)
 
 
 def _slugify(title: str) -> str:
@@ -31,6 +35,7 @@ class ProjectDTO:
     title: str
     slug: str
     category: str
+    visibility: str
     directory_path: Optional[str]
     disk_size_bytes: int
     is_archived: bool
@@ -51,6 +56,7 @@ class ProjectService:
         owner_id: str,
         title: str,
         category: str = "Uncategorized",
+        visibility: str = "private",
         description: str = "",
     ) -> ProjectDTO:
         """Create a new project.
@@ -75,7 +81,7 @@ class ProjectService:
         if not owner:
             raise ValueError(f"User '{owner_id}' not found")
 
-        # Generate a unique slug within (owner_id, category)
+        # Generate a unique slug within owner scope.
         base_slug = _slugify(title)
         slug = base_slug
         suffix = 1
@@ -83,7 +89,6 @@ class ProjectService:
             existing = self.session.execute(
                 select(Project).where(
                     Project.owner_id == owner_id,
-                    Project.category == category,
                     Project.slug == slug,
                 )
             ).scalar_one_or_none()
@@ -92,7 +97,8 @@ class ProjectService:
             slug = f"{base_slug}-{suffix}"
             suffix += 1
 
-        directory_path = f"Projects/{category}/{slug}"
+        owner_segment = resolve_owner_storage_segment(self.session, owner_id)
+        directory_path = f"Projects/{owner_segment}/{slug}"
 
         project = Project(
             id=str(uuid.uuid4()),
@@ -100,12 +106,18 @@ class ProjectService:
             title=title,
             slug=slug,
             category=category,
+            visibility=visibility,
             directory_path=directory_path,
             disk_size_bytes=0,
             is_archived=False,
         )
 
-        directory_service = service_for_project(category, slug)
+        directory_service = service_for_project_owner(
+            self.session,
+            owner_id,
+            slug,
+            legacy_segment=category,
+        )
         directory_already_existed = directory_service.project_directory_exists()
 
         try:
@@ -160,11 +172,43 @@ class ProjectService:
         
         return [self._to_dto(project) for project in projects]
 
+    def list_accessible_projects(
+        self,
+        user_id: str,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> list[ProjectDTO]:
+        """List projects a user can access (owned, collaborator, public)."""
+        owned = self.session.execute(
+            select(Project).where(Project.owner_id == user_id)
+        ).scalars().all()
+        collaborator_projects = self.session.execute(
+            select(Project)
+            .join(ProjectCollaborator, ProjectCollaborator.project_id == Project.id)
+            .where(ProjectCollaborator.user_id == user_id)
+        ).scalars().all()
+        public_projects = self.session.execute(
+            select(Project).where(Project.visibility == "public")
+        ).scalars().all()
+
+        deduped: dict[str, Project] = {}
+        for project in owned + collaborator_projects + public_projects:
+            deduped[project.id] = project
+
+        ordered = sorted(
+            deduped.values(),
+            key=lambda p: p.updated_at,
+            reverse=True,
+        )
+        window = ordered[skip : skip + limit]
+        return [self._to_dto(project) for project in window]
+
     def update_project(
         self,
         project_id: str,
         title: Optional[str] = None,
         category: Optional[str] = None,
+        visibility: Optional[str] = None,
     ) -> ProjectDTO:
         """Update project title and/or category.
 
@@ -195,12 +239,24 @@ class ProjectService:
             project.slug = _slugify(title)  # type: ignore[attr-defined]
         if category is not None:
             project.category = category  # type: ignore[attr-defined]
+        if visibility is not None:
+            project.visibility = visibility  # type: ignore[attr-defined]
 
-        # Update directory_path to reflect any title/category changes
-        project.directory_path = f"Projects/{project.category}/{project.slug}"  # type: ignore[attr-defined]
+        # Update directory_path to reflect title changes using owner-scoped storage.
+        owner_segment = resolve_owner_storage_segment(self.session, str(project.owner_id))
+        project.directory_path = f"Projects/{owner_segment}/{project.slug}"  # type: ignore[attr-defined]
 
-        old_dir = service_for_project(str(old_category), str(old_slug))._root
-        new_dir = service_for_project(str(project.category), str(project.slug))._root  # type: ignore[arg-type]
+        old_dir = service_for_project_owner(
+            self.session,
+            str(project.owner_id),
+            str(old_slug),
+            legacy_segment=str(old_category),
+        )._root
+        new_dir = service_for_project_owner(
+            self.session,
+            str(project.owner_id),
+            str(project.slug),
+        )._root  # type: ignore[arg-type]
 
         if old_dir != new_dir and old_dir.exists():
             new_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -212,7 +268,11 @@ class ProjectService:
 
         if old_dir == new_dir and not new_dir.exists():
             # Backfill missing directory for legacy projects.
-            service_for_project(str(project.category), str(project.slug)).create_project_directory(
+            service_for_project_owner(
+                self.session,
+                str(project.owner_id),
+                str(project.slug),
+            ).create_project_directory(
                 title=str(project.title), description=""
             )
 
@@ -276,29 +336,12 @@ class ProjectService:
             return False
 
         # Move to archive category
-        old_category = project.category
         old_slug = project.slug
-        project.category = "archive"
         project.is_archived = True
-        
-        # Compute new directory path
-        project.directory_path = f"Projects/archive/{old_slug}"
+        owner_segment = resolve_owner_storage_segment(self.session, str(project.owner_id))
+        project.directory_path = f"Projects/{owner_segment}/{old_slug}"
         
         self.session.commit()
-
-        # Move filesystem directory from old location to archive location
-        old_service = service_for_project(str(old_category), str(old_slug))
-        new_service = service_for_project("archive", str(old_slug))
-        
-        if old_service.project_directory_exists():
-            # Ensure archive directory exists
-            new_service._root.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Move directory
-            import shutil
-            if new_service._root.exists():
-                shutil.rmtree(new_service._root)
-            shutil.move(str(old_service._root), str(new_service._root))
         
         return True
 
@@ -318,7 +361,12 @@ class ProjectService:
         if not project:
             return False
 
-        directory_service = service_for_project(str(project.category), str(project.slug))
+        directory_service = service_for_project_owner(
+            self.session,
+            str(project.owner_id),
+            str(project.slug),
+            legacy_segment=str(project.category),
+        )
 
         self.session.delete(project)
         self.session.commit()
@@ -353,6 +401,7 @@ class ProjectService:
             title=project.title,  # type: ignore[arg-type]
             slug=project.slug,  # type: ignore[arg-type]
             category=project.category,  # type: ignore[arg-type]
+            visibility=getattr(project, "visibility", "private"),  # type: ignore[arg-type]
             directory_path=project.directory_path,  # type: ignore[arg-type]
             disk_size_bytes=project.disk_size_bytes or 0,  # type: ignore[arg-type]
             is_archived=bool(project.is_archived),  # type: ignore[arg-type]

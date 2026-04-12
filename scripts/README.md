@@ -99,6 +99,21 @@ Creates test users in the database.
 python scripts/create-dummy-users.py
 ```
 
+### backfill-project-filesystem.py
+Migrates project directories to owner-based layout and backfills seed/frontmatter files.
+
+Current canonical path:
+- `Projects/<owner_id>/<slug>`
+
+**Usage:**
+```bash
+# Preview changes
+python scripts/backfill-project-filesystem.py --dry-run
+
+# Apply changes
+python scripts/backfill-project-filesystem.py --apply
+```
+
 ### create-new-feature.sh
 Scaffolds a new feature with boilerplate.
 

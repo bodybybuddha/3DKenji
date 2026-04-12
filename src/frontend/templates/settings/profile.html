@@ -30,6 +30,13 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="nickname" class="form-label required">Nickname</label>
+                    <input type="text" id="nickname" name="nickname" class="form-input" required
+                        placeholder="your-nickname" minlength="3" maxlength="64" />
+                    <small style="color: var(--text-tertiary);">Used in project storage folder paths</small>
+                </div>
+
+                <div class="form-group">
                     <label for="display_name" class="form-label">Display Name</label>
                     <input type="text" id="display_name" name="display_name" class="form-input"
                         placeholder="Your Full Name" />
@@ -123,6 +130,7 @@
                     const user = JSON.parse(response);
                     document.getElementById('username').value = user.username;
                     document.getElementById('email').value = user.email;
+                    document.getElementById('nickname').value = user.nickname || '';
                     document.getElementById('display_name').value = user.display_name || '';
                 }
             });

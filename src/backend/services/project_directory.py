@@ -27,6 +27,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Sequence
 
+from sqlalchemy.orm import Session
+
 from backend.services.markdown_service import (
     PRINT_HISTORY_TEMPLATE,
     format_print_session,
@@ -599,10 +601,58 @@ class ProjectDirectoryService:
 # ---------------------------------------------------------------------------
 
 
-def service_for_project(category: str, slug: str) -> ProjectDirectoryService:
-    """Convenience factory: return a service bound to the project directory.
+def service_for_project(owner_segment: str, slug: str, legacy_segment: str | None = None) -> ProjectDirectoryService:
+    """Convenience factory for a project's filesystem directory.
 
-    Projects root: ``PROJECTS_DIR / category / slug``
+    Preferred root: ``PROJECTS_DIR / owner_segment / slug``.
+    If *legacy_segment* is supplied and the preferred path does not exist,
+    resolve to ``PROJECTS_DIR / legacy_segment / slug`` for compatibility.
     """
-    project_dir = get_projects_dir() / category / slug
-    return ProjectDirectoryService(project_dir)
+    preferred = get_projects_dir() / owner_segment / slug
+    if legacy_segment:
+        legacy = get_projects_dir() / legacy_segment / slug
+        if not preferred.exists() and legacy.exists():
+            return ProjectDirectoryService(legacy)
+    return ProjectDirectoryService(preferred)
+
+
+def resolve_owner_storage_segment(session: Session, owner_id: str) -> str:
+    """Resolve the canonical filesystem segment for a project owner.
+
+    Falls back to owner_id if nickname is unavailable.
+    """
+    from sqlalchemy import select
+
+    from backend.models.user import User
+
+    user = session.execute(select(User).where(User.id == owner_id)).scalar_one_or_none()
+    if user and getattr(user, "nickname", None):
+        return str(user.nickname)
+    return owner_id
+
+
+def service_for_project_owner(
+    session: Session,
+    owner_id: str,
+    slug: str,
+    legacy_segment: str | None = None,
+) -> ProjectDirectoryService:
+    """Convenience factory resolving owner storage key via user nickname.
+
+    Preferred root: ``PROJECTS_DIR / <owner_nickname> / <slug>``.
+    Legacy fallback roots are checked in this order when preferred path does
+    not exist: owner_id path, then legacy category path.
+    """
+    owner_segment = resolve_owner_storage_segment(session, owner_id)
+    preferred = get_projects_dir() / owner_segment / slug
+    legacy_owner = get_projects_dir() / owner_id / slug
+
+    if not preferred.exists() and legacy_owner.exists():
+        return ProjectDirectoryService(legacy_owner)
+
+    if legacy_segment:
+        legacy = get_projects_dir() / legacy_segment / slug
+        if not preferred.exists() and legacy.exists():
+            return ProjectDirectoryService(legacy)
+
+    return ProjectDirectoryService(preferred)

@@ -2,11 +2,14 @@
 
 import logging
 import os
+import hashlib
+import secrets
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request, Depends, Form
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.core.validation import SetupRequest, format_validation_errors
@@ -15,11 +18,16 @@ from backend.db import get_db
 from backend.services.project_directory import (
     PathNotFoundError,
     PathTraversalError,
-    get_projects_dir,
-    service_for_project,
+    service_for_project_owner,
 )
 from backend.services.project_service import ProjectService
+from backend.services.project_access import ProjectAccessService
+from backend.services.app_settings_service import AppSettingsService
+from backend.services.email_service import send_project_invitation_email, EmailDeliveryError
 from backend.services.user_service import UserService
+from backend.models.user import User
+from backend.models.project_invitation import ProjectInvitation
+from backend.models.project import Project
 
 logger = logging.getLogger(__name__)
 
@@ -290,7 +298,7 @@ async def projects_page(request: Request, session: Session = Depends(get_db)):
     projects: list[dict] = []
     try:
         service = ProjectService(session)
-        projects = [p.__dict__ for p in service.list_user_projects(owner_id=user.id)]
+        projects = [p.__dict__ for p in service.list_accessible_projects(user_id=user.id)]
     except Exception as exc:
         logger.warning("Failed to load projects for page render: %s", exc)
 
@@ -302,6 +310,395 @@ async def projects_page(request: Request, session: Session = Depends(get_db)):
             "projects": projects,
         },
     )
+
+
+@router.get("/invitations/{token}", response_class=HTMLResponse)
+async def invitation_claim_page(token: str, request: Request, session: Session = Depends(get_db)):
+    """Render invitation claim page for authenticated users."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url=f"/login?next=/invitations/{token}", status_code=303)
+
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    invitation = session.execute(
+        select(ProjectInvitation).where(ProjectInvitation.token_hash == token_hash)
+    ).scalar_one_or_none()
+
+    project_title = "Unknown project"
+    if invitation:
+        project = session.execute(
+            select(Project).where(Project.id == invitation.project_id)
+        ).scalar_one_or_none()
+        if project:
+            project_title = str(project.title)
+
+    return templates.TemplateResponse(
+        "invitations/claim.html",
+        {
+            "request": request,
+            "user": user,
+            "token": token,
+            "project_title": project_title,
+            "invitation": invitation,
+        },
+    )
+
+
+@router.post("/invitations/{token}/accept", response_class=HTMLResponse)
+async def invitation_claim_submit(token: str, request: Request, session: Session = Depends(get_db)):
+    """Accept invitation token from frontend flow."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url=f"/login?next=/invitations/{token}", status_code=303)
+
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    access_service = ProjectAccessService(session)
+    collaborator = access_service.accept_invitation(token_hash=token_hash, user_id=user.id)
+
+    if not collaborator:
+        return templates.TemplateResponse(
+            "invitations/claim.html",
+            {
+                "request": request,
+                "user": user,
+                "token": token,
+                "project_title": "Unknown project",
+                "invitation": None,
+                "error": "Invitation is invalid, expired, revoked, already accepted, or does not match your account.",
+            },
+            status_code=400,
+        )
+
+    return templates.TemplateResponse(
+        "invitations/claim.html",
+        {
+            "request": request,
+            "user": user,
+            "token": token,
+            "project_title": "Project",
+            "invitation": None,
+            "success": "Invitation accepted. The project is now available in your Projects list.",
+        },
+        status_code=200,
+    )
+
+
+@router.get("/invitations", response_class=HTMLResponse)
+async def invitations_page(request: Request, session: Session = Depends(get_db)):
+    """List pending invitations for the signed-in user."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    access_service = ProjectAccessService(session)
+    invitations = access_service.list_pending_invitations_for_user(user.id)
+
+    invitation_rows: list[dict] = []
+    for item in invitations:
+        project = session.execute(
+            select(Project).where(Project.id == item.project_id)
+        ).scalar_one_or_none()
+        invitation_rows.append(
+            {
+                "invitation_id": item.id,
+                "project_id": item.project_id,
+                "project_title": project.title if project else "Unknown project",
+                "role": item.role,
+                "invited_email": item.invited_email,
+                "expires_at": item.expires_at,
+                "created_at": item.created_at,
+            }
+        )
+
+    return templates.TemplateResponse(
+        "invitations/list.html",
+        {
+            "request": request,
+            "user": user,
+            "invitations": invitation_rows,
+        },
+    )
+
+
+@router.post("/invitations/id/{invitation_id}/accept", response_class=HTMLResponse)
+async def accept_invitation_from_list(
+    invitation_id: str,
+    request: Request,
+    session: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Accept a pending invitation from Invitations page."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    access_service = ProjectAccessService(session)
+    accepted = access_service.accept_invitation_by_id(invitation_id=invitation_id, user_id=user.id)
+    if not accepted:
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {
+                "request": request,
+                "message": "Could not accept invitation",
+                "errors": {
+                    "invitation": [
+                        "Invitation is invalid, expired, revoked, already accepted, or does not match your account."
+                    ]
+                },
+            },
+            status_code=400,
+        )
+
+    return RedirectResponse(url="/projects", status_code=303)
+
+
+@router.get("/project/{project_id}/invitations", response_class=HTMLResponse)
+async def project_invitations_page(
+    request: Request,
+    project_id: str,
+    session: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Owner-facing project members and invitation management page."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    project = session.execute(select(Project).where(Project.id == project_id)).scalar_one_or_none()
+    if not project or project.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    access_service = ProjectAccessService(session)
+    invitations = access_service.list_invitations(project_id=project_id, include_inactive=False)
+    collaborators = access_service.list_collaborators(project_id=project_id)
+
+    user_ids = {project.owner_id, *(item.user_id for item in collaborators)}
+    users = session.execute(select(User).where(User.id.in_(user_ids))).scalars().all() if user_ids else []
+    user_by_id = {item.id: item for item in users}
+
+    member_rows: list[dict] = []
+
+    owner_user = user_by_id.get(project.owner_id)
+    member_rows.append(
+        {
+            "member_type": "Owner",
+            "display_name": owner_user.display_name if owner_user else "Project Owner",
+            "email": owner_user.email if owner_user else "",
+            "role": "owner",
+            "status": "active",
+            "created_at": project.created_at,
+            "is_owner": True,
+            "collaborator_user_id": None,
+            "invitation_id": None,
+            "invited_email": None,
+            "expires_at": None,
+        }
+    )
+
+    for item in collaborators:
+        collaborator_user = user_by_id.get(item.user_id)
+        member_rows.append(
+            {
+                "member_type": "Collaborator",
+                "display_name": collaborator_user.display_name if collaborator_user else "Unknown user",
+                "email": collaborator_user.email if collaborator_user else "",
+                "role": item.role,
+                "status": "active",
+                "created_at": item.created_at,
+                "is_owner": False,
+                "collaborator_user_id": item.user_id,
+                "invitation_id": None,
+                "invited_email": None,
+                "expires_at": None,
+            }
+        )
+
+    for item in invitations:
+        member_rows.append(
+            {
+                "member_type": "Pending Invitation",
+                "display_name": "Pending invite",
+                "email": item.invited_email,
+                "role": item.role,
+                "status": "pending",
+                "created_at": item.created_at,
+                "is_owner": False,
+                "collaborator_user_id": None,
+                "invitation_id": item.id,
+                "invited_email": item.invited_email,
+                "expires_at": item.expires_at,
+            }
+        )
+
+    return templates.TemplateResponse(
+        "invitations/project_manage.html",
+        {
+            "request": request,
+            "user": user,
+            "project": project,
+            "member_rows": member_rows,
+        },
+    )
+
+
+@router.post("/project/{project_id}/invitations", response_class=HTMLResponse)
+async def project_invitation_create_submit(
+    request: Request,
+    project_id: str,
+    email: str = Form(...),
+    role: str = Form("viewer"),
+    expires_in_days: int = Form(7),
+    session: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Create invitation from owner management page."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    project = session.execute(select(Project).where(Project.id == project_id)).scalar_one_or_none()
+    if not project or project.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if role not in {"viewer", "editor"}:
+        raise HTTPException(status_code=400, detail="Invalid role")
+
+    from datetime import timedelta
+
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    expires_at = datetime.utcnow() + timedelta(days=max(1, min(expires_in_days, 30)))
+
+    access_service = ProjectAccessService(session)
+    invitation = access_service.create_invitation(
+        project=project,
+        invited_email=email,
+        role=role,
+        token_hash=token_hash,
+        expires_at=expires_at,
+        invited_by_id=user.id,
+    )
+    try:
+        send_project_invitation_email(
+            session=session,
+            invitation=invitation,
+            project=project,
+            token=token,
+            inviter_name=str(user.display_name),
+        )
+    except EmailDeliveryError as exc:
+        access_service.revoke_invitation(invitation.id)
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {
+                "request": request,
+                "message": "Failed to send invitation",
+                "errors": {"delivery": [str(exc)]},
+            },
+            status_code=502,
+        )
+
+    return RedirectResponse(url=f"/project/{project_id}/invitations", status_code=303)
+
+
+@router.post("/project/{project_id}/collaborators/{target_user_id}/role", response_class=HTMLResponse)
+async def project_collaborator_update_role_submit(
+    request: Request,
+    project_id: str,
+    target_user_id: str,
+    role: str = Form(...),
+    session: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Update collaborator role from owner management page."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    project = session.execute(select(Project).where(Project.id == project_id)).scalar_one_or_none()
+    if not project or project.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if target_user_id == user.id:
+        raise HTTPException(status_code=400, detail="Owner role cannot be modified")
+    if role not in {"viewer", "editor"}:
+        raise HTTPException(status_code=400, detail="Invalid role")
+
+    access_service = ProjectAccessService(session)
+    access_service.upsert_collaborator(
+        project=project,
+        target_user_id=target_user_id,
+        role=role,
+        granted_by_id=user.id,
+    )
+
+    return RedirectResponse(url=f"/project/{project_id}/invitations", status_code=303)
+
+
+@router.post("/project/{project_id}/collaborators/{target_user_id}/remove", response_class=HTMLResponse)
+async def project_collaborator_remove_submit(
+    request: Request,
+    project_id: str,
+    target_user_id: str,
+    session: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Remove collaborator from owner management page."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    project = session.execute(select(Project).where(Project.id == project_id)).scalar_one_or_none()
+    if not project or project.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if target_user_id == user.id:
+        raise HTTPException(status_code=400, detail="Owner cannot be removed")
+
+    access_service = ProjectAccessService(session)
+    access_service.remove_collaborator(project_id=project_id, target_user_id=target_user_id)
+
+    return RedirectResponse(url=f"/project/{project_id}/invitations", status_code=303)
+
+
+@router.post("/project/{project_id}/invitations/{invitation_id}/role", response_class=HTMLResponse)
+async def project_invitation_update_role_submit(
+    request: Request,
+    project_id: str,
+    invitation_id: str,
+    role: str = Form(...),
+    session: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Update invitation role from owner management page."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    project = session.execute(select(Project).where(Project.id == project_id)).scalar_one_or_none()
+    if not project or project.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if role not in {"viewer", "editor"}:
+        raise HTTPException(status_code=400, detail="Invalid role")
+
+    access_service = ProjectAccessService(session)
+    updated = access_service.update_invitation_role(invitation_id=invitation_id, role=role)
+    if not updated or updated.project_id != project_id:
+        raise HTTPException(status_code=400, detail="Invitation not updatable")
+
+    return RedirectResponse(url=f"/project/{project_id}/invitations", status_code=303)
+
+
+@router.post("/project/{project_id}/invitations/{invitation_id}/revoke", response_class=HTMLResponse)
+async def project_invitation_revoke_submit(
+    request: Request,
+    project_id: str,
+    invitation_id: str,
+    session: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Revoke invitation from owner management page."""
+    user = await get_optional_user(request, session)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    project = session.execute(select(Project).where(Project.id == project_id)).scalar_one_or_none()
+    if not project or project.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    access_service = ProjectAccessService(session)
+    access_service.revoke_invitation(invitation_id=invitation_id)
+    return RedirectResponse(url=f"/project/{project_id}/invitations", status_code=303)
 
 
 @router.get("/projects/create-modal", response_class=HTMLResponse)
@@ -331,7 +728,12 @@ async def project_detail(request: Request, project_id: str, session: Session = D
     if not project or project.owner_id != user.id:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    project_fs_path = get_projects_dir() / project.category / project.slug
+    project_fs_path = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )._root
     project_info_path = project_fs_path / "ProjectInfo.md"
 
     return templates.TemplateResponse(
@@ -396,7 +798,12 @@ async def project_file_editor_page(
     if extension not in editable_extensions:
         raise HTTPException(status_code=400, detail="File type is not editable")
 
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
     try:
         directory_service.read_file(path)
     except PathTraversalError as exc:
@@ -445,6 +852,7 @@ async def update_profile(
     request: Request,
     email: str = Form(...),
     display_name: str = Form(...),
+    nickname: str | None = Form(None),
     session: Session = Depends(get_db)
 ):
     """Update user profile."""
@@ -455,44 +863,15 @@ async def update_profile(
     try:
         # Update user profile
         user_service = UserService(session)
-        user.email = email
-        user.display_name = display_name
-        session.commit()
-        
-        # Return success message as HTML fragment
-        return HTMLResponse(
-            content='''
-            <form hx-post="/settings/profile" hx-swap="outerHTML" id="profile-form" class="card-body">
-                <div class="form-group">
-                    <label for="username" class="form-label">Username</label>
-                    <input type="text" id="username" name="username" class="form-input" disabled
-                        value="''' + user.username + '''" />
-                    <small style="color: var(--text-tertiary);">Cannot be changed</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="email" class="form-label required">Email</label>
-                    <input type="email" id="email" name="email" class="form-input" required
-                        value="''' + user.email + '''" />
-                </div>
-
-                <div class="form-group">
-                    <label for="display_name" class="form-label">Display Name</label>
-                    <input type="text" id="display_name" name="display_name" class="form-input"
-                        value="''' + user.display_name + '''" />
-                </div>
-
-                <div style="display: flex; gap: var(--spacing-md);">
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
-                    <button type="reset" class="btn btn-secondary">Cancel</button>
-                </div>
-            </form>
-            <script>
-                HTMXHelper.showToast('Profile updated successfully!', 'success');
-            </script>
-            ''',
-            status_code=200
+        updated = user_service.update_profile(
+            user_id=user.id,
+            email=email,
+            display_name=display_name,
+            nickname=nickname or user.nickname,
         )
+        response = Response(status_code=204)
+        response.headers["HX-Redirect"] = "/settings/profile"
+        return response
     except Exception as e:
         logger.error(f"Failed to update profile: {e}")
         return HTMLResponse(
@@ -515,11 +894,9 @@ async def update_password(
         return RedirectResponse(url="/login", status_code=303)
     
     try:
-        # Verify current password
-        from backend.plugins.auth_password import PasswordAuthProvider
-        auth_provider = PasswordAuthProvider()
-        
-        if not auth_provider.verify_password(current_password, user.password_hash):
+        user_service = UserService(session)
+        verified_user = user_service.verify_password(user.username, current_password)
+        if not verified_user:
             return HTMLResponse(
                 content='''
                 <form hx-post="/settings/password" hx-swap="outerHTML" id="password-form" class="card-body">
@@ -585,8 +962,7 @@ async def update_password(
             )
         
         # Update password
-        user.password_hash = auth_provider.hash_password(new_password)
-        session.commit()
+        user_service.update_password(user_id=user.id, new_password=new_password)
         
         # Return success message
         return HTMLResponse(
@@ -683,7 +1059,11 @@ async def admin_settings(request: Request, session: Session = Depends(get_db)):
     user = await get_optional_user(request, session)
     if not user or not user.is_admin:
         return RedirectResponse(url="/projects", status_code=303)
-    return templates.TemplateResponse("admin/settings.html", {"request": request, "user": user})
+    smtp_settings = AppSettingsService(session).get_smtp_settings()
+    return templates.TemplateResponse(
+        "admin/settings.html",
+        {"request": request, "user": user, "smtp_settings": smtp_settings},
+    )
 
 
 @router.get("/admin/logs", response_class=HTMLResponse)

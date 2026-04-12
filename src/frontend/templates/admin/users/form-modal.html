@@ -36,6 +36,13 @@
                 </div>
 
                 <div>
+                    <label for="user_nickname">Nickname *</label>
+                    <input type="text" id="user_nickname" name="nickname" placeholder="john-doe" required minlength="3"
+                        maxlength="64" class="form-control" value="{% if user %}{{ user.nickname }}{% endif %}" />
+                    <small style="color: var(--text-tertiary);">Used in project storage paths</small>
+                </div>
+
+                <div>
                     <label for="user_display_name">Display Name</label>
                     <input type="text" id="user_display_name" name="display_name" placeholder="John Doe"
                         class="form-control" value="{% if user %}{{ user.display_name }}{% endif %}" />

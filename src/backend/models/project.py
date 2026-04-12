@@ -18,6 +18,7 @@ class Project(BaseModel):
     # Directory-based storage fields
     slug = Column(String(64), nullable=False)
     category = Column(String(255), nullable=False, default="Uncategorized")
+    visibility = Column(String(20), nullable=False, default="private", index=True)
     directory_path = Column(String(1024), nullable=True)
     disk_size_bytes = Column(BigInteger, nullable=True, default=0)
     is_archived = Column(Boolean, nullable=False, default=False)
@@ -31,3 +32,13 @@ class Project(BaseModel):
 
     # Relationships
     owner = relationship("User", back_populates="projects")
+    collaborators = relationship(
+        "ProjectCollaborator",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+    invitations = relationship(
+        "ProjectInvitation",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )

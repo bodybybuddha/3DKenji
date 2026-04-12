@@ -60,6 +60,83 @@
                 </div>
             </form>
         </div>
+
+        <!-- SMTP Settings -->
+        <div class="card" style="margin-bottom: var(--spacing-lg);">
+            <div style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color);">
+                <h3>SMTP Configuration</h3>
+                <p style="margin-top: var(--spacing-xs); color: var(--text-secondary);">Used for invitation email
+                    delivery.</p>
+            </div>
+            <form hx-post="/api/v1/admin/settings/smtp" hx-target="#smtp-settings-feedback" hx-swap="innerHTML">
+                <div style="padding: var(--spacing-lg); display: grid; gap: var(--spacing-md);">
+                    <div id="smtp-settings-feedback"></div>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--spacing-md);">
+                        <div>
+                            <label>SMTP Host</label>
+                            <input type="text" name="host" class="form-control"
+                                value="{{ smtp_settings.host if smtp_settings else '' }}"
+                                placeholder="smtp.example.com" />
+                        </div>
+                        <div>
+                            <label>SMTP Port</label>
+                            <input type="number" name="port" class="form-control"
+                                value="{{ smtp_settings.port if smtp_settings else 587 }}" min="1" max="65535" />
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+                        <div>
+                            <label>SMTP Username</label>
+                            <input type="text" name="username" class="form-control"
+                                value="{{ smtp_settings.username if smtp_settings else '' }}"
+                                placeholder="mailer-user" />
+                        </div>
+                        <div>
+                            <label>SMTP Password</label>
+                            <input type="password" name="password" class="form-control"
+                                value="{{ smtp_settings.password if smtp_settings else '' }}" placeholder="••••••••" />
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+                        <div>
+                            <label>From Email</label>
+                            <input type="email" name="from_email" class="form-control"
+                                value="{{ smtp_settings.from_email if smtp_settings else '' }}"
+                                placeholder="no-reply@example.com" />
+                        </div>
+                        <div>
+                            <label>From Name</label>
+                            <input type="text" name="from_name" class="form-control"
+                                value="{{ smtp_settings.from_name if smtp_settings else '3DKenji' }}"
+                                placeholder="3DKenji" />
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: var(--spacing-lg); align-items: center; flex-wrap: wrap;">
+                        <label style="display: flex; gap: var(--spacing-xs); align-items: center;">
+                            <input type="checkbox" name="use_starttls" {% if smtp_settings and
+                                smtp_settings.use_starttls %}checked{% endif %} />
+                            Use STARTTLS
+                        </label>
+                        <label style="display: flex; gap: var(--spacing-xs); align-items: center;">
+                            <input type="checkbox" name="use_tls" {% if smtp_settings and smtp_settings.use_tls
+                                %}checked{% endif %} />
+                            Use SMTPS (TLS)
+                        </label>
+                        <label style="display: flex; gap: var(--spacing-xs); align-items: center;">
+                            <input type="checkbox" name="mock_delivery" {% if smtp_settings and
+                                smtp_settings.mock_delivery %}checked{% endif %} />
+                            Mock delivery (test/dev)
+                        </label>
+                    </div>
+                    <small style="color: var(--text-tertiary);">
+                        Mock delivery simulates successful send without contacting an SMTP server.
+                    </small>
+                </div>
+                <div style="padding: var(--spacing-lg); border-top: 1px solid var(--border-color); text-align: right;">
+                    <button type="submit" class="btn btn-primary">Save SMTP Settings</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}

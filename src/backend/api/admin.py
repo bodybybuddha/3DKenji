@@ -22,6 +22,7 @@ from backend.models.model import Model
 from backend.api.frontend import templates
 from sqlalchemy import select, func
 from backend.services.user_service import UserService
+from backend.services.app_settings_service import AppSettingsService
 from backend.observability import get_runtime_metrics
 from backend.core.plugins import PluginManager
 
@@ -153,6 +154,20 @@ class AdminSettingsRequest(BaseModel):
     api_title: Optional[str] = None
     api_version: Optional[str] = None
     max_upload_mb: Optional[int] = None
+
+
+class SMTPSettingsRequest(BaseModel):
+    """Request to update SMTP delivery settings."""
+
+    host: str
+    port: int
+    username: Optional[str] = ""
+    password: Optional[str] = ""
+    from_email: str
+    from_name: Optional[str] = "3DKenji"
+    use_starttls: bool = True
+    use_tls: bool = False
+    mock_delivery: bool = False
 
 
 # Response Models
@@ -379,13 +394,21 @@ async def get_admin_users_list(
     for user in users:
         role = "admin" if user.is_admin else "user"
         created_at = user.created_at or "Unknown"
+        status_label = "active" if user.is_active else "disabled"
         user_rows += f"""
             <tr>
                 <td style="padding: var(--spacing-md);">{html.escape(user.username)}</td>
+                <td style="padding: var(--spacing-md); color: var(--text-secondary);">{html.escape(user.nickname)}</td>
+                <td style="padding: var(--spacing-md);">{html.escape(user.display_name)}</td>
                 <td style="padding: var(--spacing-md);">{html.escape(user.email)}</td>
                 <td style="padding: var(--spacing-md);">
                     <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
                         {role}
+                    </span>
+                </td>
+                <td style="padding: var(--spacing-md);">
+                    <span style="background: var(--bg-secondary); color: var(--text-primary); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
+                        {status_label}
                     </span>
                 </td>
                 <td style="padding: var(--spacing-md); color: var(--text-secondary); font-size: 0.875rem;">{created_at}</td>
@@ -402,8 +425,11 @@ async def get_admin_users_list(
         <thead style="border-bottom: 2px solid var(--border-color);">
             <tr>
                 <th style="padding: var(--spacing-md); text-align: left; font-weight: 600;">Username</th>
+                <th style="padding: var(--spacing-md); text-align: left; font-weight: 600;">Nickname</th>
+                <th style="padding: var(--spacing-md); text-align: left; font-weight: 600;">Display Name</th>
                 <th style="padding: var(--spacing-md); text-align: left; font-weight: 600;">Email</th>
                 <th style="padding: var(--spacing-md); text-align: left; font-weight: 600;">Role</th>
+                <th style="padding: var(--spacing-md); text-align: left; font-weight: 600;">Status</th>
                 <th style="padding: var(--spacing-md); text-align: left; font-weight: 600;">Joined</th>
                 <th style="padding: var(--spacing-md); text-align: right; font-weight: 600;">Action</th>
             </tr>
@@ -717,6 +743,67 @@ async def update_storage_settings(
     return {"message": "Settings updated", "settings": request.model_dump()}
 
 
+@router.post("/settings/smtp", response_class=HTMLResponse)
+async def update_smtp_settings(
+    request: Request,
+    host: str = Form(""),
+    port: int = Form(587),
+    username: str = Form(""),
+    password: str = Form(""),
+    from_email: str = Form(""),
+    from_name: str = Form("3DKenji"),
+    use_starttls: Optional[str] = Form(None),
+    use_tls: Optional[str] = Form(None),
+    mock_delivery: Optional[str] = Form(None),
+    session: Session = Depends(get_db),
+    admin_user: str = Depends(require_admin),
+) -> HTMLResponse:
+    """Persist SMTP settings used for invitation emails."""
+    try:
+        normalized = SMTPSettingsRequest(
+            host=host.strip(),
+            port=port,
+            username=username.strip(),
+            password=password,
+            from_email=from_email.strip(),
+            from_name=from_name.strip() or "3DKenji",
+            use_starttls=bool(use_starttls),
+            use_tls=bool(use_tls),
+            mock_delivery=bool(mock_delivery),
+        )
+
+        if normalized.use_starttls and normalized.use_tls:
+            raise ValueError("Choose either STARTTLS or SMTPS TLS, not both")
+
+        settings = AppSettingsService(session).update_smtp_settings(
+            normalized.dict(),
+            updated_by=admin_user,
+        )
+        safe_settings = settings.copy()
+        if safe_settings.get("password"):
+            safe_settings["password"] = "***configured***"
+
+        return templates.TemplateResponse(
+            "fragments/success-alert.html",
+            {
+                "request": request,
+                "message": f"SMTP settings saved for host {safe_settings.get('host', '')}",
+            },
+            status_code=200,
+        )
+    except Exception as exc:
+        logger.warning("Failed to update SMTP settings: %s", exc)
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {
+                "request": request,
+                "message": "Could not save SMTP settings",
+                "errors": {"smtp": [str(exc)]},
+            },
+            status_code=400,
+        )
+
+
 # Clear logs endpoint
 @router.post("/logs/clear")
 async def clear_logs(
@@ -767,6 +854,7 @@ async def get_edit_user_modal(
     user_dict = {
         "id": user.id,
         "username": user.username,
+        "nickname": user.nickname,
         "email": user.email,
         "display_name": user.display_name,
         "is_admin": user.is_admin,
@@ -783,6 +871,7 @@ async def get_edit_user_modal(
 async def create_user(
     request: Request,
     username: str = Form(...),
+    nickname: Optional[str] = Form(None),
     email: str = Form(...),
     display_name: str = Form(...),
     password: str = Form(...),
@@ -819,6 +908,7 @@ async def create_user(
         is_user_active = is_active.lower() in ("true", "on", "yes", "1")
         user_service.create_user(
             username=username,
+            nickname=nickname,
             email=email,
             display_name=display_name,
             password=password,
@@ -857,6 +947,7 @@ async def update_user(
     user_id: str,
     request: Request,
     username: Optional[str] = Form(None),  # Ignored, but accepted to prevent validation errors
+    nickname: str = Form(...),
     email: str = Form(...),
     display_name: str = Form(...),
     password: Optional[str] = Form(default=""),  # Optional - empty or missing means keep current password
@@ -892,16 +983,35 @@ async def update_user(
             if existing_email:
                 raise HTTPException(status_code=400, detail="Email already in use")
         
-        # Update user fields
-        user.email = email
-        user.display_name = display_name
+        service = UserService(session)
+
+        # Apply user-editable fields exactly like user profile flow.
+        service.update_profile(
+            user_id=user_id,
+            email=email,
+            display_name=display_name,
+            nickname=nickname,
+        )
+
+        # Refresh ORM user after profile update commit.
+        user = session.execute(
+            select(User).where(User.id == user_id)
+        ).scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
         user.is_admin = (role == "admin")
         is_user_active = is_active.lower() in ("true", "on", "yes", "1")
         user.is_active = is_user_active
         
         # Update password if provided
         if password:
-            user.password_hash = UserService._hash_password(password)
+            service.update_password(user_id=user_id, new_password=password)
+            user = session.execute(
+                select(User).where(User.id == user_id)
+            ).scalar_one_or_none()
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
         
         session.commit()
         
