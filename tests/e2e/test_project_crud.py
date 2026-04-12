@@ -84,8 +84,8 @@ class TestProjectCRUD:
                 description=f"Description {i}"
             )
 
-        cards = project_page.get_project_cards()
-        assert cards.count() >= 3
+        rows = project_page.get_project_rows()
+        assert rows.count() >= 3
 
     def test_open_project_detail(self, logged_in_page: Page):
         """Test opening project detail view."""
@@ -101,7 +101,7 @@ class TestProjectCRUD:
         project_page.open_project(project_name)
 
         project_page.assert_text_visible(project_name)
-        assert logged_in_page.locator("button:has-text('Upload Model')").count() == 1
+        assert logged_in_page.locator("button:has-text('Upload File')").count() == 1
 
     def test_edit_project_name(self, logged_in_page: Page):
         """Test editing a project from the projects list."""

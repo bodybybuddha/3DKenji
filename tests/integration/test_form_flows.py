@@ -233,8 +233,8 @@ class TestProjectListHtmlRendering:
         # These may or may not be present, but shouldn't cause crashes
         assert "disk_size_bytes" in project or True, "Disk size field should exist"
     
-    def test_project_card_displays_category_field(self, api_base_url, auth_session):
-        """Project card should display category (not description) since that's what model has."""
+    def test_project_list_html_displays_category_field(self, api_base_url, auth_session):
+        """Project list HTML should display category (not description) since that's what model has."""
         # Create with visibility=public (becomes category)
         auth_session.post(
             f"{api_base_url}/api/v1/projects",

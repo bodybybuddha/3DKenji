@@ -166,6 +166,7 @@ class ProjectService:
         projects = self.session.execute(
             select(Project)
             .where(Project.owner_id == owner_id)
+            .where(Project.is_archived == False)
             .offset(skip)
             .limit(limit)
         ).scalars().all()
@@ -180,15 +181,20 @@ class ProjectService:
     ) -> list[ProjectDTO]:
         """List projects a user can access (owned, collaborator, public)."""
         owned = self.session.execute(
-            select(Project).where(Project.owner_id == user_id)
+            select(Project)
+            .where(Project.owner_id == user_id)
+            .where(Project.is_archived == False)
         ).scalars().all()
         collaborator_projects = self.session.execute(
             select(Project)
             .join(ProjectCollaborator, ProjectCollaborator.project_id == Project.id)
             .where(ProjectCollaborator.user_id == user_id)
+            .where(Project.is_archived == False)
         ).scalars().all()
         public_projects = self.session.execute(
-            select(Project).where(Project.visibility == "public")
+            select(Project)
+            .where(Project.visibility == "public")
+            .where(Project.is_archived == False)
         ).scalars().all()
 
         deduped: dict[str, Project] = {}
