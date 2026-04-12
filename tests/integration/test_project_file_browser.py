@@ -1,8 +1,14 @@
 import os
+import re
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
 import requests
+from starlette.requests import Request
+
+from backend.api import projects as projects_api
 
 
 def _api_base_url() -> str:
@@ -296,6 +302,80 @@ def test_project_file_editor_page_uses_toast_ui_for_markdown():
     assert 'toastui-editor.min.css' in response.text
     assert 'toastui-editor-dark.min.css' in response.text
     assert 'toastui-editor-all.min.js' in response.text
+
+
+def test_project_detail_page_uses_fetch_based_file_preview_loader():
+    headers = _auth_headers()
+    session = _auth_form_session()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    response = session.get(
+        f"{_api_base_url()}/project/{project_id}",
+        timeout=10,
+    )
+
+    assert response.status_code == 200, response.text
+    assert "const previewElement = document.getElementById('project-file-preview');" in response.text
+    assert "previewAbortController.abort();" in response.text
+    assert "fetch(`/api/v1/projects/${projectId}/files/preview?${params.toString()}`" in response.text
+    assert "htmx.ajax('GET', `/api/v1/projects/${projectId}/files/preview?${params.toString()}`, '#project-file-preview');" not in response.text
+    assert "function stopUploaderEventPropagation(event)" in response.text
+    assert "uploaderElement.addEventListener('drop', stopUploaderEventPropagation);" in response.text
+
+
+@pytest.mark.asyncio
+async def test_preview_html_cache_busts_viewer_module_import(monkeypatch):
+    class DummyDirectoryService:
+        def read_file(self, _path: str) -> bytes:
+            return b"solid test\nendsolid test\n"
+
+    async def fake_resolve_viewer_info(*args, **kwargs):
+        return {
+            "name": "STL Basic Preview",
+            "plugin_id": "stl-viewer-plugin",
+            "viewer_id": "stl-viewer",
+            "has_js": True,
+        }
+
+    monkeypatch.setattr(
+        projects_api,
+        "_resolve_project_for_owner",
+        lambda *args, **kwargs: SimpleNamespace(category="tests", slug="viewer-preview"),
+    )
+    monkeypatch.setattr(projects_api, "service_for_project", lambda *args, **kwargs: DummyDirectoryService())
+    monkeypatch.setattr(projects_api, "_resolve_viewer_info", fake_resolve_viewer_info)
+
+    request = Request({"type": "http", "method": "GET", "path": "/", "headers": []})
+
+    first_response = await projects_api.preview_project_file(
+        project_id="project-123",
+        request=request,
+        path="models/first.stl",
+        format="html",
+        current_user_id="user-123",
+        session=None,
+    )
+    second_response = await projects_api.preview_project_file(
+        project_id="project-123",
+        request=request,
+        path="models/second.stl",
+        format="html",
+        current_user_id="user-123",
+        session=None,
+    )
+
+    first_html = first_response.body.decode("utf-8")
+    second_html = second_response.body.decode("utf-8")
+
+    assert "preview_token=" in first_html
+    assert "preview_token=" in second_html
+    first_match = re.search(r"viewer_id=stl-viewer(?:&amp;|&)preview_token=([a-f0-9]+)", first_html)
+    second_match = re.search(r"viewer_id=stl-viewer(?:&amp;|&)preview_token=([a-f0-9]+)", second_html)
+
+    assert first_match is not None
+    assert second_match is not None
+    assert first_match.group(1) != second_match.group(1)
 
 
 def test_project_markdown_preview_endpoint_renders_html():
