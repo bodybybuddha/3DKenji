@@ -108,6 +108,27 @@ class CreateProjectFileRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     file_type: str = Field(..., min_length=1, max_length=20)
 
+class CreateProjectFolderRequest(BaseModel):
+    """Request payload for creating a folder in the current directory."""
+
+    path: str = Field(default="")
+    name: str = Field(..., min_length=1, max_length=255)
+
+
+class RenameProjectPathRequest(BaseModel):
+    """Request payload for renaming an existing file/folder path."""
+
+    path: str = Field(..., min_length=1)
+    new_name: str = Field(..., min_length=1, max_length=255)
+
+
+class MoveProjectPathsRequest(BaseModel):
+    """Request payload for moving one or more paths into a destination folder."""
+
+    paths: list[str] = Field(..., min_length=1)
+    destination_path: str = Field(default="")
+RESERVED_PROJECT_FILES = {"ProjectInfo.md", "PrintHistory.md"}
+
 
 def _format_size(size_bytes: int) -> str:
     if size_bytes < 1024:
@@ -186,6 +207,14 @@ def _is_editable_extension(extension: str) -> bool:
 
 def _normalize_file_type(file_type: str) -> str:
     return file_type.lower().lstrip(".").strip()
+
+def _is_reserved_project_file_path(path: str) -> bool:
+    normalized = path.strip("/")
+    if not normalized:
+        return False
+    if "/" in normalized:
+        return False
+    return normalized in RESERVED_PROJECT_FILES
 
 
 @router.get("/{project_id}/files")
@@ -594,6 +623,113 @@ async def create_project_file(
         "extension": file_type,
         "size_bytes": len(content),
         "size": _format_size(len(content)),
+    }
+
+@router.post("/{project_id}/files/create-folder", status_code=status.HTTP_201_CREATED)
+async def create_project_folder(
+    project_id: str,
+    payload: CreateProjectFolderRequest,
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Create a new folder in the selected project directory path."""
+    project = _resolve_project_for_owner(project_id, current_user_id, session)
+    directory_service = service_for_project(project.category, project.slug)
+
+    try:
+        relative_path = directory_service.create_directory(payload.path.strip("/"), payload.name)
+    except UnsafeFilenameError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathTraversalError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Directory not found") from exc
+    except NotADirectoryError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path is not a directory") from exc
+    except FileExistsError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Folder already exists") from exc
+
+    return {
+        "project_id": project_id,
+        "path": payload.path.strip("/"),
+        "relative_path": relative_path,
+        "name": Path(relative_path).name,
+    }
+
+
+@router.post("/{project_id}/files/rename")
+async def rename_project_path(
+    project_id: str,
+    payload: RenameProjectPathRequest,
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Rename a file or directory path within a project."""
+    source_path = payload.path.strip("/")
+    if _is_reserved_project_file_path(source_path):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reserved project files cannot be renamed")
+
+    project = _resolve_project_for_owner(project_id, current_user_id, session)
+    directory_service = service_for_project(project.category, project.slug)
+
+    try:
+        renamed_path = directory_service.rename_path(source_path, payload.new_name)
+    except UnsafeFilenameError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathTraversalError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File or directory not found") from exc
+    except FileExistsError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Target name already exists") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return {
+        "project_id": project_id,
+        "old_path": source_path,
+        "new_path": renamed_path,
+        "name": Path(renamed_path).name,
+    }
+
+
+@router.post("/{project_id}/files/move")
+async def move_project_paths(
+    project_id: str,
+    payload: MoveProjectPathsRequest,
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+):
+    """Move one or more files/directories into a destination folder."""
+    source_paths = [item.strip("/") for item in payload.paths if item and item.strip("/")]
+    if not source_paths:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one path is required")
+    if any(_is_reserved_project_file_path(path) for path in source_paths):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reserved project files cannot be moved")
+
+    project = _resolve_project_for_owner(project_id, current_user_id, session)
+    directory_service = service_for_project(project.category, project.slug)
+
+    try:
+        moved_paths = directory_service.move_paths(source_paths, payload.destination_path.strip("/"))
+    except UnsafeFilenameError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathTraversalError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PathNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File or directory not found") from exc
+    except NotADirectoryError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Destination is not a directory") from exc
+    except FileExistsError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A destination file/folder already exists") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return {
+        "project_id": project_id,
+        "destination_path": payload.destination_path.strip("/"),
+        "moved_count": len(moved_paths),
+        "moved_paths": moved_paths,
     }
 
 
