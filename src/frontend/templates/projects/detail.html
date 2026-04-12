@@ -9,6 +9,20 @@
     #project-files-browser {
         display: grid;
         gap: var(--spacing-md);
+        position: relative;
+        transition: background-color var(--transition-fast), box-shadow var(--transition-fast);
+        border-radius: var(--radius-md);
+    }
+
+    #project-files-browser.file-drop-active {
+        background: color-mix(in srgb, var(--color-primary) 10%, var(--bg-secondary));
+        box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-primary) 65%, white 35%);
+    }
+
+    .file-drop-hint {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
     }
 
     .file-browser-main {
@@ -161,6 +175,14 @@
         background: color-mix(in srgb, var(--color-info) 20%, var(--bg-secondary)) !important;
     }
 
+    .tabulator .tabulator-row.file-download-draggable {
+        cursor: grab;
+    }
+
+    .tabulator .tabulator-row.file-download-draggable:active {
+        cursor: grabbing;
+    }
+
     .file-actions {
         display: flex;
         justify-content: flex-end;
@@ -267,7 +289,7 @@
                     <div class="file-browser-toolbar">
                         <div class="file-browser-path" id="project-files-path"></div>
                         <div class="file-browser-toolbar-actions">
-                            <input id="project-files-upload-input" type="file" hidden>
+                            <input id="project-files-upload-input" type="file" multiple hidden>
                             <button class="btn btn-sm btn-secondary" id="project-files-create" type="button">New File</button>
                             <button class="btn btn-sm btn-primary" id="project-files-upload" type="button">Upload
                                 File</button>
@@ -275,6 +297,7 @@
                                 type="button">Refresh</button>
                         </div>
                     </div>
+                    <p class="file-drop-hint">Tip: drop files anywhere on this card to upload. Drag file rows out to your desktop to download.</p>
                     <p id="project-files-feedback" class="file-table-loading">Loading files...</p>
                     <div class="file-browser-main">
                         <div class="file-browser-table-pane">
@@ -369,6 +392,7 @@
         }
 
         const tableElement = document.getElementById('project-files-table');
+        const browserElement = document.getElementById('project-files-browser');
         const pathElement = document.getElementById('project-files-path');
         const feedbackElement = document.getElementById('project-files-feedback');
         const refreshButton = document.getElementById('project-files-refresh');
@@ -385,6 +409,7 @@
         const storagePrintHistoryElement = document.getElementById('storage-print-history');
 
         let currentPath = '';
+        let dragDepth = 0;
 
         function setFeedback(message, isError = false) {
             feedbackElement.textContent = message;
@@ -482,6 +507,11 @@
         function downloadFile(relativePath) {
             const params = new URLSearchParams({ path: relativePath });
             window.location.href = `/api/v1/projects/${projectId}/files/download?${params.toString()}`;
+        }
+
+        function buildDownloadUrl(relativePath) {
+            const params = new URLSearchParams({ path: relativePath });
+            return `${window.location.origin}/api/v1/projects/${projectId}/files/download?${params.toString()}`;
         }
 
         function openEditor(relativePath) {
@@ -585,9 +615,19 @@
             ],
             rowFormatter: function (row) {
                 const data = row.getData();
-                row.getElement().style.cursor = 'pointer';
+                const element = row.getElement();
+                element.style.cursor = 'pointer';
+                element.dataset.relativePath = data.relative_path || '';
+                element.dataset.fileName = data.name || '';
+                element.dataset.isDir = data.is_dir ? '1' : '0';
                 if (data.is_dir) {
-                    row.getElement().classList.add('folder-row');
+                    element.classList.add('folder-row');
+                    element.classList.remove('file-download-draggable');
+                    element.draggable = false;
+                } else {
+                    element.classList.remove('folder-row');
+                    element.classList.add('file-download-draggable');
+                    element.draggable = true;
                 }
             },
             rowClick: function (e, row) {
@@ -708,55 +748,175 @@
             }
         }
 
+        function setDropState(active) {
+            if (!browserElement) {
+                return;
+            }
+            browserElement.classList.toggle('file-drop-active', active);
+        }
+
+        function isFileDrag(event) {
+            if (!event.dataTransfer || !event.dataTransfer.types) {
+                return false;
+            }
+            return Array.from(event.dataTransfer.types).includes('Files');
+        }
+
+        async function uploadFiles(files) {
+            const items = Array.from(files || []).filter(function (file) {
+                return file instanceof File;
+            });
+            if (!items.length) {
+                return;
+            }
+
+            uploadButton.disabled = true;
+            const originalLabel = uploadButton.textContent;
+            uploadButton.textContent = items.length > 1 ? `Uploading ${items.length}...` : 'Uploading...';
+            setFeedback(`Uploading ${items.length} file(s)...`);
+
+            let successCount = 0;
+            const failures = [];
+
+            for (const file of items) {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('path', currentPath || '');
+
+                try {
+                    const response = await fetch(`/api/v1/projects/${projectId}/files/upload`, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        let detail = `Upload failed (${response.status})`;
+                        try {
+                            const payload = await response.json();
+                            if (payload && payload.detail) {
+                                detail = payload.detail;
+                            }
+                        } catch (_jsonError) {
+                            // Keep default detail text.
+                        }
+                        failures.push(`${file.name}: ${detail}`);
+                        continue;
+                    }
+
+                    successCount += 1;
+                } catch (error) {
+                    failures.push(`${file.name}: ${error.message || 'Network error.'}`);
+                }
+            }
+
+            if (successCount > 0) {
+                await loadDirectory(currentPath);
+                await loadProjectSummary();
+            }
+
+            if (failures.length === 0) {
+                setFeedback(`Uploaded ${successCount} file(s).`);
+            } else if (successCount === 0) {
+                setFeedback(failures[0], true);
+            } else {
+                setFeedback(`Uploaded ${successCount} file(s), ${failures.length} failed. First error: ${failures[0]}`, true);
+            }
+
+            uploadButton.disabled = false;
+            uploadButton.textContent = originalLabel;
+            uploadInput.value = '';
+        }
+
         uploadButton.addEventListener('click', function () {
             uploadInput.click();
         });
 
         uploadInput.addEventListener('change', async function (event) {
-            const selected = event.target && event.target.files ? event.target.files[0] : null;
-            if (!selected) {
+            const selected = event.target && event.target.files ? event.target.files : null;
+            if (!selected || !selected.length) {
                 return;
             }
 
-            const formData = new FormData();
-            formData.append('file', selected);
-            formData.append('path', currentPath || '');
-
-            uploadButton.disabled = true;
-            const originalLabel = uploadButton.textContent;
-            uploadButton.textContent = 'Uploading...';
-
-            try {
-                const response = await fetch(`/api/v1/projects/${projectId}/files/upload`, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    body: formData,
-                });
-
-                if (!response.ok) {
-                    let detail = 'Upload failed.';
-                    try {
-                        const payload = await response.json();
-                        if (payload && payload.detail) {
-                            detail = payload.detail;
-                        }
-                    } catch (_jsonError) {
-                        // Keep default detail text when response is not JSON.
-                    }
-                    throw new Error(detail);
-                }
-
-                await loadDirectory(currentPath);
-                await loadProjectSummary();
-                setFeedback(`Uploaded ${selected.name}.`);
-            } catch (error) {
-                setFeedback(error.message || 'Unable to upload file.', true);
-            } finally {
-                uploadButton.disabled = false;
-                uploadButton.textContent = originalLabel;
-                uploadInput.value = '';
-            }
+            uploadFiles(selected);
         });
+
+        tableElement.addEventListener('dragstart', function (event) {
+            const target = event.target;
+            if (!target || typeof target.closest !== 'function') {
+                return;
+            }
+
+            const rowElement = target.closest('.tabulator-row');
+            if (!rowElement || rowElement.dataset.isDir === '1') {
+                return;
+            }
+
+            const relativePath = rowElement.dataset.relativePath;
+            const fileName = rowElement.dataset.fileName || 'download';
+            if (!relativePath || !event.dataTransfer) {
+                return;
+            }
+
+            const downloadUrl = buildDownloadUrl(relativePath);
+            event.dataTransfer.effectAllowed = 'copy';
+            event.dataTransfer.setData('text/plain', downloadUrl);
+            event.dataTransfer.setData('text/uri-list', downloadUrl);
+            try {
+                event.dataTransfer.setData('DownloadURL', `application/octet-stream:${fileName}:${downloadUrl}`);
+            } catch (_error) {
+                // Some browsers block custom drag payloads.
+            }
+
+            setFeedback(`Drag ${fileName} to your desktop to download.`);
+        });
+
+        if (browserElement) {
+            browserElement.addEventListener('dragenter', function (event) {
+                if (!isFileDrag(event)) {
+                    return;
+                }
+                event.preventDefault();
+                dragDepth += 1;
+                setDropState(true);
+                setFeedback(`Drop files to upload into /${currentPath || ''}`);
+            });
+
+            browserElement.addEventListener('dragover', function (event) {
+                if (!isFileDrag(event)) {
+                    return;
+                }
+                event.preventDefault();
+                if (event.dataTransfer) {
+                    event.dataTransfer.dropEffect = 'copy';
+                }
+            });
+
+            browserElement.addEventListener('dragleave', function (event) {
+                if (!isFileDrag(event)) {
+                    return;
+                }
+                event.preventDefault();
+                dragDepth = Math.max(0, dragDepth - 1);
+                if (dragDepth === 0) {
+                    setDropState(false);
+                }
+            });
+
+            browserElement.addEventListener('drop', function (event) {
+                if (!isFileDrag(event)) {
+                    return;
+                }
+                event.preventDefault();
+                dragDepth = 0;
+                setDropState(false);
+                const droppedFiles = event.dataTransfer ? event.dataTransfer.files : null;
+                if (!droppedFiles || droppedFiles.length === 0) {
+                    return;
+                }
+                uploadFiles(droppedFiles);
+            });
+        }
 
         refreshButton.addEventListener('click', function () {
             loadDirectory(currentPath);
