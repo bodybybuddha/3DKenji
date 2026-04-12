@@ -127,13 +127,15 @@ curl -X POST http://localhost:8000/api/v1/projects \
   }'
 ```
 
-### 3. Upload a 3D Model
+### 3. Upload a Project File
 ```bash
-curl -X POST http://localhost:8000/api/v1/projects/1/models \
+curl -X POST http://localhost:8000/api/v1/projects/1/files/upload \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@benchy.stl" \
-  -F "tags=calibration,test"
+  -F "path=models"
 ```
+
+Use the same endpoint for markdown notes, images, CAD files, and other project artifacts by changing the uploaded file and target `path`.
 
 ### 4. List Your Projects
 ```bash
@@ -175,12 +177,15 @@ All protected endpoints require `Authorization: Bearer <token>` header.
 - `PATCH /api/v1/projects/{id}` – Update project
 - `DELETE /api/v1/projects/{id}` – Delete project (cascades)
 
-### Models
-- `POST /api/v1/projects/{project_id}/models` – Upload model file
-  - Accepts: `.stl`, `.3mf`, `.obj`, `.gcode`
-  - Max size: 10MB
-- `GET /api/v1/projects/{project_id}/models` – List project models
-- `GET /api/v1/models/{id}` – Get model metadata
+### Project Files
+- `GET /api/v1/projects/{project_id}/files` – List files in a project directory
+  - Query: `path`, `format`
+- `POST /api/v1/projects/{project_id}/files/upload` – Upload a file into the selected project directory
+  - Multipart fields: `file`, `path`
+  - Max size: 100MB
+- `GET /api/v1/projects/{project_id}/files/preview` – Preview a file in JSON or HTML form
+- `GET /api/v1/projects/{project_id}/files/download` – Download a file
+- `POST /api/v1/projects/{project_id}/files/create` – Create a new file from a built-in template
 
 ### API Keys
 - `POST /api/v1/keys` – Generate new API key

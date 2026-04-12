@@ -302,7 +302,7 @@ Content-Type: application/json
 ---
 
 ### Delete Project
-Delete a project and all its models.
+Delete a project and its associated metadata.
 
 **Request**:
 ```
@@ -322,125 +322,151 @@ Authorization: Bearer <token>
 
 ---
 
-## Models Endpoints
+## Project Files Endpoints
 
-### Upload Model
-Upload a 3D model file to a project.
+### List Project Files
+List files in a project directory. This powers the Project Files browser in the web UI.
 
 **Request**:
 ```
-POST /projects/{project_id}/models
+GET /projects/{project_id}/files?path=models
+Authorization: Bearer <token>
+```
+
+**Parameters**:
+- `project_id` (integer, required, path) – Project ID
+- `path` (string, optional, query) – Directory inside the project to browse. Defaults to project root.
+- `format` (string, optional, query) – Use `html` for server-rendered fragments; omit for JSON.
+
+**Response** (200):
+```json
+{
+  "project_id": 1,
+  "path": "models",
+  "parent_path": "",
+  "items": [
+    {
+      "name": "benchy.stl",
+      "relative_path": "models/benchy.stl",
+      "is_dir": false,
+      "size_bytes": 1048576,
+      "size": "1.0 MB",
+      "extension": "stl",
+      "is_editable": false,
+      "viewer": {
+        "viewer_id": "stl-viewer",
+        "name": "STL Basic Preview",
+        "plugin_id": "stl-viewer-plugin",
+        "has_js": true
+      }
+    }
+  ]
+}
+```
+
+**Errors**:
+- `401` – Unauthorized
+- `403` – Access denied
+- `400` – Invalid or traversal path
+- `404` – Directory not found
+
+---
+
+### Upload Project File
+Upload a file into the selected project directory.
+
+**Request**:
+```
+POST /projects/{project_id}/files/upload
 Authorization: Bearer <token>
 Content-Type: multipart/form-data
 ```
 
 **Parameters**:
 - `project_id` (integer, required, path) – Project ID
-- `file` (file, required, multipart) – Model file (.stl, .3mf, .obj, .gcode)
-- `tags` (string, optional, multipart) – Comma-separated tags
-- `custom_metadata` (JSON, optional, multipart) – Custom metadata
+- `file` (file, required, multipart) – File to upload
+- `path` (string, optional, multipart) – Target directory inside the project, such as `models` or `images`
 
 **Response** (201):
 ```json
 {
-  "id": 1,
   "project_id": 1,
-  "filename": "benchy.stl",
+  "path": "models",
+  "relative_path": "models/benchy.stl",
+  "name": "benchy.stl",
   "size_bytes": 1048576,
-  "file_type": "application/octet-stream",
-  "storage_key": "projects/1/models/1/benchy.stl",
-  "created_at": "2026-02-21T10:30:45Z",
-  "tags": ["calibration"],
-  "custom_metadata": {},
-  "owner_id": "user_123"
+  "size": "1.0 MB"
 }
 ```
 
 **Errors**:
 - `401` – Unauthorized
 - `403` – Not the project owner
-- `400` – Invalid file type (not .stl/.3mf/.obj/.gcode)
-- `400` – File too large (> 10MB)
-- `404` – Project not found
+- `400` – Invalid filename or target path
+- `404` – Directory not found
+- `413` – File too large (> 100MB)
 
 ---
 
-### List Models
-Get all models in a project.
+### Preview Project File
+Preview a file in JSON or HTML form. Text formats return inline preview text, and viewer-enabled formats can render through plugin-provided preview code.
 
 **Request**:
 ```
-GET /projects/{project_id}/models?skip=0&limit=10
+GET /projects/{project_id}/files/preview?path=models/benchy.stl
 Authorization: Bearer <token>
 ```
 
 **Parameters**:
 - `project_id` (integer, required, path) – Project ID
-- `skip` (integer, optional) – Pagination offset
-- `limit` (integer, optional) – Items per page
+- `path` (string, required, query) – File path inside the project
+- `format` (string, optional, query) – Use `html` for rendered preview markup; omit for JSON
 
 **Response** (200):
 ```json
 {
-  "items": [
-    {
-      "id": 1,
-      "project_id": 1,
-      "filename": "benchy.stl",
-      "size_bytes": 1048576,
-      "file_type": "application/octet-stream",
-      "storage_key": "projects/1/models/1/benchy.stl",
-      "created_at": "2026-02-21T10:30:45Z",
-      "tags": [],
-      "custom_metadata": {},
-      "owner_id": "user_123"
-    }
-  ],
-  "total": 1,
-  "skip": 0,
-  "limit": 10
+  "path": "models/benchy.stl",
+  "extension": "stl",
+  "size_bytes": 1048576,
+  "viewer": {
+    "viewer_id": "stl-viewer",
+    "name": "STL Basic Preview",
+    "plugin_id": "stl-viewer-plugin",
+    "has_js": true
+  },
+  "preview_mode": "binary",
+  "preview_text": null
 }
 ```
 
 **Errors**:
 - `401` – Unauthorized
 - `403` – Access denied
-- `404` – Project not found
+- `400` – Invalid path or directory requested instead of a file
+- `404` – File not found
 
 ---
 
-### Get Model
-Get metadata for a specific model.
+### Download Project File
+Download a file from a project.
 
 **Request**:
 ```
-GET /models/{id}
+GET /projects/{project_id}/files/download?path=models/benchy.stl
 Authorization: Bearer <token>
 ```
 
 **Parameters**:
-- `id` (integer, required) – Model ID
+- `project_id` (integer, required, path) – Project ID
+- `path` (string, required, query) – File path inside the project
 
-**Response** (200):
-```json
-{
-  "id": 1,
-  "project_id": 1,
-  "filename": "benchy.stl",
-  "size_bytes": 1048576,
-  "file_type": "application/octet-stream",
-  "storage_key": "projects/1/models/1/benchy.stl",
-  "created_at": "2026-02-21T10:30:45Z",
-  "tags": ["calibration"],
-  "custom_metadata": {"nozzle_temp": 210},
-  "owner_id": "user_123"
-}
-```
+**Response** (200): Binary file download
 
 **Errors**:
 - `401` – Unauthorized
 - `403` – Access denied
-- `404` – Model not found
+- `400` – Invalid path
+- `404` – File not found
 
 ---
 

@@ -29,12 +29,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Removed the Type column and emphasized file/folder type icons in the Name column; retained Size for quick scanning.
 - Moved viewer-hook detail messaging into a compact hover info icon to reduce preview panel clutter.
 - Added drag-and-drop file upload directly on the Project Files card and drag-out file download support from file rows.
+- Added a compact Project Files drop zone for click-or-drop uploads without taking focus away from the file table.
+- Refined the Project Files uploader UX to a compact, collapsible drop zone so file table browsing remains the primary focus.
 
 ### 🔧 Fixed - Project Files Browser UX and Path Consistency
 
 - Improved Project Files table header contrast so column labels and sort arrows remain legible across theme backgrounds.
 - Moved file preview into the same Project Files card with a side-by-side layout for faster browsing and preview workflows.
 - Fixed project filesystem root default mismatch so file browser listings align with storage backend uploads in local/dev environments.
+- Fixed intermittent Project Files preview navigation so switching between files no longer collapses into a full-page preview state or pollutes browser history.
+- Fixed repeated model previews sometimes stalling on `Loading viewer...`.
 
 ### ⚙️ Changed - Developer MCP Bootstrap
 

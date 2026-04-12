@@ -4,6 +4,7 @@ import html
 import json
 import mimetypes
 import os
+import uuid
 from pathlib import Path
 from urllib.parse import quote_plus
 from typing import Optional
@@ -648,6 +649,7 @@ async def preview_project_file(
         viewer_tooltip = html.escape(f"{viewer_header} {viewer_details}")
 
         if viewer and viewer.get("has_js"):
+            preview_token = uuid.uuid4().hex
             plugin_context = {
                 "containerId": "project-plugin-viewer",
                 "projectId": project_id,
@@ -657,7 +659,7 @@ async def preview_project_file(
             }
             context_json = html.escape(json.dumps(plugin_context), quote=False)
             viewer_script_url = (
-                f"/api/v1/projects/{project_id}/files/viewer-script?viewer_id={quote_plus(str(viewer['viewer_id']))}"
+                f"/api/v1/projects/{project_id}/files/viewer-script?viewer_id={quote_plus(str(viewer['viewer_id']))}&preview_token={preview_token}"
             )
             body_html = f"""
             <div id="project-plugin-viewer" style="height: 420px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); overflow: hidden; display: grid; place-items: center; color: var(--text-secondary);">

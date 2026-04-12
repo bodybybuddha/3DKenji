@@ -4,14 +4,16 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.5/dist/css/tabulator.min.css">
+<link rel="stylesheet" href="https://releases.transloadit.com/uppy/v3.25.2/uppy.min.css">
 <style>
     /* Project Files Browser */
     #project-files-browser {
         display: grid;
-        gap: var(--spacing-md);
+        gap: var(--spacing-sm);
         position: relative;
         transition: background-color var(--transition-fast), box-shadow var(--transition-fast);
         border-radius: var(--radius-md);
+        padding: var(--spacing-sm);
     }
 
     #project-files-browser.file-drop-active {
@@ -34,6 +36,8 @@
 
     .file-browser-table-pane {
         min-width: 0;
+        display: grid;
+        gap: var(--spacing-sm);
     }
 
     .file-browser-preview-pane {
@@ -69,6 +73,56 @@
         display: flex;
         gap: var(--spacing-sm);
         align-items: center;
+    }
+
+    #project-files-uploader {
+        border: 1px dashed var(--border-color);
+        border-radius: var(--radius-md);
+        background: var(--bg-secondary);
+        overflow: hidden;
+        max-height: 0;
+        opacity: 0;
+        pointer-events: none;
+        transition: max-height var(--transition-fast), opacity var(--transition-fast);
+    }
+
+    #project-files-uploader.is-open {
+        max-height: 4rem;
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    #project-files-uploader.is-open.is-dragging {
+        border-color: var(--color-primary);
+        background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-secondary));
+    }
+
+    #project-files-uploader .uppy-Root,
+    #project-files-uploader .uppy-DragDrop-container {
+        background: transparent;
+        color: var(--text-primary);
+        border: 0;
+        min-height: 3.25rem;
+        padding: 0.35rem 0.75rem;
+    }
+
+    #project-files-uploader .uppy-DragDrop-inner {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+    }
+
+    #project-files-uploader .uppy-DragDrop-arrow,
+    #project-files-uploader .uppy-DragDrop-note {
+        display: none;
+    }
+
+    #project-files-uploader .uppy-DragDrop-label {
+        color: var(--text-secondary);
+        margin: 0;
+        font-size: 0.82rem;
     }
 
     .file-browser-path {
@@ -290,18 +344,23 @@
                         <div class="file-browser-path" id="project-files-path"></div>
                         <div class="file-browser-toolbar-actions">
                             <input id="project-files-upload-input" type="file" multiple hidden>
-                            <button class="btn btn-sm btn-secondary" id="project-files-create" type="button">New File</button>
+                            <button class="btn btn-sm btn-secondary" id="project-files-create" type="button">New
+                                File</button>
                             <button class="btn btn-sm btn-primary" id="project-files-upload" type="button">Upload
                                 File</button>
+                            <button class="btn btn-sm btn-secondary" id="project-files-drop-toggle" type="button">Drop
+                                Zone</button>
                             <button class="btn btn-sm btn-secondary" id="project-files-refresh"
                                 type="button">Refresh</button>
                         </div>
                     </div>
-                    <p class="file-drop-hint">Tip: drop files anywhere on this card to upload. Drag file rows out to your desktop to download.</p>
                     <p id="project-files-feedback" class="file-table-loading">Loading files...</p>
                     <div class="file-browser-main">
                         <div class="file-browser-table-pane">
                             <div id="project-files-table"></div>
+                            <div id="project-files-uploader"></div>
+                            <p class="file-drop-hint">Tip: drop files anywhere on this card to upload. Drag file rows
+                                out to your desktop to download.</p>
                         </div>
                         <aside class="file-browser-preview-pane">
                             <p class="file-browser-preview-head">Preview</p>
@@ -378,6 +437,7 @@
 
 {% block extra_js %}
 <script src="https://unpkg.com/tabulator-tables@6.2.5/dist/js/tabulator.min.js"></script>
+<script src="https://releases.transloadit.com/uppy/v3.25.2/uppy.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (!window.htmx || typeof htmx.ajax !== 'function') {
@@ -395,10 +455,13 @@
         const browserElement = document.getElementById('project-files-browser');
         const pathElement = document.getElementById('project-files-path');
         const feedbackElement = document.getElementById('project-files-feedback');
+        const previewElement = document.getElementById('project-file-preview');
         const refreshButton = document.getElementById('project-files-refresh');
         const uploadInput = document.getElementById('project-files-upload-input');
         const uploadButton = document.getElementById('project-files-upload');
+        const dropToggleButton = document.getElementById('project-files-drop-toggle');
         const createFileButton = document.getElementById('project-files-create');
+        const uploaderElement = document.getElementById('project-files-uploader');
 
         const fileCountElement = document.getElementById('file-count');
         const folderCountElement = document.getElementById('folder-count');
@@ -410,10 +473,24 @@
 
         let currentPath = '';
         let dragDepth = 0;
+        let uppy = null;
+        let previewAbortController = null;
+        let previewRequestSequence = 0;
 
         function setFeedback(message, isError = false) {
             feedbackElement.textContent = message;
             feedbackElement.className = isError ? 'file-table-error' : 'file-table-loading';
+        }
+
+        function setUploaderExpanded(expanded) {
+            if (!uploaderElement) {
+                return;
+            }
+            uploaderElement.classList.toggle('is-open', !!expanded);
+            if (dropToggleButton) {
+                dropToggleButton.textContent = expanded ? 'Hide Drop Zone' : 'Drop Zone';
+                dropToggleButton.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+            }
         }
 
         function renderPathPills(path) {
@@ -468,6 +545,42 @@
             element.textContent = value || fallback;
         }
 
+        function renderPreviewMarkup(markup) {
+            if (!previewElement) {
+                return;
+            }
+
+            const template = document.createElement('template');
+            template.innerHTML = markup;
+
+            const fragment = template.content.cloneNode(true);
+            const scripts = Array.from(fragment.querySelectorAll('script'));
+
+            for (const script of scripts) {
+                const executableScript = document.createElement('script');
+                for (const attribute of script.attributes) {
+                    executableScript.setAttribute(attribute.name, attribute.value);
+                }
+                executableScript.textContent = script.textContent;
+                script.parentNode.replaceChild(executableScript, script);
+            }
+
+            previewElement.replaceChildren(fragment);
+        }
+
+        function setPreviewMessage(message, isError = false) {
+            if (!previewElement) {
+                return;
+            }
+
+            const color = isError ? '#fca5a5' : 'var(--text-secondary)';
+            const paragraph = document.createElement('p');
+            paragraph.style.color = color;
+            paragraph.style.margin = '0';
+            paragraph.textContent = message;
+            previewElement.replaceChildren(paragraph);
+        }
+
         async function loadProjectSummary() {
             try {
                 const response = await fetch(`/api/v1/projects/${projectId}/files/summary`, {
@@ -496,12 +609,56 @@
             }
         }
 
-        function openPreview(relativePath) {
+        async function openPreview(relativePath) {
+            if (!previewElement) {
+                return;
+            }
+
+            if (previewAbortController) {
+                previewAbortController.abort();
+            }
+
+            const requestSequence = ++previewRequestSequence;
+            previewAbortController = new AbortController();
             const params = new URLSearchParams({
                 format: 'html',
                 path: relativePath,
             });
-            htmx.ajax('GET', `/api/v1/projects/${projectId}/files/preview?${params.toString()}`, '#project-file-preview');
+            setPreviewMessage('Loading preview...');
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/preview?${params.toString()}`, {
+                    credentials: 'same-origin',
+                    headers: {
+                        Accept: 'text/html',
+                    },
+                    signal: previewAbortController.signal,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load preview (${response.status})`);
+                }
+
+                const markup = await response.text();
+                if (requestSequence !== previewRequestSequence) {
+                    return;
+                }
+
+                renderPreviewMarkup(markup);
+            } catch (error) {
+                if (error && error.name === 'AbortError') {
+                    return;
+                }
+                if (requestSequence !== previewRequestSequence) {
+                    return;
+                }
+
+                setPreviewMessage(error && error.message ? error.message : 'Unable to load preview.', true);
+            } finally {
+                if (requestSequence === previewRequestSequence) {
+                    previewAbortController = null;
+                }
+            }
         }
 
         function downloadFile(relativePath) {
@@ -521,6 +678,67 @@
 
         function openFolder(relativePath) {
             loadDirectory(relativePath);
+        }
+
+        function initializeUppy() {
+            if (!uploaderElement || !window.Uppy || !window.Uppy.Uppy || !window.Uppy.DragDrop || !window.Uppy.XHRUpload) {
+                return;
+            }
+
+            uppy = new window.Uppy.Uppy({
+                autoProceed: true,
+                restrictions: {
+                    maxNumberOfFiles: 50,
+                },
+            });
+
+            uppy.use(window.Uppy.DragDrop, {
+                target: '#project-files-uploader',
+                note: '',
+            });
+
+            uppy.use(window.Uppy.XHRUpload, {
+                endpoint: `/api/v1/projects/${projectId}/files/upload`,
+                fieldName: 'file',
+                formData: true,
+                bundle: false,
+                withCredentials: true,
+            });
+
+            uppy.on('file-added', function (file) {
+                uppy.setFileMeta(file.id, {
+                    path: currentPath || '',
+                });
+            });
+
+            uppy.on('upload', function () {
+                setFeedback('Uploading file(s)...');
+            });
+
+            uppy.on('complete', async function (result) {
+                const successCount = (result && result.successful ? result.successful.length : 0);
+                const failedCount = (result && result.failed ? result.failed.length : 0);
+
+                if (successCount > 0) {
+                    await loadDirectory(currentPath);
+                    await loadProjectSummary();
+                }
+
+                if (failedCount === 0) {
+                    setFeedback(`Uploaded ${successCount} file(s).`);
+                } else if (successCount === 0) {
+                    const firstError = result.failed && result.failed[0] && result.failed[0].error
+                        ? result.failed[0].error.message
+                        : 'Upload failed.';
+                    setFeedback(firstError, true);
+                } else {
+                    setFeedback(`Uploaded ${successCount} file(s), ${failedCount} failed.`, true);
+                }
+            });
+
+            uppy.on('error', function (error) {
+                setFeedback(error && error.message ? error.message : 'Uploader unavailable.', true);
+            });
         }
 
         const table = new Tabulator(tableElement, {
@@ -656,6 +874,9 @@
 
         async function loadDirectory(path) {
             currentPath = path || '';
+            if (uppy) {
+                uppy.setMeta({ path: currentPath });
+            }
             renderPathPills(currentPath);
             setFeedback(`Loading /${currentPath}...`);
 
@@ -753,6 +974,9 @@
                 return;
             }
             browserElement.classList.toggle('file-drop-active', active);
+            if (uploaderElement) {
+                uploaderElement.classList.toggle('is-dragging', !!active);
+            }
         }
 
         function isFileDrag(event) {
@@ -760,6 +984,13 @@
                 return false;
             }
             return Array.from(event.dataTransfer.types).includes('Files');
+        }
+
+        function stopUploaderEventPropagation(event) {
+            if (!isFileDrag(event)) {
+                return;
+            }
+            event.stopPropagation();
         }
 
         async function uploadFiles(files) {
@@ -829,6 +1060,13 @@
         }
 
         uploadButton.addEventListener('click', function () {
+            if (uppy && uploaderElement) {
+                const triggerInput = uploaderElement.querySelector('input[type="file"]');
+                if (triggerInput) {
+                    triggerInput.click();
+                    return;
+                }
+            }
             uploadInput.click();
         });
 
@@ -878,6 +1116,7 @@
                 }
                 event.preventDefault();
                 dragDepth += 1;
+                setUploaderExpanded(true);
                 setDropState(true);
                 setFeedback(`Drop files to upload into /${currentPath || ''}`);
             });
@@ -918,13 +1157,30 @@
             });
         }
 
+        if (uploaderElement) {
+            uploaderElement.addEventListener('dragenter', stopUploaderEventPropagation);
+            uploaderElement.addEventListener('dragover', stopUploaderEventPropagation);
+            uploaderElement.addEventListener('dragleave', stopUploaderEventPropagation);
+            uploaderElement.addEventListener('drop', stopUploaderEventPropagation);
+        }
+
         refreshButton.addEventListener('click', function () {
             loadDirectory(currentPath);
         });
 
+        if (dropToggleButton) {
+            dropToggleButton.addEventListener('click', function () {
+                const isOpen = uploaderElement && uploaderElement.classList.contains('is-open');
+                setUploaderExpanded(!isOpen);
+            });
+        }
+
         createFileButton.addEventListener('click', function () {
             createNewFile();
         });
+
+        initializeUppy();
+        setUploaderExpanded(false);
 
         loadProjectSummary();
         loadDirectory('');

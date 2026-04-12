@@ -111,22 +111,23 @@ Response includes project `id`:
 }
 ```
 
-### Step 3: Upload a 3D Model
+### Step 3: Upload a Project File
 
 Use the project ID from step 2:
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/projects/1/models \
+curl -X POST http://localhost:8000/api/v1/projects/1/files/upload \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@/path/to/benchy.stl" \
-  -F "tags=calibration,benchmark" \
-  -F "custom_metadata={\"nozzle_temp\": 210, \"bed_temp\": 60}"
+  -F "path=models"
 ```
 
-### Step 4: List Your Models
+This same workflow also supports notes, images, CAD files, and other project assets. Point `path` at directories such as `cad_files`, `images`, or `notes` as needed.
+
+### Step 4: Browse Project Files
 
 ```bash
-curl -X GET http://localhost:8000/api/v1/projects/1/models \
+curl -X GET "http://localhost:8000/api/v1/projects/1/files?path=models" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
