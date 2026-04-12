@@ -20,6 +20,19 @@ def _auth_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def _auth_form_session() -> requests.Session:
+    session = requests.Session()
+    response = session.post(
+        f"{_api_base_url()}/api/v1/auth/validate/login",
+        data={"username_or_email": "admin", "password": "admin1234"},
+        allow_redirects=False,
+        timeout=10,
+    )
+    assert response.status_code == 303, response.text
+    assert "access_token" in response.cookies
+    return session
+
+
 def _create_project(headers: dict[str, str]) -> dict:
     response = requests.post(
         f"{_api_base_url()}/api/v1/projects",
@@ -262,6 +275,27 @@ def test_project_file_create_endpoint_rejects_duplicate_name():
     )
 
     assert response.status_code == 409, response.text
+
+
+def test_project_file_editor_page_uses_toast_ui_for_markdown():
+    headers = _auth_headers()
+    session = _auth_form_session()
+    project = _create_project(headers)
+    project_id = project["id"]
+
+    _write_project_file(project, "notes/readme.md", b"# Toast UI\n\nMarkdown editor page.\n")
+
+    response = session.get(
+        f"{_api_base_url()}/projects/{project_id}/files/editor",
+        params={"path": "notes/readme.md"},
+        timeout=10,
+    )
+
+    assert response.status_code == 200, response.text
+    assert 'data-markdown-editor="toastui"' in response.text
+    assert 'toastui-editor.min.css' in response.text
+    assert 'toastui-editor-dark.min.css' in response.text
+    assert 'toastui-editor-all.min.js' in response.text
 
 
 def test_project_markdown_preview_endpoint_renders_html():

@@ -82,6 +82,8 @@ settings_defaults:
 
 Each plugin owns an editable `settings.yaml`. The admin plugin page serves this file in a text editor and writes it back after YAML validation.
 
+Internal implementation note: markdown files opened through the standalone project file editor (`/projects/{project_id}/files/editor`) are rendered and edited with Toast UI Editor (`tui.editor`) loaded from the Toast CDN. The editor follows the active app theme (`dark`/`light`) and re-initializes on theme toggle so markdown source and preview remain readable in both modes.
+
 Example:
 
 ```yaml

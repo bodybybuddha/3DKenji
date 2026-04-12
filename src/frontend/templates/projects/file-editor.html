@@ -3,6 +3,10 @@
 {% block title %}Editing {{ file_name }} - 3DKenji{% endblock %}
 
 {% block extra_css %}
+{% if is_markdown %}
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css">
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/theme/toastui-editor-dark.min.css">
+{% endif %}
 <style>
     .editor-shell {
         display: grid;
@@ -30,6 +34,10 @@
         gap: var(--spacing-md);
         min-height: 0;
         height: 100%;
+    }
+
+    .editor-layout.markdown-mode {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .editor-pane {
@@ -64,6 +72,73 @@
         font-size: 0.9rem;
         line-height: 1.55;
         padding: var(--spacing-md);
+    }
+
+    #markdown-editor-wrapper {
+        display: none;
+        min-height: 0;
+        height: 100%;
+        background: var(--bg-primary);
+    }
+
+    #markdown-editor {
+        height: 100%;
+    }
+
+    #markdown-editor .toastui-editor-defaultUI {
+        border: 0;
+        border-radius: 0;
+        height: 100%;
+        background: var(--bg-primary);
+    }
+
+    #markdown-editor .toastui-editor-defaultUI-toolbar,
+    #markdown-editor .toastui-editor-mode-switch {
+        background: var(--bg-secondary);
+        border-color: var(--border-color);
+    }
+
+    #markdown-editor .toastui-editor-toolbar-icons,
+    #markdown-editor .toastui-editor-toolbar button,
+    #markdown-editor .toastui-editor-tabs button {
+        color: var(--text-primary);
+        opacity: 1;
+    }
+
+    #markdown-editor .toastui-editor-main,
+    #markdown-editor .toastui-editor-md-container,
+    #markdown-editor .toastui-editor-ww-container,
+    #markdown-editor .toastui-editor-md-preview {
+        background: var(--bg-primary);
+    }
+
+    #markdown-editor .toastui-editor-md-container,
+    #markdown-editor .toastui-editor-ww-container,
+    #markdown-editor .toastui-editor-md-preview {
+        color: var(--text-primary);
+    }
+
+    #markdown-editor .ProseMirror,
+    #markdown-editor .toastui-editor-contents,
+    #markdown-editor .toastui-editor-md-container .CodeMirror {
+        color: var(--text-primary);
+    }
+
+    #markdown-editor .toastui-editor-contents * {
+        color: inherit;
+    }
+
+    #markdown-editor .toastui-editor-contents a {
+        color: var(--color-primary);
+    }
+
+    #markdown-editor .toastui-editor-md-container .CodeMirror-cursor {
+        border-left: 1px solid var(--text-primary);
+    }
+
+    #markdown-editor .toastui-editor-contents pre,
+    #markdown-editor .toastui-editor-contents code {
+        background: var(--bg-secondary);
     }
 
     #rtf-editor-wrapper {
@@ -163,6 +238,9 @@
         <div class="editor-layout" id="editor-layout">
             <section class="editor-pane">
                 <p class="editor-pane-header">Editor</p>
+                <div id="markdown-editor-wrapper" data-markdown-editor="toastui">
+                    <div id="markdown-editor"></div>
+                </div>
                 <textarea id="text-editor" spellcheck="false"></textarea>
                 <div id="rtf-editor-wrapper">
                     <div class="rtf-toolbar">
@@ -188,6 +266,9 @@
 {% endblock %}
 
 {% block extra_js %}
+{% if is_markdown %}
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js" data-toastui-lib="1"></script>
+{% endif %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const projectId = '{{ project_id }}';
@@ -197,15 +278,26 @@
         const isRtf = config ? config.dataset.isRtf === '1' : false;
 
         const editor = document.getElementById('text-editor');
+        const editorLayout = document.getElementById('editor-layout');
         const statusEl = document.getElementById('editor-status');
         const previewEl = document.getElementById('markdown-preview');
+        const previewPane = document.getElementById('preview-pane');
         const saveButton = document.getElementById('save-file-btn');
+        const markdownEditorWrapper = document.getElementById('markdown-editor-wrapper');
+        const markdownEditorHost = document.getElementById('markdown-editor');
         const rtfEditorWrapper = document.getElementById('rtf-editor-wrapper');
         const rtfEditor = document.getElementById('rtf-editor');
 
         let saveInFlight = false;
+        let markdownEditor = null;
+        let markdownFallbackMode = false;
         let previewTimer = null;
         let rtfLibraryReady = false;
+
+        function getToastTheme() {
+            const activeTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            return activeTheme === 'dark' ? 'dark' : 'light';
+        }
 
         if (isRtf) {
             editor.style.display = 'none';
@@ -217,6 +309,96 @@
             statusEl.className = 'editor-toolbar-meta';
             if (kind) {
                 statusEl.classList.add(kind);
+            }
+        }
+
+        function getEditorContent() {
+            if (isRtf) {
+                return htmlToSimpleRtf(rtfEditor.innerHTML);
+            }
+            if (markdownEditor) {
+                return markdownEditor.getMarkdown();
+            }
+            return editor.value;
+        }
+
+        function enableMarkdownFallback(error) {
+            markdownFallbackMode = true;
+            markdownEditor = null;
+            if (markdownEditorWrapper) {
+                markdownEditorWrapper.style.display = 'none';
+            }
+            editor.style.display = 'block';
+            if (previewPane) {
+                previewPane.style.display = '';
+            }
+            if (editorLayout) {
+                editorLayout.classList.remove('markdown-mode');
+            }
+            if (error) {
+                console.error('Toast UI Editor failed to initialize. Falling back to basic markdown editor.', error);
+            }
+        }
+
+        async function ensureToastUiEditor() {
+            if (window.toastui && window.toastui.Editor) {
+                return;
+            }
+
+            await new Promise(function (resolve, reject) {
+                const existing = document.querySelector('script[data-toastui-lib="1"]');
+                if (existing && window.toastui && window.toastui.Editor) {
+                    resolve();
+                    return;
+                }
+
+                const script = existing || document.createElement('script');
+                script.src = 'https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js';
+                script.async = true;
+                script.dataset.toastuiLib = '1';
+                script.onload = function () { resolve(); };
+                script.onerror = function () { reject(new Error('Unable to load Toast UI Editor runtime')); };
+                if (!existing) {
+                    document.head.appendChild(script);
+                }
+            });
+
+            if (!window.toastui || !window.toastui.Editor) {
+                throw new Error('Toast UI Editor runtime unavailable');
+            }
+        }
+
+        async function initializeMarkdownEditor() {
+            if (!isMarkdown) {
+                return;
+            }
+
+            try {
+                await ensureToastUiEditor();
+                if (editorLayout) {
+                    editorLayout.classList.add('markdown-mode');
+                }
+                if (previewPane) {
+                    previewPane.style.display = 'none';
+                }
+                editor.style.display = 'none';
+                if (markdownEditorWrapper) {
+                    markdownEditorWrapper.style.display = 'block';
+                }
+
+                markdownEditor = new window.toastui.Editor({
+                    el: markdownEditorHost,
+                    height: '100%',
+                    initialEditType: 'markdown',
+                    previewStyle: 'vertical',
+                    theme: getToastTheme(),
+                    hideModeSwitch: false,
+                    usageStatistics: false,
+                    autofocus: false,
+                    placeholder: 'Write markdown here...',
+                });
+            } catch (error) {
+                enableMarkdownFallback(error);
             }
         }
 
@@ -358,6 +540,10 @@
             }
 
             if (isMarkdown) {
+                if (markdownEditor) {
+                    markdownEditor.setMarkdown(payload.content || '', false);
+                    return;
+                }
                 renderMarkdownPreview();
             }
         }
@@ -383,7 +569,7 @@
                     },
                     body: JSON.stringify({
                         path: filePath,
-                        content: isRtf ? htmlToSimpleRtf(rtfEditor.innerHTML) : editor.value,
+                        content: getEditorContent(),
                     }),
                 });
 
@@ -433,24 +619,15 @@
             }
         }
 
-        editor.addEventListener('keydown', function (event) {
+        document.addEventListener('keydown', function (event) {
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
                 event.preventDefault();
                 saveContent();
             }
         });
 
-        if (rtfEditor) {
-            rtfEditor.addEventListener('keydown', function (event) {
-                if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
-                    event.preventDefault();
-                    saveContent();
-                }
-            });
-        }
-
         editor.addEventListener('input', function () {
-            if (!isMarkdown) {
+            if (!isMarkdown || !markdownFallbackMode) {
                 return;
             }
 
@@ -473,13 +650,43 @@
             });
         });
 
-        loadContent().catch(function (error) {
-            setStatus(error.message || 'Failed to load file.', 'error');
-            editor.value = '';
-            if (isRtf) {
-                rtfEditor.innerHTML = '<p style="margin:0;color:var(--color-danger);">Unable to load RTF content.</p>';
+        window.addEventListener('theme-changed', function () {
+            if (!isMarkdown || !markdownEditor || markdownFallbackMode) {
+                return;
             }
+
+            const markdownContent = markdownEditor.getMarkdown();
+            if (typeof markdownEditor.destroy === 'function') {
+                markdownEditor.destroy();
+            }
+            markdownEditorHost.innerHTML = '';
+
+            markdownEditor = new window.toastui.Editor({
+                el: markdownEditorHost,
+                height: '100%',
+                initialEditType: 'markdown',
+                initialValue: markdownContent,
+                previewStyle: 'vertical',
+                theme: getToastTheme(),
+                hideModeSwitch: false,
+                usageStatistics: false,
+                autofocus: false,
+                placeholder: 'Write markdown here...',
+            });
         });
+
+        (async function initializeEditorPage() {
+            try {
+                await initializeMarkdownEditor();
+                await loadContent();
+            } catch (error) {
+                setStatus(error.message || 'Failed to load file.', 'error');
+                editor.value = '';
+                if (isRtf) {
+                    rtfEditor.innerHTML = '<p style="margin:0;color:var(--color-danger);">Unable to load RTF content.</p>';
+                }
+            }
+        })();
     });
 </script>
 {% endblock %}
