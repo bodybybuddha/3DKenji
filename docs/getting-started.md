@@ -70,6 +70,7 @@ curl -X POST http://localhost:8000/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "alice",
+    "nickname": "alice-prints",
     "email": "alice@example.com",
     "password": "MySecurePassword123!",
     "display_name": "Alice Smith"
@@ -85,6 +86,8 @@ Response:
 ```
 
 **Important**: Save the `access_token` – you'll use it for all requests.
+
+`nickname` is optional at registration, but recommended because it becomes your owner segment in project storage paths (`Projects/<nickname>/<slug>`).
 
 ### Step 2: Create Your First Project
 
@@ -190,6 +193,21 @@ curl -X PATCH http://localhost:8000/api/v1/projects/1 \
     "description": "Updated description"
   }'
 ```
+
+### Invite a Collaborator
+
+```bash
+curl -X POST http://localhost:8000/api/v1/projects/1/invitations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "email": "teammate@example.com",
+    "role": "viewer",
+    "expires_in_days": 7
+  }'
+```
+
+The response includes an invitation token. The invitee can accept through `/invitations/<token>` in the UI or via API.
 
 ### Delete a Project
 

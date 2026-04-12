@@ -13,6 +13,7 @@ class AuthResult:
 
     user_id: str
     username: str
+    nickname: str
     email: str
     display_name: str
     scopes: list[str] = None  # Optional permission scopes from auth provider
@@ -24,6 +25,7 @@ class UserIdentity:
 
     user_id: str
     username: str
+    nickname: str
     email: str
     display_name: str
 

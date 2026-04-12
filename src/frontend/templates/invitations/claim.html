@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Claim Invitation - 3DKenji{% endblock %}
+
+{% block content %}
+<section class="section">
+    <div class="container" style="max-width: 680px;">
+        <div class="card" style="padding: var(--spacing-xl);">
+            <h1 style="margin-top: 0;">Project Invitation</h1>
+            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
+                Claim access to this project invitation using your current authenticated account.
+            </p>
+
+            {% if success %}
+            <div class="alert alert-success" role="alert" style="margin-bottom: var(--spacing-lg);">
+                <div class="alert-content">
+                    <p class="alert-message">{{ success }}</p>
+                </div>
+            </div>
+            <p><a class="btn btn-primary" href="/projects">Go to Projects</a></p>
+            {% else %}
+            {% if error %}
+            <div class="alert alert-error" role="alert" style="margin-bottom: var(--spacing-lg);">
+                <div class="alert-content">
+                    <p class="alert-message">{{ error }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <div style="display: grid; gap: var(--spacing-sm); margin-bottom: var(--spacing-lg);">
+                <div><strong>Project:</strong> {{ project_title }}</div>
+                {% if invitation %}
+                <div><strong>Role:</strong> {{ invitation.role }}</div>
+                <div><strong>Expires:</strong> {{ invitation.expires_at | dateformat }}</div>
+                {% endif %}
+                <div><strong>Signed in as:</strong> {{ user.email }}</div>
+            </div>
+
+            <form method="post" action="/invitations/{{ token }}/accept">
+                <button type="submit" class="btn btn-primary">Accept Invitation</button>
+                <a href="/projects" class="btn btn-secondary" style="margin-left: var(--spacing-sm);">Cancel</a>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

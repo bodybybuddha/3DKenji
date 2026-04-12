@@ -23,6 +23,7 @@ test_plugins_root = Path("/tmp/3dkenji-test-plugins")
 os.environ["DATABASE_URL"] = f"sqlite:///{test_db_path}"
 os.environ["STORAGE_ROOT"] = str(test_storage_root)
 os.environ["PLUGINS_ROOT"] = str(test_plugins_root)
+os.environ["SMTP_MOCK_DELIVERY"] = "true"
 
 # Clean up old test database to ensure fresh start
 if test_db_path.exists():
@@ -126,6 +127,7 @@ def _start_api_server():
     env["STORAGE_ROOT"] = str(test_storage_root)
     env["PLUGINS_ROOT"] = str(test_plugins_root)
     env["ENABLE_FILE_LOGGING"] = "false"
+    env["SMTP_MOCK_DELIVERY"] = "true"
     
     cmd = [
         sys.executable,

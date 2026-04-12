@@ -60,6 +60,7 @@ Content-Type: application/json
 ```json
 {
   "username": "alice",
+  "nickname": "alice-prints",
   "email": "alice@example.com",
   "password": "SecurePassword123!",
   "display_name": "Alice Smith"
@@ -68,6 +69,7 @@ Content-Type: application/json
 
 **Parameters**:
 - `username` (string, required) – Unique username, 3-50 chars
+- `nickname` (string, optional) – Storage-safe nickname (3-64 chars, lowercase letters/numbers/`_`/`-`)
 - `email` (string, required) – Valid email address
 - `password` (string, required) – Minimum 8 characters
 - `display_name` (string, optional) – User's display name
@@ -152,6 +154,12 @@ Content-Type: application/json
 
 ## Projects Endpoints
 
+### Access Model
+
+- Owners have full project access.
+- Collaborators can be assigned `viewer` (read) or `editor` (write) roles.
+- Public projects are readable without authentication via dedicated public endpoints.
+
 ### Create Project
 Create a new project (requires authentication).
 
@@ -166,20 +174,25 @@ Content-Type: application/json
 ```json
 {
   "title": "Benchy Calibration",
-  "description": "Printer calibration prints"
+  "description": "Printer calibration prints",
+  "visibility": "private"
 }
 ```
 
 **Parameters**:
 - `title` (string, required) – Project name, 1-200 chars
 - `description` (string, optional) – Project description
+- `visibility` (string, optional) – `private` or `public`
 
 **Response** (201):
 ```json
 {
-  "id": 1,
+  "id": "a5e4420a-3e22-41c3-a219-0bd9d8b7ab07",
   "title": "Benchy Calibration",
-  "description": "Printer calibration prints",
+  "slug": "benchy-calibration",
+  "category": "Uncategorized",
+  "visibility": "private",
+  "directory_path": "Projects/alice-prints/benchy-calibration",
   "owner_id": "user_123",
   "created_at": "2026-02-21T10:30:45Z",
   "updated_at": "2026-02-21T10:30:45Z"
@@ -193,7 +206,7 @@ Content-Type: application/json
 ---
 
 ### List Projects
-Get all projects for authenticated user (paginated).
+Get all projects accessible to the authenticated user (owned + collaborator + public).
 
 **Request**:
 ```
@@ -261,7 +274,7 @@ Authorization: Bearer <token>
 ---
 
 ### Update Project
-Update project title or description.
+Update project title/category/visibility.
 
 **Request**:
 ```
@@ -274,7 +287,10 @@ Content-Type: application/json
 ```json
 {
   "title": "Updated Project Name",
-  "description": "Updated description"
+  "custom_metadata": {
+    "category": "Calibration",
+    "visibility": "public"
+  }
 }
 ```
 
@@ -298,6 +314,140 @@ Content-Type: application/json
 - `401` – Unauthorized
 - `403` – Not the project owner
 - `404` – Project not found
+
+---
+
+### List Public Projects
+List publicly visible projects without authentication.
+
+**Request**:
+```
+GET /projects/public?skip=0&limit=100
+```
+
+**Response** (200):
+```json
+{
+  "items": [
+    {
+      "id": "a5e4420a-3e22-41c3-a219-0bd9d8b7ab07",
+      "title": "Benchy Calibration",
+      "slug": "benchy-calibration",
+      "visibility": "public"
+    }
+  ],
+  "total": 1,
+  "skip": 0,
+  "limit": 100
+}
+```
+
+---
+
+### Get Public Project
+Read one publicly visible project without authentication.
+
+**Request**:
+```
+GET /projects/public/{project_id}
+```
+
+**Errors**:
+- `404` – Not found, private, or archived
+
+---
+
+## Collaboration Endpoints
+
+All collaboration management endpoints below require owner permissions on the target project.
+
+### List Collaborators
+```
+GET /projects/{project_id}/collaborators
+Authorization: Bearer <token>
+```
+
+### Add or Update Collaborator
+```
+POST /projects/{project_id}/collaborators
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+Body:
+```json
+{
+  "user_id": "b84a2750-c27f-43e4-a735-a09f8f4c5c5f",
+  "role": "editor"
+}
+```
+
+### Remove Collaborator
+```
+DELETE /projects/{project_id}/collaborators/{user_id}
+Authorization: Bearer <token>
+```
+
+---
+
+## Invitation Endpoints
+
+### Create Invitation
+```
+POST /projects/{project_id}/invitations
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+Body:
+```json
+{
+  "email": "collaborator@example.com",
+  "role": "viewer",
+  "expires_in_days": 7
+}
+```
+
+Returns a one-time invitation token and invitation metadata.
+
+### List Project Invitations
+```
+GET /projects/{project_id}/invitations?include_inactive=false
+Authorization: Bearer <token>
+```
+
+### Update Invitation Role
+```
+PATCH /projects/{project_id}/invitations/{invitation_id}
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+### Revoke Invitation
+```
+DELETE /projects/{project_id}/invitations/{invitation_id}
+Authorization: Bearer <token>
+```
+
+### Accept Invitation by Token
+```
+POST /projects/invitations/{token}/accept
+Authorization: Bearer <token>
+```
+
+### Accept Invitation by ID
+```
+POST /projects/invitations/id/{invitation_id}/accept
+Authorization: Bearer <token>
+```
+
+### List My Pending Invitations
+```
+GET /projects/invitations/mine
+Authorization: Bearer <token>
+```
+
+Pending invitations are matched by authenticated user email. Acceptance fails if invitation email does not match the current user.
 
 ---
 

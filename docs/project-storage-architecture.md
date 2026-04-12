@@ -30,23 +30,32 @@ Environment variable:
 
 Project directories are created under:
 
-- `STORAGE_ROOT/Projects/<category>/<slug>`
+- `STORAGE_ROOT/Projects/<owner_nickname>/<slug>`
 
 Examples:
 
-- `/data/storage/Projects/private/test-project-1`
-- `/data/storage/Projects/public/showcase-gearbox`
+- `/data/storage/Projects/alice-prints/test-project-1`
+- `/data/storage/Projects/admin/showcase-gearbox`
 
-## Default Categories
+## Visibility and Category
 
-Current categories used by the app:
+- Project visibility is represented separately from category:
+  - `visibility`: `private` or `public`
+  - `category`: freeform organizational label (defaults to `Uncategorized`)
 
-- `private`
-- `public`
+Current lifecycle behavior:
 
-Planned category for lifecycle behavior:
+- Archived projects keep owner-scoped storage paths and are marked `is_archived = true` in database state.
 
-- `archive`
+## Compatibility and Path Resolution
+
+To preserve compatibility with existing installations, services resolve project directories in this order:
+
+1. `Projects/<owner_nickname>/<slug>` (canonical)
+2. `Projects/<owner_id>/<slug>` (legacy owner-id path)
+3. `Projects/<category>/<slug>` (legacy category path)
+
+The canonical path is persisted in project `directory_path` as `Projects/<owner_nickname>/<slug>`.
 
 ## Project Directory Layout
 
@@ -251,31 +260,41 @@ First prototype print. All dimensions within tolerance.
 
 Create project:
 
-- Create DB row with computed `slug`, `category`, and `directory_path`
+- Create DB row with computed `slug`, `category`, `visibility`, and owner-scoped `directory_path`
 - Create filesystem directory and seed markdown files
 
 Update project title/category:
 
 - Update DB metadata
-- Move/rename filesystem directory to match new slug/category
+- Move/rename filesystem directory only when slug/path changes
+
+Update nickname:
+
+- User nickname changes trigger owner-root migration from old owner segment to new segment
+- All owned project `directory_path` values are updated to the new owner segment
+- Migration is applied with rollback protection when DB commit fails
 
 Delete project:
 
-- Remove DB row
-- Remove filesystem directory
+- Default archive behavior marks project archived while preserving owner-scoped directory
+- Hard-delete policy removes project and filesystem directory
 
-## Planned Lifecycle Enhancement
+## Backfill and Migration
 
-Planned feature: configurable delete strategy.
+Use the backfill utility to migrate existing project directories into owner-scoped layout and normalize frontmatter files:
 
-- `archive` (default): move project under archive category/path instead of physical deletion
-- `hard_delete`: current permanent delete behavior
+```bash
+python scripts/backfill-project-filesystem.py --dry-run
+python scripts/backfill-project-filesystem.py --apply
+```
 
-This setting should be:
+The script:
 
-- configurable in Admin panel
-- persisted in database
-- applied transparently when user clicks Delete
+- Detects legacy directory candidates from historical `directory_path` values
+- Moves directories into canonical owner-segment paths
+- Repairs `directory_path` values in database
+- Seeds missing `ProjectInfo.md` and `PrintHistory.md`
+- Upgrades frontmatter for existing markdown files
 
 ## Operational Guidance
 
@@ -290,7 +309,7 @@ To keep paths predictable across environments:
 
 When validating project creation:
 
-1. Confirm DB row has `directory_path = Projects/<category>/<slug>`
+1. Confirm DB row has `directory_path = Projects/<owner_nickname>/<slug>`
 2. Confirm directory exists under `STORAGE_ROOT`
 3. Confirm `ProjectInfo.md` and `PrintHistory.md` exist
 4. Confirm default subdirectories exist

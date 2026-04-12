@@ -322,8 +322,8 @@ class TestFormDataMapping:
         assert project_name in titles, \
             f"Project name not found as 'title' in list. Titles: {titles}"
     
-    def test_form_visibility_becomes_category(self, api_base_url, auth_session):
-        """Form 'visibility' field should be stored as 'category'."""
+    def test_form_visibility_maps_to_visibility_field(self, api_base_url, auth_session):
+        """Form 'visibility' field should be stored in project visibility."""
         resp = auth_session.post(
             f"{api_base_url}/api/v1/projects",
             data={
@@ -336,7 +336,7 @@ class TestFormDataMapping:
         
         assert resp.status_code == 201
         
-        # Verify category was set
+        # Verify visibility was set
         list_resp = auth_session.get(f"{api_base_url}/api/v1/projects")
         projects = list_resp.json()
         
@@ -346,8 +346,8 @@ class TestFormDataMapping:
             None
         )
         assert test_project is not None, "Test project not found in list"
-        assert test_project["category"] == "public", \
-            f"Category should be 'public', got {test_project['category']}"
+        assert test_project["visibility"] == "public", \
+            f"Visibility should be 'public', got {test_project['visibility']}"
 
 
 class TestEdgeCases:

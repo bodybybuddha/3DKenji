@@ -21,6 +21,7 @@ class UserResponse(BaseModel):
 
     id: str
     username: str
+    nickname: str
     email: str
     display_name: str
 
@@ -83,6 +84,7 @@ async def get_current_user_info(
     return UserResponse(
         id=user.id,
         username=user.username,
+        nickname=user.nickname,
         email=user.email,
         display_name=user.display_name
     )

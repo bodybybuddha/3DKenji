@@ -337,6 +337,9 @@
                 <p class="section-description" id="project-description">{{ project.category }}</p>
             </div>
             <div class="flex gap-md">
+                <a class="btn btn-secondary" href="/project/{{ project_id }}/invitations">
+                    Manage Members
+                </a>
                 <button class="btn btn-secondary" hx-get="/api/v1/projects/{{ project_id }}/edit-modal" hx-target="body"
                     hx-swap="beforeend">
                     Edit

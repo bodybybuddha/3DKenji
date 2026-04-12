@@ -4,7 +4,10 @@ import html
 import json
 import mimetypes
 import os
+import secrets
+import hashlib
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote_plus
 from typing import Optional
@@ -13,12 +16,23 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Up
 from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from backend.api.auth import get_current_user, require_scopes
 from backend.db import get_db
 from backend.core.validation import CreateProjectRequest as ValidatedProjectRequest, format_validation_errors, sanitize_text_input
-from backend.services.project_directory import PathNotFoundError, PathTraversalError, UnsafeFilenameError, service_for_project
+from backend.models.project import Project
+from backend.models.project_invitation import ProjectInvitation
+from backend.models.user import User
+from backend.services.project_directory import (
+    PathNotFoundError,
+    PathTraversalError,
+    UnsafeFilenameError,
+    service_for_project_owner,
+)
 from backend.services.markdown_service import render_markdown
+from backend.services.project_access import ProjectAccessService
+from backend.services.email_service import send_project_invitation_email, EmailDeliveryError
 from backend.services.project_service import ProjectDTO, ProjectService
 from backend.api.frontend import templates
 
@@ -71,6 +85,7 @@ class ProjectResponse(BaseModel):
     title: str
     slug: str
     category: str
+    visibility: str = "private"
     directory_path: Optional[str] = None
     disk_size_bytes: Optional[int] = 0
     is_archived: bool = False
@@ -86,6 +101,56 @@ class ProjectListResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+
+class CollaboratorRequest(BaseModel):
+    user_id: str = Field(..., min_length=1)
+    role: str = Field(..., pattern="^(viewer|editor)$")
+
+
+class CollaboratorResponse(BaseModel):
+    user_id: str
+    role: str
+    granted_by_id: str
+    created_at: datetime
+
+
+class InvitationRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=255)
+    role: str = Field("viewer", pattern="^(viewer|editor)$")
+    expires_in_days: int = Field(default=7, ge=1, le=30)
+
+
+class InvitationResponse(BaseModel):
+    invitation_id: str
+    invited_email: str
+    role: str
+    expires_at: datetime
+    token: str
+
+
+class InvitationSummaryResponse(BaseModel):
+    invitation_id: str
+    invited_email: str
+    role: str
+    expires_at: datetime
+    accepted_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class InvitationUpdateRequest(BaseModel):
+    role: str = Field(..., pattern="^(viewer|editor)$")
+
+
+class PendingInvitationResponse(BaseModel):
+    invitation_id: str
+    project_id: str
+    project_title: str
+    invited_email: str
+    role: str
+    expires_at: datetime
+    created_at: datetime
 
 
 class UpdateProjectFileContentRequest(BaseModel):
@@ -154,6 +219,16 @@ def _resolve_project_for_owner(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this project",
+        )
+    return project
+
+
+def _resolve_project_model(project_id: str, session: Session) -> Project:
+    project = session.execute(select(Project).where(Project.id == project_id)).scalar_one_or_none()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project '{project_id}' not found",
         )
     return project
 
@@ -228,7 +303,12 @@ async def list_project_files(
 ):
     """List files in a project directory with extension-based viewer resolution."""
     project = _resolve_project_for_owner(project_id, current_user_id, session)
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
 
     try:
         entries = directory_service.list_files(path)
@@ -359,7 +439,12 @@ async def get_project_file_content(
 ):
     """Return editable text file content for the project file editor."""
     project = _resolve_project_for_owner(project_id, current_user_id, session)
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
 
     extension = os.path.splitext(path)[1].lstrip(".").lower()
     if not _is_editable_extension(extension):
@@ -399,7 +484,12 @@ async def update_project_file_content(
 ):
     """Persist text file editor changes to the project filesystem."""
     project = _resolve_project_for_owner(project_id, current_user_id, session)
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
 
     extension = os.path.splitext(payload.path)[1].lstrip(".").lower()
     if not _is_editable_extension(extension):
@@ -449,7 +539,12 @@ async def get_project_files_summary(
 ):
     """Return filesystem-backed project summary stats for the detail page cards."""
     project = _resolve_project_for_owner(project_id, current_user_id, session)
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
 
     created_at = project.created_at
     if created_at is not None and hasattr(created_at, "isoformat"):
@@ -513,7 +608,12 @@ async def upload_project_file(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No file provided")
 
     project = _resolve_project_for_owner(project_id, current_user_id, session)
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
 
     target_path = path.strip("/")
     if target_path:
@@ -563,7 +663,12 @@ async def create_project_file(
 ):
     """Create a new file in a project directory from supported type templates."""
     project = _resolve_project_for_owner(project_id, current_user_id, session)
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
 
     target_path = payload.path.strip("/")
     if target_path:
@@ -634,7 +739,12 @@ async def create_project_folder(
 ):
     """Create a new folder in the selected project directory path."""
     project = _resolve_project_for_owner(project_id, current_user_id, session)
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
 
     try:
         relative_path = directory_service.create_directory(payload.path.strip("/"), payload.name)
@@ -670,7 +780,12 @@ async def rename_project_path(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reserved project files cannot be renamed")
 
     project = _resolve_project_for_owner(project_id, current_user_id, session)
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
 
     try:
         renamed_path = directory_service.rename_path(source_path, payload.new_name)
@@ -708,7 +823,12 @@ async def move_project_paths(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reserved project files cannot be moved")
 
     project = _resolve_project_for_owner(project_id, current_user_id, session)
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
 
     try:
         moved_paths = directory_service.move_paths(source_paths, payload.destination_path.strip("/"))
@@ -744,7 +864,12 @@ async def preview_project_file(
 ):
     """Preview a project file and indicate which viewer hook is selected."""
     project = _resolve_project_for_owner(project_id, current_user_id, session)
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
 
     try:
         content = directory_service.read_file(path)
@@ -870,7 +995,12 @@ async def get_project_file_raw(
 ):
     """Return raw file bytes with an inferred media type for in-browser viewers."""
     project = _resolve_project_for_owner(project_id, current_user_id, session)
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
 
     try:
         content = directory_service.read_file(path)
@@ -893,7 +1023,12 @@ async def download_project_file(
 ):
     """Download a file from the project filesystem."""
     project = _resolve_project_for_owner(project_id, current_user_id, session)
-    directory_service = service_for_project(project.category, project.slug)
+    directory_service = service_for_project_owner(
+        session,
+        project.owner_id,
+        project.slug,
+        legacy_segment=project.category,
+    )
 
     try:
         content = directory_service.read_file(path)
@@ -939,6 +1074,7 @@ async def create_project(
             title = body.get("title") or body.get("name")  # Support both field names
             desc = body.get("description")
             metadata = body.get("custom_metadata", {})
+            requested_visibility = body.get("visibility")
             
             if not title:
                 raise HTTPException(
@@ -969,11 +1105,21 @@ async def create_project(
                 title = sanitize_text_input(title_stripped, "Project title")
                 if desc:
                     desc = sanitize_text_input(desc, "Project description")
+                if requested_visibility:
+                    requested_visibility = sanitize_text_input(str(requested_visibility), "Project visibility")
             except ValueError as e:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=str(e)
                 )
+
+            if requested_visibility and requested_visibility not in {"private", "public"}:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Visibility must be either 'private' or 'public'",
+                )
+            if isinstance(metadata, dict) and requested_visibility:
+                metadata["visibility"] = requested_visibility
         else:
             # Handle form request
             if not name:
@@ -1017,11 +1163,18 @@ async def create_project(
         
         service = ProjectService(session)
         # Extract category from metadata if present, otherwise default to "Uncategorized"
-        category = metadata.get("visibility", "Uncategorized") if isinstance(metadata, dict) else "Uncategorized"
+        category = metadata.get("category", "Uncategorized") if isinstance(metadata, dict) else "Uncategorized"
+        resolved_visibility = metadata.get("visibility", "private") if isinstance(metadata, dict) else "private"
+        if resolved_visibility not in {"private", "public"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Visibility must be either 'private' or 'public'",
+            )
         project_dto = service.create_project(
             owner_id=current_user_id,
             title=title,
             category=category,
+            visibility=resolved_visibility,
             description=desc or "",
         )
         
@@ -1097,7 +1250,7 @@ async def list_projects(
         )
 
     service = ProjectService(session)
-    projects = service.list_user_projects(owner_id=current_user_id, skip=skip, limit=limit)
+    projects = service.list_accessible_projects(user_id=current_user_id, skip=skip, limit=limit)
 
     # Return HTML fragment for HTMX
     if format == "html":
@@ -1114,6 +1267,54 @@ async def list_projects(
         skip=skip,
         limit=limit,
     )
+
+
+@router.get("/public", response_model=ProjectListResponse)
+async def list_public_projects(
+    skip: int = 0,
+    limit: int = 100,
+    session: Session = Depends(get_db),
+) -> ProjectListResponse:
+    """List publicly visible projects without authentication."""
+    limit = min(limit, 1000)
+    if limit < 0 or skip < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="skip and limit must be >= 0",
+        )
+
+    public_projects = session.execute(
+        select(Project)
+        .where(Project.visibility == "public")
+        .where(Project.is_archived == False)
+        .offset(skip)
+        .limit(limit)
+    ).scalars().all()
+
+    items = [ProjectService._to_dto(project) for project in public_projects]
+    return ProjectListResponse(
+        items=[ProjectResponse(**p.__dict__) for p in items],
+        total=len(items),
+        skip=skip,
+        limit=limit,
+    )
+
+
+@router.get("/public/{project_id}", response_model=ProjectResponse)
+async def get_public_project(
+    project_id: str,
+    session: Session = Depends(get_db),
+) -> ProjectResponse:
+    """Read a publicly visible project without authentication."""
+    project = _resolve_project_model(project_id, session)
+    if project.visibility != "public" or project.is_archived:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+
+    dto = ProjectService._to_dto(project)
+    return ProjectResponse(**dto.__dict__)
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -1149,8 +1350,10 @@ async def get_project(
             detail=f"Project '{project_id}' not found",
         )
 
-    # Check ownership (MVP: only owner can view)
-    if project.owner_id != current_user_id:
+    access_service = ProjectAccessService(session)
+    project_model = _resolve_project_model(project_id, session)
+
+    if not access_service.can_view(project_model, current_user_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this project",
@@ -1210,7 +1413,7 @@ async def update_project(
         if request.title:
             sanitized_title = sanitize_text_input(request.title, "Project title")
         if request.custom_metadata:
-            requested_category = request.custom_metadata.get("category") or request.custom_metadata.get("visibility")
+            requested_category = request.custom_metadata.get("category")
             if requested_category:
                 sanitized_category = sanitize_text_input(str(requested_category), "Project category")
     except ValueError as e:
@@ -1219,11 +1422,22 @@ async def update_project(
             detail=str(e)
         )
 
+    requested_visibility = None
+    if request.custom_metadata and request.custom_metadata.get("visibility") is not None:
+        raw_visibility = str(request.custom_metadata.get("visibility"))
+        requested_visibility = sanitize_text_input(raw_visibility, "Project visibility")
+        if requested_visibility not in {"private", "public"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Visibility must be either 'private' or 'public'",
+            )
+
     try:
         updated = service.update_project(
             project_id=project_id,
             title=sanitized_title,
             category=sanitized_category,
+            visibility=requested_visibility,
         )
         return ProjectResponse(**updated.__dict__)
     except ValueError as e:
@@ -1267,12 +1481,14 @@ async def update_project_form(
             raise ValueError("Project name is required")
 
         sanitized_name = sanitize_text_input(name.strip(), "Project title")
-        sanitized_category = sanitize_text_input(visibility, "Project category") if visibility else None
+        sanitized_visibility = sanitize_text_input(visibility, "Project visibility") if visibility else None
+        if sanitized_visibility and sanitized_visibility not in {"private", "public"}:
+            raise ValueError("Visibility must be either 'private' or 'public'")
 
         service.update_project(
             project_id=project_id,
             title=sanitized_name,
-            category=sanitized_category,
+            visibility=sanitized_visibility,
         )
 
         return templates.TemplateResponse(
@@ -1347,6 +1563,341 @@ async def delete_project(
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+
+@router.get("/{project_id}/collaborators", response_model=list[CollaboratorResponse])
+async def list_project_collaborators(
+    project_id: str,
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
+    session: Session = Depends(get_db),
+) -> list[CollaboratorResponse]:
+    """List collaborators for a project (owner only)."""
+    project = _resolve_project_model(project_id, session)
+    if project.owner_id != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to manage collaborators",
+        )
+
+    access_service = ProjectAccessService(session)
+    collaborators = access_service.list_collaborators(project_id)
+    return [
+        CollaboratorResponse(
+            user_id=item.user_id,
+            role=item.role,
+            granted_by_id=item.granted_by_id,
+            created_at=item.created_at,
+        )
+        for item in collaborators
+    ]
+
+
+@router.post("/{project_id}/collaborators", response_model=CollaboratorResponse)
+async def upsert_project_collaborator(
+    project_id: str,
+    request: CollaboratorRequest,
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+) -> CollaboratorResponse:
+    """Add or update a collaborator role (owner only)."""
+    project = _resolve_project_model(project_id, session)
+    if project.owner_id != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to manage collaborators",
+        )
+    if request.user_id == current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Owner role is implicit and cannot be assigned",
+        )
+
+    user = session.execute(select(User).where(User.id == request.user_id)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    access_service = ProjectAccessService(session)
+    collaborator = access_service.upsert_collaborator(
+        project=project,
+        target_user_id=request.user_id,
+        role=request.role,
+        granted_by_id=current_user_id,
+    )
+    return CollaboratorResponse(
+        user_id=collaborator.user_id,
+        role=collaborator.role,
+        granted_by_id=collaborator.granted_by_id,
+        created_at=collaborator.created_at,
+    )
+
+
+@router.delete("/{project_id}/collaborators/{user_id}")
+async def remove_project_collaborator(
+    project_id: str,
+    user_id: str,
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+) -> Response:
+    """Remove a collaborator from a project (owner only)."""
+    project = _resolve_project_model(project_id, session)
+    if project.owner_id != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to manage collaborators",
+        )
+
+    access_service = ProjectAccessService(session)
+    removed = access_service.remove_collaborator(project_id=project_id, target_user_id=user_id)
+    if not removed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Collaborator not found",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{project_id}/invitations", response_model=InvitationResponse)
+async def create_project_invitation(
+    project_id: str,
+    request: InvitationRequest,
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+) -> InvitationResponse:
+    """Create an invitation token for project access (owner only)."""
+    project = _resolve_project_model(project_id, session)
+    if project.owner_id != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to invite collaborators",
+        )
+
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(days=request.expires_in_days)
+
+    access_service = ProjectAccessService(session)
+    invitation = access_service.create_invitation(
+        project=project,
+        invited_email=request.email,
+        role=request.role,
+        token_hash=token_hash,
+        expires_at=expires_at,
+        invited_by_id=current_user_id,
+    )
+
+    inviter_name = session.execute(select(User).where(User.id == current_user_id)).scalar_one().display_name
+    try:
+        send_project_invitation_email(
+            session=session,
+            invitation=invitation,
+            project=project,
+            token=token,
+            inviter_name=str(inviter_name),
+        )
+    except EmailDeliveryError as exc:
+        access_service.revoke_invitation(invitation.id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Invitation email delivery failed: {exc}",
+        ) from exc
+
+    return InvitationResponse(
+        invitation_id=invitation.id,
+        invited_email=invitation.invited_email,
+        role=invitation.role,
+        expires_at=invitation.expires_at,
+        token=token,
+    )
+
+
+@router.post("/invitations/{token}/accept", response_model=CollaboratorResponse)
+async def accept_project_invitation(
+    token: str,
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+) -> CollaboratorResponse:
+    """Accept an invitation token and become a collaborator."""
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    access_service = ProjectAccessService(session)
+    collaborator = access_service.accept_invitation(token_hash=token_hash, user_id=current_user_id)
+    if not collaborator:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invitation is invalid, expired, revoked, or already accepted",
+        )
+
+    return CollaboratorResponse(
+        user_id=collaborator.user_id,
+        role=collaborator.role,
+        granted_by_id=collaborator.granted_by_id,
+        created_at=collaborator.created_at,
+    )
+
+
+@router.get("/invitations/mine", response_model=list[PendingInvitationResponse])
+async def list_my_pending_invitations(
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
+    session: Session = Depends(get_db),
+) -> list[PendingInvitationResponse]:
+    """List pending invitations for the authenticated user."""
+    access_service = ProjectAccessService(session)
+    invitations = access_service.list_pending_invitations_for_user(current_user_id)
+
+    results: list[PendingInvitationResponse] = []
+    for invitation in invitations:
+        project = session.execute(
+            select(Project).where(Project.id == invitation.project_id)
+        ).scalar_one_or_none()
+        if not project:
+            continue
+        results.append(
+            PendingInvitationResponse(
+                invitation_id=invitation.id,
+                project_id=project.id,
+                project_title=project.title,
+                invited_email=invitation.invited_email,
+                role=invitation.role,
+                expires_at=invitation.expires_at,
+                created_at=invitation.created_at,
+            )
+        )
+    return results
+
+
+@router.post("/invitations/id/{invitation_id}/accept", response_model=CollaboratorResponse)
+async def accept_project_invitation_by_id(
+    invitation_id: str,
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+) -> CollaboratorResponse:
+    """Accept a pending invitation by invitation id for the authenticated user."""
+    access_service = ProjectAccessService(session)
+    collaborator = access_service.accept_invitation_by_id(
+        invitation_id=invitation_id,
+        user_id=current_user_id,
+    )
+    if not collaborator:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invitation is invalid, expired, revoked, already accepted, or does not match your account",
+        )
+
+    return CollaboratorResponse(
+        user_id=collaborator.user_id,
+        role=collaborator.role,
+        granted_by_id=collaborator.granted_by_id,
+        created_at=collaborator.created_at,
+    )
+
+
+@router.get("/{project_id}/invitations", response_model=list[InvitationSummaryResponse])
+async def list_project_invitations(
+    project_id: str,
+    include_inactive: bool = False,
+    current_user_id: str = Depends(require_scopes(["read:projects"])),
+    session: Session = Depends(get_db),
+) -> list[InvitationSummaryResponse]:
+    """List project invitations (owner only)."""
+    project = _resolve_project_model(project_id, session)
+    if project.owner_id != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to manage invitations",
+        )
+
+    access_service = ProjectAccessService(session)
+    invitations = access_service.list_invitations(
+        project_id=project_id,
+        include_inactive=include_inactive,
+    )
+    return [
+        InvitationSummaryResponse(
+            invitation_id=item.id,
+            invited_email=item.invited_email,
+            role=item.role,
+            expires_at=item.expires_at,
+            accepted_at=item.accepted_at,
+            revoked_at=item.revoked_at,
+            created_at=item.created_at,
+        )
+        for item in invitations
+    ]
+
+
+@router.patch("/{project_id}/invitations/{invitation_id}", response_model=InvitationSummaryResponse)
+async def update_project_invitation(
+    project_id: str,
+    invitation_id: str,
+    request: InvitationUpdateRequest,
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+) -> InvitationSummaryResponse:
+    """Update role for a pending invitation (owner only)."""
+    project = _resolve_project_model(project_id, session)
+    if project.owner_id != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to manage invitations",
+        )
+
+    invitation = session.execute(
+        select(ProjectInvitation).where(ProjectInvitation.id == invitation_id)
+    ).scalar_one_or_none()
+    if not invitation or invitation.project_id != project_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation not found",
+        )
+
+    access_service = ProjectAccessService(session)
+    updated = access_service.update_invitation_role(invitation_id=invitation_id, role=request.role)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invitation cannot be updated",
+        )
+
+    return InvitationSummaryResponse(
+        invitation_id=updated.id,
+        invited_email=updated.invited_email,
+        role=updated.role,
+        expires_at=updated.expires_at,
+        accepted_at=updated.accepted_at,
+        revoked_at=updated.revoked_at,
+        created_at=updated.created_at,
+    )
+
+
+@router.delete("/{project_id}/invitations/{invitation_id}")
+async def revoke_project_invitation(
+    project_id: str,
+    invitation_id: str,
+    current_user_id: str = Depends(require_scopes(["write:projects"])),
+    session: Session = Depends(get_db),
+) -> Response:
+    """Revoke a pending invitation (owner only)."""
+    project = _resolve_project_model(project_id, session)
+    if project.owner_id != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to manage invitations",
+        )
+
+    invitation = session.execute(
+        select(ProjectInvitation).where(ProjectInvitation.id == invitation_id)
+    ).scalar_one_or_none()
+    if not invitation or invitation.project_id != project_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation not found",
+        )
+
+    access_service = ProjectAccessService(session)
+    access_service.revoke_invitation(invitation_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
 # Modal endpoints for HTMX form loading
 @router.get("/{project_id}/edit-modal", response_class=HTMLResponse)
 async def get_edit_project_modal(
@@ -1407,8 +1958,9 @@ async def validate_create_project(
         project_dto = service.create_project(
             owner_id=current_user_id,
             title=validated.name,
+            category="Uncategorized",
+            visibility=validated.visibility,
             description=validated.description,
-            custom_metadata={"visibility": validated.visibility},
         )
         
         return JSONResponse({

@@ -36,6 +36,7 @@ class RegisterRequest(BaseModel):
     """User registration request."""
 
     username: str = Field(..., min_length=3, max_length=255)
+    nickname: Optional[str] = Field(None, min_length=3, max_length=64)
     email: EmailStr
     display_name: str = Field(..., min_length=1, max_length=255)
     password: str = Field(..., min_length=8, max_length=128)
@@ -60,6 +61,7 @@ class UserResponse(BaseModel):
 
     id: str
     username: str
+    nickname: str
     email: str
     display_name: str
 
@@ -239,6 +241,7 @@ async def register(
     try:
         user_identity = await auth_provider.create_user(
             username=request.username,
+            nickname=request.nickname,
             email=request.email,
             display_name=sanitized_display_name,
             password=request.password,
@@ -276,6 +279,7 @@ async def register(
         user=UserResponse(
             id=user_identity.user_id,
             username=user_identity.username,
+            nickname=user_identity.nickname,
             email=user_identity.email,
             display_name=user_identity.display_name,
         ),
@@ -322,6 +326,7 @@ async def login(
         user=UserResponse(
             id=auth_result.user_id,
             username=auth_result.username,
+            nickname=auth_result.nickname,
             email=auth_result.email,
             display_name=auth_result.display_name,
         ),
@@ -382,6 +387,7 @@ async def change_password(
     return UserResponse(
         id=updated_identity.user_id,
         username=updated_identity.username,
+        nickname=updated_identity.nickname,
         email=updated_identity.email,
         display_name=updated_identity.display_name,
     )
@@ -457,6 +463,7 @@ async def validate_login_form(
 async def validate_register_form(
     request: Request,
     username: str = Form(),
+    nickname: str = Form(None),
     email: str = Form(),
     display_name: str = Form(None),
     password: str = Form(),
@@ -469,6 +476,7 @@ async def validate_register_form(
         # Validate inputs
         validated = ValidatedRegisterRequest(
             username=username,
+            nickname=nickname,
             email=email,
             display_name=display_name,
             password=password,
@@ -495,6 +503,7 @@ async def validate_register_form(
         auth_provider = PasswordAuthProvider(db)
         user_identity = await auth_provider.create_user(
             username=validated.username,
+            nickname=validated.nickname,
             email=validated.email,
             display_name=validated.display_name or validated.username,
             password=validated.password,

@@ -1,6 +1,9 @@
 """User service for user management."""
 
+import re
+import shutil
 import uuid
+from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
 
@@ -9,7 +12,9 @@ from sqlalchemy import select
 import bcrypt
 
 from backend.models.user import User
+from backend.models.project import Project
 from backend.models.api_key import APIKey
+from backend.services.project_directory import get_projects_dir
 
 
 @dataclass
@@ -18,6 +23,7 @@ class UserDTO:
 
     id: str
     username: str
+    nickname: str
     email: str
     display_name: str
     is_admin: bool
@@ -39,6 +45,7 @@ class UserService:
         email: str,
         display_name: str,
         password: str,
+        nickname: Optional[str] = None,
         is_admin: bool = False,
         is_active: bool = True,
     ) -> UserDTO:
@@ -70,6 +77,10 @@ class UserService:
         if existing_user:
             raise ValueError(f"Email '{email}' already exists")
 
+        # Resolve a collision-safe nickname for storage identity.
+        base_nickname = self.normalize_nickname(nickname or username)
+        unique_nickname = self._ensure_unique_nickname(base_nickname)
+
         # Hash password
         password_hash = self._hash_password(password)
 
@@ -77,6 +88,7 @@ class UserService:
         user = User(
             id=str(uuid.uuid4()),
             username=username,
+            nickname=unique_nickname,
             email=email,
             display_name=display_name,
             password_hash=password_hash,
@@ -186,6 +198,68 @@ class UserService:
 
         return self._to_dto(user)
 
+    def update_profile(
+        self,
+        user_id: str,
+        *,
+        email: str,
+        display_name: str,
+        nickname: str,
+    ) -> UserDTO:
+        """Update profile fields and migrate owner filesystem path when nickname changes."""
+        user = self.session.execute(
+            select(User).where(User.id == user_id)
+        ).scalar_one_or_none()
+        if not user:
+            raise ValueError(f"User '{user_id}' not found")
+
+        normalized_nickname = self.normalize_nickname(nickname)
+
+        duplicate_email = self.session.execute(
+            select(User).where(User.email == email, User.id != user_id)
+        ).scalar_one_or_none()
+        if duplicate_email:
+            raise ValueError(f"Email '{email}' already exists")
+
+        duplicate_nickname = self.session.execute(
+            select(User).where(User.nickname == normalized_nickname, User.id != user_id)
+        ).scalar_one_or_none()
+        if duplicate_nickname:
+            raise ValueError(f"Nickname '{normalized_nickname}' already exists")
+
+        old_nickname = str(user.nickname)
+        rename_performed = False
+        rename_source: Optional[Path] = None
+        rename_target: Optional[Path] = None
+
+        if old_nickname != normalized_nickname:
+            rename_source, rename_target, rename_performed = self._migrate_owner_storage_root(
+                owner_id=str(user.id),
+                old_nickname=old_nickname,
+                new_nickname=normalized_nickname,
+            )
+
+        user.email = email  # type: ignore[attr-defined]
+        user.display_name = display_name  # type: ignore[attr-defined]
+        user.nickname = normalized_nickname  # type: ignore[attr-defined]
+
+        projects = self.session.execute(
+            select(Project).where(Project.owner_id == user_id)
+        ).scalars().all()
+        for project in projects:
+            project.directory_path = f"Projects/{normalized_nickname}/{project.slug}"  # type: ignore[attr-defined]
+
+        try:
+            self.session.commit()
+            self.session.refresh(user)
+        except Exception:
+            self.session.rollback()
+            if rename_performed and rename_source and rename_target:
+                self._rollback_owner_storage_rename(rename_source, rename_target)
+            raise
+
+        return self._to_dto(user)
+
     def update_password(self, user_id: str, new_password: str) -> UserDTO:
         """Update user password.
         
@@ -249,6 +323,76 @@ class UserService:
         return [self._to_dto(user) for user in users]
 
     @staticmethod
+    def normalize_nickname(value: str) -> str:
+        """Normalize nickname into a filesystem-safe, user-friendly segment."""
+        nickname = (value or "").strip().lower()
+        nickname = re.sub(r"[^a-z0-9_-]+", "-", nickname)
+        nickname = re.sub(r"-{2,}", "-", nickname).strip("-_")
+
+        if len(nickname) < 3:
+            raise ValueError("Nickname must be at least 3 characters")
+        if len(nickname) > 64:
+            nickname = nickname[:64].rstrip("-_")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", nickname):
+            raise ValueError("Nickname can only contain lowercase letters, numbers, hyphens, and underscores")
+
+        return nickname
+
+    def _ensure_unique_nickname(self, base_nickname: str) -> str:
+        """Return a unique nickname by appending a numeric suffix when needed."""
+        candidate = base_nickname
+        counter = 1
+        while self.session.execute(
+            select(User).where(User.nickname == candidate)
+        ).scalar_one_or_none():
+            counter += 1
+            suffix = f"-{counter}"
+            trimmed = base_nickname[: max(1, 64 - len(suffix))].rstrip("-_")
+            candidate = f"{trimmed}{suffix}"
+        return candidate
+
+    @staticmethod
+    def _rollback_owner_storage_rename(source_root: Path, destination_root: Path) -> None:
+        """Best-effort rollback when DB commit fails after filesystem move."""
+        try:
+            if destination_root.exists() and not source_root.exists():
+                source_root.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(destination_root), str(source_root))
+        except Exception:
+            pass
+
+    def _migrate_owner_storage_root(
+        self,
+        *,
+        owner_id: str,
+        old_nickname: str,
+        new_nickname: str,
+    ) -> tuple[Optional[Path], Optional[Path], bool]:
+        """Rename owner root directory from old nickname (or owner_id) to new nickname."""
+        projects_root = get_projects_dir()
+        legacy_owner_root = projects_root / owner_id
+        old_nickname_root = projects_root / old_nickname
+        new_nickname_root = projects_root / new_nickname
+
+        source_root: Optional[Path] = None
+        if old_nickname_root.exists():
+            source_root = old_nickname_root
+        elif legacy_owner_root.exists() and legacy_owner_root != new_nickname_root:
+            source_root = legacy_owner_root
+
+        if not source_root or source_root == new_nickname_root:
+            return None, None, False
+
+        if new_nickname_root.exists():
+            raise ValueError(
+                f"Cannot change nickname: storage directory '{new_nickname_root.name}' already exists"
+            )
+
+        new_nickname_root.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(source_root), str(new_nickname_root))
+        return source_root, new_nickname_root, True
+
+    @staticmethod
     def _hash_password(password: str) -> str:
         """Hash a password using bcrypt.
         
@@ -287,6 +431,7 @@ class UserService:
         return UserDTO(
             id=user.id,  # type: ignore[arg-type]
             username=user.username,  # type: ignore[arg-type]
+            nickname=user.nickname,  # type: ignore[arg-type]
             email=user.email,  # type: ignore[arg-type]
             display_name=user.display_name,  # type: ignore[arg-type]
             is_admin=bool(user.is_admin),  # type: ignore[attr-defined]

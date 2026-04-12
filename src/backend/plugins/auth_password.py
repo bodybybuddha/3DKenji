@@ -75,6 +75,7 @@ class PasswordAuthProvider(AuthProvider):
         return AuthResult(
             user_id=user_dto.id,
             username=user_dto.username,
+            nickname=user_dto.nickname,
             email=user_dto.email,
             display_name=user_dto.display_name,
             scopes=[],
@@ -113,6 +114,7 @@ class PasswordAuthProvider(AuthProvider):
             return UserIdentity(
                 user_id=user_dto.id,
                 username=user_dto.username,
+                nickname=user_dto.nickname,
                 email=user_dto.email,
                 display_name=user_dto.display_name,
             )
@@ -120,7 +122,12 @@ class PasswordAuthProvider(AuthProvider):
             return None
 
     async def create_user(
-        self, username: str, email: str, display_name: str, password: str
+        self,
+        username: str,
+        email: str,
+        display_name: str,
+        password: str,
+        nickname: Optional[str] = None,
     ) -> UserIdentity:
         """Create a new user.
         
@@ -141,11 +148,13 @@ class PasswordAuthProvider(AuthProvider):
             email=email,
             display_name=display_name,
             password=password,
+            nickname=nickname,
         )
 
         return UserIdentity(
             user_id=user_dto.id,
             username=user_dto.username,
+            nickname=user_dto.nickname,
             email=user_dto.email,
             display_name=user_dto.display_name,
         )
@@ -168,6 +177,7 @@ class PasswordAuthProvider(AuthProvider):
         return UserIdentity(
             user_id=user_dto.id,
             username=user_dto.username,
+            nickname=user_dto.nickname,
             email=user_dto.email,
             display_name=user_dto.display_name,
         )

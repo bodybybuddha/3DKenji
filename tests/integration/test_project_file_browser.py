@@ -52,7 +52,7 @@ def _create_project(headers: dict[str, str]) -> dict:
 
 def _write_project_file(project_payload: dict, relative_path: str, content: bytes) -> None:
     storage_root = Path(os.environ["STORAGE_ROOT"])
-    project_root = storage_root / "Projects" / project_payload["category"] / project_payload["slug"]
+    project_root = storage_root / project_payload["directory_path"]
     target = project_root / relative_path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(content)
@@ -216,7 +216,7 @@ def test_project_file_editor_content_get_and_save_roundtrip():
     )
     assert put_response.status_code == 200, put_response.text
 
-    project_root = Path(os.environ["STORAGE_ROOT"]) / "Projects" / project["category"] / project["slug"]
+    project_root = Path(os.environ["STORAGE_ROOT"]) / project["directory_path"]
     assert (project_root / "notes/readme.md").read_text(encoding="utf-8") == updated_content
 
 
@@ -260,7 +260,7 @@ def test_project_file_create_endpoint_creates_template_file():
     assert payload["relative_path"] == "models/notes.md"
 
     storage_root = Path(os.environ["STORAGE_ROOT"])
-    project_root = storage_root / "Projects" / project["category"] / project["slug"]
+    project_root = storage_root / project["directory_path"]
     created_file = project_root / "models" / "notes.md"
     assert created_file.exists()
     assert "# Title" in created_file.read_text(encoding="utf-8")
@@ -329,7 +329,7 @@ def test_project_file_rename_endpoint_renames_path():
     payload = response.json()
     assert payload["new_path"] == "models/renamed.stl"
 
-    project_root = Path(os.environ["STORAGE_ROOT"]) / "Projects" / project["category"] / project["slug"]
+    project_root = Path(os.environ["STORAGE_ROOT"]) / project["directory_path"]
     assert not (project_root / "models/rename-me.stl").exists()
     assert (project_root / "models/renamed.stl").exists()
 
@@ -358,7 +358,7 @@ def test_project_file_move_endpoint_moves_multiple_paths():
     assert "cad_files/a.stl" in payload["moved_paths"]
     assert "cad_files/b.stl" in payload["moved_paths"]
 
-    project_root = Path(os.environ["STORAGE_ROOT"]) / "Projects" / project["category"] / project["slug"]
+    project_root = Path(os.environ["STORAGE_ROOT"]) / project["directory_path"]
     assert not (project_root / "models/a.stl").exists()
     assert not (project_root / "models/b.stl").exists()
     assert (project_root / "cad_files/a.stl").exists()
@@ -427,7 +427,7 @@ def test_project_file_move_endpoint_rejects_parent_and_child_selection():
 
     assert response.status_code == 400, response.text
 
-    project_root = Path(os.environ["STORAGE_ROOT"]) / "Projects" / project["category"] / project["slug"]
+    project_root = Path(os.environ["STORAGE_ROOT"]) / project["directory_path"]
     assert (project_root / "models/assembly").is_dir()
     assert (project_root / "models/assembly/part-a.stl").exists()
     assert not (project_root / "cad_files/assembly").exists()
@@ -491,7 +491,7 @@ async def test_preview_html_cache_busts_viewer_module_import(monkeypatch):
     monkeypatch.setattr(
         projects_api,
         "_resolve_project_for_owner",
-        lambda *args, **kwargs: SimpleNamespace(category="tests", slug="viewer-preview"),
+        lambda *args, **kwargs: SimpleNamespace(owner_id="owner-1", category="tests", slug="viewer-preview"),
     )
     monkeypatch.setattr(projects_api, "service_for_project", lambda *args, **kwargs: DummyDirectoryService())
     monkeypatch.setattr(projects_api, "_resolve_viewer_info", fake_resolve_viewer_info)

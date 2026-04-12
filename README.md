@@ -32,9 +32,17 @@ Automation in this repository supports that policy in three places:
 - Create, read, update, and delete printing projects
 - Organize models by project
 - **Hybrid storage**: Database for identity/metadata, filesystem for artifacts and docs
+- Owner-scoped filesystem layout: `Projects/<owner_nickname>/<slug>`
 - ProjectInfo.md and PrintHistory.md with YAML-like frontmatter for structured metadata
-- Full ownership and permission validation
+- Project visibility controls: `private` or `public`
+- Owner/collaborator permissions with invitation workflows
 - Filesystem directories backed by persistent STORAGE_ROOT volume
+
+### 🤝 Collaboration & Invitations
+- Invite collaborators by email with role-based access (`viewer`/`editor`)
+- Accept invitations through API token flow or frontend claim pages
+- Manage collaborators and pending invitations from project member management screens
+- Public project listing endpoints for read-only discovery
 
 ### 🎨 3D Model Management
 - Upload 3D model files (.stl, .3mf, .obj, .gcode)
@@ -223,7 +231,8 @@ SECRET_KEY=your-secret-key-for-jwt-signing
 Project directories are created at:
 
 ```text
-STORAGE_ROOT/Projects/<category>/<slug>
+STORAGE_ROOT/Projects/<owner_nickname>/<slug>
+```
 
 Plugin packages are discovered at startup from:
 
@@ -235,7 +244,6 @@ Each plugin package owns its own `settings.yaml`, while installation enable/disa
 
 ```text
 PLUGINS_ROOT/_system/plugin-registry.yaml
-```
 ```
 
 Each project includes:
