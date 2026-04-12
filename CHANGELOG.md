@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added a dedicated text-file editor window launched from Project Files actions for editable formats (`.md`, `.txt`, `.rtf`, and related text/config/code files).
 - Added save support for editable files through secure project file content APIs, including keyboard shortcut support (`Ctrl/Cmd+S`) in the editor.
 - Added live markdown preview support in the editor via backend markdown render endpoint.
+- Replaced the basic markdown textarea/preview editor with Toast UI Editor for richer markdown authoring and built-in split preview on the editor page.
+- Improved Toast UI markdown readability in dark mode by enabling theme-aware editor styling and live theme-switch handling.
 - Added a markdown viewer plugin (`markdown-viewer`) so markdown files render as formatted content in the Project Files preview pane.
 - Added an RTF viewer plugin (`rtf-viewer`) so `.rtf` files render in the Project Files preview pane.
 - Added rich-text editor mode for `.rtf` files with inline formatting controls and direct save workflow.
