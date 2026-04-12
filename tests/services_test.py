@@ -317,6 +317,7 @@ class TestProjectService:
         assert project.id is not None
         assert project.slug == "test-project"
         assert project.category == "Uncategorized"
+        assert project.tags == ["3d-printing"]
 
     def test_create_project_creates_directory_and_projectinfo(
         self,
@@ -368,6 +369,51 @@ class TestProjectService:
         content = info_path.read_text(encoding="utf-8")
         assert title in content
         assert description in content
+
+    def test_refresh_project_tags_cache_from_project_info(
+        self,
+        project_service: ProjectService,
+        user,
+        monkeypatch,
+        tmp_path,
+        test_db: Session,
+    ):
+        """Refreshing tags cache should parse ProjectInfo.md frontmatter tags."""
+        monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
+
+        project = project_service.create_project(
+            owner_id=user.id,
+            title="Tagged Project",
+            category="private",
+            description="Tag cache test",
+        )
+
+        info_path = tmp_path / "Projects" / user.nickname / project.slug / "ProjectInfo.md"
+        info_path.write_text(
+            """---
+title: Tagged Project
+summary: Cached tags should sync
+tags:
+  - calibration
+  - benchy
+  - calibration
+---
+
+# Tagged Project
+""",
+            encoding="utf-8",
+        )
+
+        refreshed_tags = project_service.refresh_project_tags_cache(project.id)
+
+        assert refreshed_tags == ["calibration", "benchy"]
+        persisted = test_db.get(Project, project.id)
+        assert persisted is not None
+        assert persisted.tags_cache == ["calibration", "benchy"]
+
+        dto = project_service.get_project_by_id(project.id)
+        assert dto is not None
+        assert dto.tags == ["calibration", "benchy"]
 
     def test_create_project_nonexistent_owner(
         self, project_service: ProjectService

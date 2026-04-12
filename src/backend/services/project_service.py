@@ -3,7 +3,7 @@
 import re
 import uuid
 import shutil
-from typing import Optional
+from typing import Any, Optional
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
@@ -35,6 +35,7 @@ class ProjectDTO:
     title: str
     slug: str
     category: str
+    tags: list[str]
     visibility: str
     directory_path: Optional[str]
     disk_size_bytes: int
@@ -106,6 +107,7 @@ class ProjectService:
             title=title,
             slug=slug,
             category=category,
+            tags_cache=["3d-printing"],
             visibility=visibility,
             directory_path=directory_path,
             disk_size_bytes=0,
@@ -398,6 +400,53 @@ class ProjectService:
         
         return bool(project is not None and project.owner_id == user_id)
 
+    @staticmethod
+    def _normalize_tags(value: Any) -> list[str]:
+        """Normalize arbitrary tag payloads into a clean list of strings."""
+        if not isinstance(value, list):
+            return []
+
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            tag = str(item).strip()
+            if not tag:
+                continue
+            key = tag.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized.append(tag)
+        return normalized
+
+    def refresh_project_tags_cache(self, project_id: str) -> list[str]:
+        """Refresh cached tags from ProjectInfo.md frontmatter for a project."""
+        project = self.session.execute(
+            select(Project).where(Project.id == project_id)
+        ).scalar_one_or_none()
+
+        if not project:
+            raise ValueError(f"Project '{project_id}' not found")
+
+        directory_service = service_for_project_owner(
+            self.session,
+            str(project.owner_id),
+            str(project.slug),
+            legacy_segment=str(project.category),
+        )
+
+        tags: list[str]
+        try:
+            project_info = directory_service.get_project_info()
+            tags = self._normalize_tags(project_info.metadata.get("tags"))
+        except Exception:
+            tags = self._normalize_tags(getattr(project, "tags_cache", None))
+
+        project.tags_cache = tags  # type: ignore[attr-defined]
+        self.session.commit()
+        self.session.refresh(project)
+        return tags
+
     def _resolve_disk_size_bytes(self, project: Project) -> int:
         """Resolve project disk usage from filesystem, falling back to DB value."""
         db_size = int(project.disk_size_bytes or 0)
@@ -423,6 +472,7 @@ class ProjectService:
             title=project.title,  # type: ignore[arg-type]
             slug=project.slug,  # type: ignore[arg-type]
             category=project.category,  # type: ignore[arg-type]
+            tags=self._normalize_tags(getattr(project, "tags_cache", None)),
             visibility=getattr(project, "visibility", "private"),  # type: ignore[arg-type]
             directory_path=project.directory_path,  # type: ignore[arg-type]
             disk_size_bytes=self._resolve_disk_size_bytes(project),
