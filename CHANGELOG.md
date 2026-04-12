@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Reworked file table actions so editable files show `Edit` and `View`, while non-editable files retain `Save` download action.
 - Removed the Type column and emphasized file/folder type icons in the Name column; retained Size for quick scanning.
 - Moved viewer-hook detail messaging into a compact hover info icon to reduce preview panel clutter.
+- Added drag-and-drop file upload directly on the Project Files card and drag-out file download support from file rows.
 
 ### 🔧 Fixed - Project Files Browser UX and Path Consistency
 
