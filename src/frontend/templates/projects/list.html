@@ -3,7 +3,8 @@
 {% block title %}Projects - 3DKenji{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.5/dist/css/tabulator.min.css" integrity="sha384-p6hY5g6BjbrEVoCLwj4gZMkotMaHdQrPkd4S0vRpErDxL9/kvjyaUIq/S9RAPQfL" crossorigin="anonymous">
+<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.5/dist/css/tabulator.min.css"
+    integrity="sha384-p6hY5g6BjbrEVoCLwj4gZMkotMaHdQrPkd4S0vRpErDxL9/kvjyaUIq/S9RAPQfL" crossorigin="anonymous">
 <style>
     .projects-page-shell {
         padding: var(--spacing-2xl) var(--spacing-lg);
@@ -113,6 +114,19 @@
         gap: 0.1rem;
     }
 
+    .project-title-line {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .project-visibility-lock {
+        display: inline-flex;
+        align-items: center;
+        color: var(--text-secondary);
+        font-size: 0.86rem;
+    }
+
     .project-title-cell strong {
         font-size: 0.96rem;
     }
@@ -120,18 +134,6 @@
     .project-title-cell span {
         color: var(--text-secondary);
         font-size: 0.8rem;
-    }
-
-    .project-category-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        padding: 0.2rem 0.55rem;
-        border-radius: 999px;
-        background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-secondary));
-        color: var(--text-primary);
-        font-size: 0.82rem;
-        font-weight: 500;
     }
 
     .project-actions {
@@ -204,7 +206,9 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://unpkg.com/tabulator-tables@6.2.5/dist/js/tabulator.min.js" integrity="sha384-D0fErOaZUOl6YD0uVXOV4adRMn/r+0AsYsVGYsxpPXC6BoVCP72nief3UntQBR9X" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/tabulator-tables@6.2.5/dist/js/tabulator.min.js"
+    integrity="sha384-D0fErOaZUOl6YD0uVXOV4adRMn/r+0AsYsVGYsxpPXC6BoVCP72nief3UntQBR9X"
+    crossorigin="anonymous"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (!window.Tabulator) {
@@ -341,28 +345,26 @@
                     responsive: 0,
                     formatter: function (cell) {
                         const project = cell.getRow().getData();
+                        const visibility = String(project.visibility || 'private').toLowerCase();
+                        const visibilityLock = visibility === 'private'
+                            ? '<span class="project-visibility-lock" aria-label="Private project" title="Private project">&#128274;</span>'
+                            : '';
                         return [
                             '<div class="project-title-cell">',
+                            '<div class="project-title-line">',
                             `<strong>${escapeHtml(project.title || 'Untitled Project')}</strong>`,
+                            visibilityLock,
+                            '</div>',
                             `<span>${escapeHtml(project.slug || '')}</span>`,
                             '</div>'
                         ].join('');
                     }
                 },
                 {
-                    title: 'Category',
-                    field: 'category',
-                    minWidth: 160,
-                    responsive: 1,
-                    formatter: function (cell) {
-                        return `<span class="project-category-pill">${escapeHtml(cell.getValue() || 'Uncategorized')}</span>`;
-                    }
-                },
-                {
                     title: 'Size',
                     field: 'disk_size_bytes',
                     width: 130,
-                    responsive: 2,
+                    responsive: 1,
                     sorter: 'number',
                     hozAlign: 'left',
                     formatter: function (cell) {
