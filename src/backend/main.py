@@ -23,6 +23,30 @@ from backend.db.base import Base
 from backend.models.user import User
 
 
+def _check_migration_drift() -> list[str]:
+    """Return a list of unapplied Alembic migration revision IDs, or an empty list."""
+    try:
+        from alembic.config import Config
+        from alembic.runtime.migration import MigrationContext
+        from alembic.script import ScriptDirectory
+
+        cfg = Config("alembic.ini")
+        scripts = ScriptDirectory.from_config(cfg)
+        engine = get_engine()
+        with engine.connect() as conn:
+            context = MigrationContext.configure(conn)
+            current_heads = set(context.get_current_heads())
+        script_heads = set(scripts.get_heads())
+        # Walk revisions that are reachable from the script heads but not yet applied
+        pending = []
+        for rev in scripts.iterate_revisions(script_heads, current_heads):
+            pending.append(rev.revision)
+        return pending
+    except Exception as exc:  # pragma: no cover
+        logger.warning("Migration drift check failed: %s", exc)
+        return []
+
+
 def require_auth() -> None:
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
@@ -46,6 +70,19 @@ def create_app() -> FastAPI:
             logger.info("Database tables initialized")
         except Exception as e:
             logger.error(f"Failed to create database tables: {e}")
+
+        # Warn if any Alembic migrations have not been applied
+        pending_migrations = _check_migration_drift()
+        app.state.pending_migrations = pending_migrations
+        if pending_migrations:
+            logger.warning(
+                "Schema drift detected — %d unapplied migration(s): %s. "
+                "Run `alembic upgrade head` to resolve.",
+                len(pending_migrations),
+                ", ".join(pending_migrations),
+            )
+        else:
+            logger.info("Database schema is up to date")
         
         await initialize_storage(app)
         logger.info("Storage backend initialized")
