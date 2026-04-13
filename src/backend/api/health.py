@@ -1,6 +1,6 @@
 """Health check endpoints for observability and diagnostics."""
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Request, status
 from pydantic import BaseModel
 from typing import Optional
 import backend.storage as storage_module
@@ -27,7 +27,7 @@ class HealthCheckResponse(BaseModel):
 
 
 @router.get("", response_model=HealthCheckResponse, status_code=status.HTTP_200_OK)
-async def health_check() -> HealthCheckResponse:
+async def health_check(request: Request) -> HealthCheckResponse:
     """
     Get overall system health status.
 
@@ -116,6 +116,24 @@ async def health_check() -> HealthCheckResponse:
                 component="database",
                 status="unhealthy",
                 message=f"Database connection failed: {str(e)}",
+            )
+        )
+
+    # Check migration drift (populated once at startup, no extra DB round-trip)
+    pending: list[str] = getattr(request.app.state, "pending_migrations", [])
+    if pending:
+        components.append(
+            ComponentHealth(
+                component="migration_drift",
+                status="degraded",
+                message=f"{len(pending)} unapplied migration(s): {', '.join(pending)}",
+            )
+        )
+    else:
+        components.append(
+            ComponentHealth(
+                component="migration_drift",
+                status="healthy",
             )
         )
 
