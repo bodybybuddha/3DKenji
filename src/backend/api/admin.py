@@ -11,7 +11,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from sqlalchemy.orm import Session
 
 from backend.api.auth import get_current_user
@@ -120,6 +120,9 @@ def _parse_log_line(line: str) -> dict[str, str]:
             "level": "INFO",
             "module": "",
             "message": "",
+            "username": "",
+            "user_id": "",
+            "client_ip": "",
         }
 
     try:
@@ -129,6 +132,9 @@ def _parse_log_line(line: str) -> dict[str, str]:
             "level": str(record.get("level", "INFO")),
             "module": str(record.get("module", record.get("logger", ""))),
             "message": str(record.get("message", "")),
+            "username": str(record.get("username", "")),
+            "user_id": str(record.get("user_id", "")),
+            "client_ip": str(record.get("client_ip", "")),
         }
     except json.JSONDecodeError:
         return {
@@ -136,6 +142,9 @@ def _parse_log_line(line: str) -> dict[str, str]:
             "level": "INFO",
             "module": "",
             "message": raw_line,
+            "username": "",
+            "user_id": "",
+            "client_ip": "",
         }
 
 
@@ -168,6 +177,36 @@ class SMTPSettingsRequest(BaseModel):
     use_starttls: bool = True
     use_tls: bool = False
     mock_delivery: bool = False
+
+
+class LogSettingsRequest(BaseModel):
+    """Request to update logging configuration."""
+
+    log_level: Optional[str] = None
+    max_size_mb: Optional[int] = None
+    backup_count: Optional[int] = None
+
+    @validator("log_level")
+    @classmethod
+    def validate_log_level(cls, v: Optional[str]) -> Optional[str]:
+        valid = {"DEBUG", "INFO", "WARNING", "ERROR"}
+        if v is not None and v.upper() not in valid:
+            raise ValueError(f"log_level must be one of {sorted(valid)}")
+        return v.upper() if v else v
+
+    @validator("max_size_mb")
+    @classmethod
+    def validate_max_size_mb(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v < 1:
+            raise ValueError("max_size_mb must be at least 1")
+        return v
+
+    @validator("backup_count")
+    @classmethod
+    def validate_backup_count(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v < 1:
+            raise ValueError("backup_count must be at least 1")
+        return v
 
 
 # Response Models
@@ -681,25 +720,34 @@ async def get_admin_logs(
         """
     
     return f"""
-    <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem; table-layout: fixed;">
+        <colgroup>
+            <col style="width: 14em;">
+            <col style="width: 6em;">
+            <col style="width: 8em;">
+            <col style="width: 8em;">
+            <col style="width: auto;">
+        </colgroup>
         <thead style="border-bottom: 1px solid var(--border-color);">
             <tr>
                 <th style="padding: var(--spacing-sm); text-align: left; font-weight: 600;">Timestamp</th>
                 <th style="padding: var(--spacing-sm); text-align: left; font-weight: 600;">Level</th>
-                <th style="padding: var(--spacing-sm); text-align: left; font-weight: 600;">Module</th>
+                <th style="padding: var(--spacing-sm); text-align: left; font-weight: 600;">User</th>
+                <th style="padding: var(--spacing-sm); text-align: left; font-weight: 600;">IP</th>
                 <th style="padding: var(--spacing-sm); text-align: left; font-weight: 600;">Message</th>
             </tr>
         </thead>
         <tbody>
             {"".join(f'''
             <tr style="border-bottom: 1px solid var(--border-color);">
-                <td style="padding: var(--spacing-sm);">{html.escape(log["timestamp"])}</td>
+                <td style="padding: var(--spacing-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{html.escape(log["timestamp"])}</td>
                 <td style="padding: var(--spacing-sm);">
-                    <span style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 3px;">
+                    <span style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 3px; font-size: 0.75rem;">
                         {html.escape(log["level"])}</span>
                 </td>
-                <td style="padding: var(--spacing-sm); color: var(--text-secondary);">{html.escape(log["module"])}</td>
-                <td style="padding: var(--spacing-sm);">{html.escape(log["message"])}</td>
+                <td style="padding: var(--spacing-sm); color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis;" title="{html.escape(log["user_id"])}">{html.escape(log["username"] or log["user_id"] or "—")}</td>
+                <td style="padding: var(--spacing-sm); color: var(--text-secondary);">{html.escape(log["client_ip"] or "—")}</td>
+                <td style="padding: var(--spacing-sm); overflow: hidden; text-overflow: ellipsis;">{html.escape(log["message"])}</td>
             </tr>
             ''' for log in logs)}
         </tbody>
@@ -809,17 +857,114 @@ async def update_smtp_settings(
 async def clear_logs(
     admin_user: str = Depends(require_admin),
 ):
-    """Clear all logs."""
-    log_path = _get_log_file_path()
-    try:
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        with log_path.open("w", encoding="utf-8"):
-            pass
-    except Exception as exc:
-        logger.error("Failed to clear logs at %s: %s", log_path, exc)
+    """Clear all log files (primary and all rotated backups)."""
+    cleared: list[str] = []
+    errors: list[str] = []
+    for path in _get_log_file_candidates():
+        try:
+            with path.open("w", encoding="utf-8"):
+                pass
+            cleared.append(str(path))
+        except Exception as exc:
+            logger.error("Failed to clear log file %s: %s", path, exc)
+            errors.append(str(path))
+
+    if errors and not cleared:
         raise HTTPException(status_code=500, detail="Failed to clear logs")
 
-    return {"message": "Logs cleared"}
+    logger.info("Logs cleared by admin", extra={"user_id": admin_user, "detail": f"cleared={cleared}"})
+    return {"message": f"Cleared {len(cleared)} log file(s)", "cleared": cleared}
+
+
+# Log settings endpoints
+@router.get("/settings/logging")
+async def get_log_settings(
+    session: Session = Depends(get_db),
+    admin_user: str = Depends(require_admin),
+):
+    """Return current logging configuration."""
+    from backend.logging_config import get_current_log_level, get_current_backup_count, get_current_max_size_mb
+    db_settings = AppSettingsService(session).get_log_settings()
+    # Reflect actual live values (may differ from DB if a restart applied env overrides)
+    return {
+        "log_level": get_current_log_level(),
+        "max_size_mb": get_current_max_size_mb(),
+        "backup_count": get_current_backup_count(),
+        "db_settings": db_settings,
+    }
+
+
+@router.post("/settings/logging", response_class=HTMLResponse)
+async def update_log_settings(
+    request: Request,
+    log_level: Optional[str] = Form(None),
+    max_size_mb: Optional[int] = Form(None),
+    backup_count: Optional[int] = Form(None),
+    session: Session = Depends(get_db),
+    admin_user: str = Depends(require_admin),
+) -> HTMLResponse:
+    """Update logging level, max file size, and backup count. Persists to DB and applies live."""
+    from backend.logging_config import configure_logging
+
+    try:
+        validated = LogSettingsRequest(
+            log_level=log_level,
+            max_size_mb=max_size_mb,
+            backup_count=backup_count,
+        )
+        payload: dict = {}
+        if validated.log_level is not None:
+            payload["log_level"] = validated.log_level
+        if validated.max_size_mb is not None:
+            payload["max_size_mb"] = validated.max_size_mb
+        if validated.backup_count is not None:
+            payload["backup_count"] = validated.backup_count
+
+        if not payload:
+            return templates.TemplateResponse(
+                "fragments/error-alert.html",
+                {"request": request, "message": "No settings provided", "errors": {}},
+                status_code=400,
+            )
+
+        # Persist to DB (merge with existing)
+        settings_service = AppSettingsService(session)
+        saved = settings_service.update_log_settings(payload, updated_by=admin_user)
+
+        # Apply to live logger immediately
+        configure_logging(
+            log_level=saved["log_level"],
+            max_size_mb=saved["max_size_mb"],
+            backup_count=saved["backup_count"],
+        )
+
+        logger.info(
+            "Log settings updated by admin",
+            extra={
+                "user_id": admin_user,
+                "detail": f"level={saved['log_level']} max_size_mb={saved['max_size_mb']} backup_count={saved['backup_count']}",
+            },
+        )
+
+        return templates.TemplateResponse(
+            "fragments/success-alert.html",
+            {
+                "request": request,
+                "message": (
+                    f"Logging updated: level={saved['log_level']}, "
+                    f"max_size={saved['max_size_mb']} MB, "
+                    f"backups={saved['backup_count']}"
+                ),
+            },
+            status_code=200,
+        )
+    except Exception as exc:
+        logger.warning("Failed to update log settings: %s", exc)
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {"request": request, "message": f"Could not update log settings: {exc}", "errors": {}},
+            status_code=400,
+        )
 
 
 # Modal endpoints for HTMX form loading
@@ -914,6 +1059,15 @@ async def create_user(
             password=password,
             is_admin=is_admin,
             is_active=is_user_active,
+        )
+
+        logger.info(
+            "ADMIN_USER_CREATED",
+            extra={
+                "event": "admin_user_created",
+                "user_id": admin_user,
+                "detail": f"new_username={username!r} role={role} is_active={is_user_active}",
+            },
         )
 
         return templates.TemplateResponse(
@@ -1014,7 +1168,16 @@ async def update_user(
                 raise HTTPException(status_code=404, detail="User not found")
         
         session.commit()
-        
+
+        logger.info(
+            "ADMIN_USER_UPDATED",
+            extra={
+                "event": "admin_user_updated",
+                "user_id": admin_user,
+                "detail": f"target_user_id={user_id} role={role} is_active={is_user_active}",
+            },
+        )
+
         return templates.TemplateResponse(
             "fragments/success-alert.html",
             {"request": request, "message": "User updated successfully"},

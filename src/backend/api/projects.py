@@ -35,6 +35,7 @@ from backend.services.project_access import ProjectAccessService
 from backend.services.email_service import send_project_invitation_email, EmailDeliveryError
 from backend.services.project_service import ProjectDTO, ProjectService
 from backend.api.frontend import templates
+from backend.logging_config import logger
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -1195,7 +1196,16 @@ async def create_project(
             visibility=resolved_visibility,
             description=desc or "",
         )
-        
+
+        logger.info(
+            "PROJECT_CREATED",
+            extra={
+                "event": "project_created",
+                "user_id": current_user_id,
+                "detail": f"id={project_dto.id} title={title!r} visibility={resolved_visibility}",
+            },
+        )
+
         # Return appropriate response based on content type
         if "application/json" in content_type:
             return ProjectResponse(**project_dto.__dict__)
@@ -1458,6 +1468,14 @@ async def update_project(
             category=sanitized_category,
             visibility=requested_visibility,
         )
+        logger.info(
+            "PROJECT_UPDATED",
+            extra={
+                "event": "project_updated",
+                "user_id": current_user_id,
+                "detail": f"id={project_id} title={sanitized_title!r} visibility={requested_visibility}",
+            },
+        )
         return ProjectResponse(**updated.__dict__)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -1576,6 +1594,15 @@ async def delete_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project '{project_id}' not found",
         )
+
+    logger.info(
+        "PROJECT_DELETED",
+        extra={
+            "event": "project_deleted",
+            "user_id": current_user_id,
+            "detail": f"id={project_id} title={project.title!r}",
+        },
+    )
 
     if request.headers.get("HX-Request") == "true":
         return HTMLResponse(content="", status_code=200)

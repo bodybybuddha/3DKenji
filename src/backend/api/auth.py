@@ -402,7 +402,11 @@ async def validate_login_form(
     db: Session = Depends(get_db),
 ):
     """Validate login form and return errors or success."""
-    logger.info(f"Login form submitted: username_or_email={username_or_email}")
+    client_ip = request.client.host if request.client else "unknown"
+    logger.info(
+        "LOGIN_ATTEMPT",
+        extra={"event": "login_attempt", "detail": username_or_email, "client_ip": client_ip},
+    )
     try:
         # Validate inputs
         validated = ValidatedLoginRequest(
@@ -425,6 +429,16 @@ async def validate_login_form(
                 credentials={"username": login_identifier, "password": validated.password}
             )
             
+            logger.info(
+                "LOGIN_SUCCESS",
+                extra={
+                    "event": "login_success",
+                    "user_id": auth_result.user_id,
+                    "username": auth_result.username,
+                    "client_ip": client_ip,
+                },
+            )
+
             # Create JWT token
             token = create_access_token(auth_result.user_id, auth_result.username)
             
@@ -442,8 +456,16 @@ async def validate_login_form(
                 response.headers["HX-Redirect"] = "/projects"
             return response
             
-        except ValueError as e:
-            # Invalid credentials
+        except ValueError:
+            logger.warning(
+                "LOGIN_FAILURE",
+                extra={
+                    "event": "login_failure",
+                    "detail": username_or_email,
+                    "client_ip": client_ip,
+                    "reason": "invalid_credentials",
+                },
+            )
             return templates.TemplateResponse("fragments/error-alert.html", {
                 "request": request,
                 "message": "Invalid username/email or password",
@@ -452,6 +474,15 @@ async def validate_login_form(
     
     except ValidationError as e:
         errors = format_validation_errors(e)
+        logger.warning(
+            "LOGIN_FAILURE",
+            extra={
+                "event": "login_failure",
+                "detail": username_or_email,
+                "client_ip": client_ip,
+                "reason": "validation_error",
+            },
+        )
         return templates.TemplateResponse("fragments/error-alert.html", {
             "request": request,
             "message": "Validation failed",
@@ -508,7 +539,18 @@ async def validate_register_form(
             display_name=validated.display_name or validated.username,
             password=validated.password,
         )
-        
+
+        client_ip = request.client.host if request.client else "unknown"
+        logger.info(
+            "REGISTER_SUCCESS",
+            extra={
+                "event": "register_success",
+                "user_id": user_identity.user_id,
+                "username": user_identity.username,
+                "client_ip": client_ip,
+            },
+        )
+
         # Create JWT token
         token = create_access_token(user_identity.user_id, user_identity.username)
         
@@ -546,11 +588,34 @@ async def validate_register_form(
 @router.post("/logout")
 async def logout(request: Request):
     """Logout endpoint - clear authentication cookie and redirect to login."""
+    client_ip = request.client.host if request.client else "unknown"
+    # Best-effort identity extraction for audit log
+    user_id: Optional[str] = None
+    username: Optional[str] = None
+    try:
+        from backend.core.auth import JWT_SECRET, JWT_ALGORITHM
+        import jwt as _jwt
+        token = request.cookies.get("access_token")
+        if token:
+            payload = _jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            user_id = payload.get("user_id")
+            username = payload.get("username")
+    except Exception:
+        pass
+
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie(
         key="access_token",
         path="/",
         domain=None
     )
-    logger.info("User logged out successfully")
+    logger.info(
+        "LOGOUT",
+        extra={
+            "event": "logout",
+            "user_id": user_id,
+            "username": username,
+            "client_ip": client_ip,
+        },
+    )
     return response

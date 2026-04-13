@@ -23,6 +23,13 @@ DEFAULT_SMTP_SETTINGS: dict[str, Any] = {
     "mock_delivery": False,
 }
 
+LOG_SETTINGS_KEY = "logging"
+DEFAULT_LOG_SETTINGS: dict[str, Any] = {
+    "log_level": "INFO",
+    "max_size_mb": 10,
+    "backup_count": 5,
+}
+
 
 class AppSettingsService:
     """Read/write application settings in app_settings table."""
@@ -77,3 +84,20 @@ class AppSettingsService:
         merged = self.get_smtp_settings()
         merged.update(payload)
         return self.upsert_setting(SMTP_SETTINGS_KEY, merged, updated_by)
+
+    def get_log_settings(self) -> dict[str, Any]:
+        stored = self.get_setting(LOG_SETTINGS_KEY)
+        merged = DEFAULT_LOG_SETTINGS.copy()
+        merged.update(stored)
+
+        valid_levels = ("DEBUG", "INFO", "WARNING", "ERROR")
+        level = str(merged.get("log_level", "INFO")).upper()
+        merged["log_level"] = level if level in valid_levels else "INFO"
+        merged["max_size_mb"] = max(1, int(merged.get("max_size_mb") or DEFAULT_LOG_SETTINGS["max_size_mb"]))
+        merged["backup_count"] = max(1, int(merged.get("backup_count") or DEFAULT_LOG_SETTINGS["backup_count"]))
+        return merged
+
+    def update_log_settings(self, payload: dict[str, Any], updated_by: str | None) -> dict[str, Any]:
+        merged = self.get_log_settings()
+        merged.update(payload)
+        return self.upsert_setting(LOG_SETTINGS_KEY, merged, updated_by)
