@@ -23,6 +23,7 @@ from backend.api.frontend import templates
 from sqlalchemy import select, func
 from backend.services.user_service import UserService
 from backend.services.app_settings_service import AppSettingsService
+from backend.services.project_directory import get_projects_dir
 from backend.observability import get_runtime_metrics
 from backend.core.plugins import PluginManager
 
@@ -91,6 +92,43 @@ def _is_storage_healthy() -> bool:
         return False
 
 
+def _get_projects_storage_bytes() -> int:
+    """Return actual on-disk storage used by all project files."""
+    def _scan(root: Path) -> int:
+        if not root.exists():
+            return 0
+        total = 0
+        for item in root.rglob("*"):
+            try:
+                if item.is_file() and not item.is_symlink():
+                    total += item.stat().st_size
+            except (FileNotFoundError, PermissionError, OSError):
+                # Ignore races/permission edges while aggregating dashboard stats.
+                continue
+        return total
+
+    configured_root = get_projects_dir()
+    # Be resilient to environment/path drift between devcontainer and app process.
+    candidates = [
+        configured_root,
+        Path("data/storage/Projects"),
+        Path("data/storage/projects"),
+        Path("/data/storage/Projects"),
+        Path("/data/storage/projects"),
+    ]
+
+    unique_candidates: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate.resolve(strict=False))
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_candidates.append(candidate)
+
+    return max((_scan(root) for root in unique_candidates), default=0)
+
+
 def _get_log_file_path() -> Path:
     log_file = os.getenv("LOG_FILE", "data/logs/app.log")
     log_path = Path(log_file)
@@ -99,6 +137,61 @@ def _get_log_file_path() -> Path:
 
     base_dir = Path(__file__).resolve().parents[3]
     return base_dir / log_path
+
+
+def _get_log_file_candidates() -> list[Path]:
+    """Return candidate log files (including rotated files) ordered newest first."""
+    primary = _get_log_file_path()
+    candidates: list[Path] = []
+
+    if primary.is_absolute():
+        roots = [primary.parent]
+    else:
+        roots = [
+            primary.parent,
+            Path("/data/logs"),
+            Path("data/logs"),
+        ]
+
+    seen: set[str] = set()
+    for root in roots:
+        key = str(root.resolve(strict=False))
+        if key in seen:
+            continue
+        seen.add(key)
+        if not root.exists() or not root.is_dir():
+            continue
+
+        # Include app.log and rotated siblings like app.log.1, app.log.5 4, etc.
+        for candidate in root.glob("app.log*"):
+            if candidate.is_file():
+                candidates.append(candidate)
+
+    if primary.exists() and primary.is_file():
+        candidates.append(primary)
+
+    unique: dict[str, Path] = {}
+    for path in candidates:
+        unique[str(path.resolve(strict=False))] = path
+
+    return sorted(
+        unique.values(),
+        key=lambda p: p.stat().st_mtime if p.exists() else 0,
+        reverse=True,
+    )
+
+
+def _read_recent_log_lines(limit: int = LOG_LINE_LIMIT) -> list[str]:
+    """Read recent lines across candidate log files (newest-first) up to *limit*."""
+    collected: list[str] = []
+    for path in _get_log_file_candidates():
+        remaining = limit - len(collected)
+        if remaining <= 0:
+            break
+        lines = _read_log_lines(path, limit=remaining)
+        if lines:
+            collected.extend(lines)
+    return collected[-limit:]
 
 
 def _read_log_lines(path: Path, limit: int = LOG_LINE_LIMIT) -> list[str]:
@@ -244,16 +337,20 @@ async def get_admin_stats(
         select(func.count(Model.id))
     ).scalar() or 0
     
-    # Sum disk_size_bytes from all projects
-    total_storage_bytes = session.execute(
+    # Sum disk_size_bytes from all projects (fast DB aggregate)
+    db_storage_bytes = session.execute(
         select(func.sum(Project.disk_size_bytes))
     ).scalar() or 0
+
+    # Fallback/floor: derive actual usage from filesystem when DB cache is stale.
+    fs_storage_bytes = _get_projects_storage_bytes()
+    total_storage_bytes = max(int(db_storage_bytes), int(fs_storage_bytes))
     
     stats = StatsResponse(
         total_users=total_users,
         total_projects=total_projects,
         total_models=total_models,
-        total_storage_bytes=int(total_storage_bytes),
+        total_storage_bytes=total_storage_bytes,
         api_status="healthy",
         db_status="healthy",
         storage_status="healthy",
@@ -664,8 +761,7 @@ async def get_admin_logs(
     admin_user: str = Depends(require_admin),
 ) -> str:
     """Get system logs as HTML."""
-    log_path = _get_log_file_path()
-    raw_lines = _read_log_lines(log_path)
+    raw_lines = _read_recent_log_lines()
     logs = [_parse_log_line(line) for line in raw_lines]
 
     if level:

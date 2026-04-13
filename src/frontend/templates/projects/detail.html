@@ -857,21 +857,24 @@
                         if (!action) {
                             return;
                         }
-                        const data = cell.getRow().getData();
+                        const row = cell.getRow();
+                        const wasSelected = row.isSelected();
+                        const data = row.getData();
                         if (action === 'open') {
                             openFolder(data.relative_path);
-                            return;
-                        }
-                        if (action === 'preview') {
+                        } else if (action === 'preview') {
                             openPreview(data.relative_path);
-                            return;
-                        }
-                        if (action === 'edit') {
+                        } else if (action === 'edit') {
                             openEditor(data.relative_path);
-                            return;
-                        }
-                        if (action === 'download') {
+                        } else if (action === 'download') {
                             downloadFile(data.relative_path);
+                        }
+
+                        // Action buttons should not toggle row checkbox selection.
+                        if (wasSelected && !row.isSelected()) {
+                            row.select();
+                        } else if (!wasSelected && row.isSelected()) {
+                            row.deselect();
                         }
                     },
                 },
