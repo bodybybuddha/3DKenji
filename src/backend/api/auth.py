@@ -1,21 +1,24 @@
 """Authentication API endpoints."""
 
-import os
-import logging
 import hashlib
+import logging
 from datetime import datetime
 from typing import Optional, Callable
 
-from fastapi import APIRouter, HTTPException, status, Depends, Header, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
-from pydantic import BaseModel, ValidationError, EmailStr, Field
+import jwt as _jwt
+from fastapi import APIRouter, Depends, Form, Header, HTTPException, Request, status
+from fastapi.responses import RedirectResponse, Response
+from pydantic import BaseModel, EmailStr, Field, ValidationError
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
-from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
+from backend.api.frontend import templates
+from backend.core.auth import JWT_ALGORITHM, JWT_SECRET, create_access_token, decode_token
 from backend.db import get_db
-from backend.core.auth import create_access_token, decode_token
+from backend.models.api_key import APIKey
+from backend.models.user import User
 from backend.core.validation import (
     LoginRequest as ValidatedLoginRequest,
     RegisterRequest as ValidatedRegisterRequest,
@@ -24,8 +27,6 @@ from backend.core.validation import (
 )
 from backend.plugins.auth_password import PasswordAuthProvider
 from backend.services.user_service import UserService
-from backend.models.api_key import APIKey
-from backend.api.frontend import templates
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -224,8 +225,6 @@ async def register(
     auth_provider = PasswordAuthProvider(db)
     
     # Check if this is the first user (should be admin)
-    from sqlalchemy import select, func
-    from backend.models.user import User
     user_count = db.execute(select(func.count()).select_from(User)).scalar()
     is_first_user = user_count == 0
     
@@ -593,8 +592,6 @@ async def logout(request: Request):
     user_id: Optional[str] = None
     username: Optional[str] = None
     try:
-        from backend.core.auth import JWT_SECRET, JWT_ALGORITHM
-        import jwt as _jwt
         token = request.cookies.get("access_token")
         if token:
             payload = _jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
