@@ -10,12 +10,13 @@ import httpx
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool
 
 # Use absolute path for test database so subprocess can find it
 project_root = Path(__file__).resolve().parents[1]
 test_dir = Path(__file__).resolve().parent
 test_db_path = test_dir / "test.db"
+api_test_db_path = test_dir / "api_test.db"
 test_storage_root = test_dir / "storage"
 test_plugins_root = Path("/tmp/3dkenji-test-plugins")
 
@@ -28,6 +29,8 @@ os.environ["SMTP_MOCK_DELIVERY"] = "true"
 # Clean up old test database to ensure fresh start
 if test_db_path.exists():
     test_db_path.unlink()
+if api_test_db_path.exists():
+    api_test_db_path.unlink()
 
 test_storage_root.mkdir(parents=True, exist_ok=True)
 if test_plugins_root.exists():
@@ -66,6 +69,14 @@ def _ensure_sqlite_test_admin() -> None:
 _ensure_sqlite_test_admin()
 
 
+def _configure_sqlite_engine(engine) -> None:
+    """Apply SQLite pragmas that reduce lock contention in tests."""
+    with engine.begin() as conn:
+        conn.exec_driver_sql("PRAGMA journal_mode=WAL;")
+        conn.exec_driver_sql("PRAGMA synchronous=NORMAL;")
+        conn.exec_driver_sql("PRAGMA busy_timeout=30000;")
+
+
 @pytest.fixture(scope="session")
 def db_engine():
     """
@@ -76,9 +87,13 @@ def db_engine():
     """
     engine = create_engine(
         f"sqlite:///{test_db_path}",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
+        connect_args={
+            "check_same_thread": False,
+            "timeout": 30,
+        },
+        poolclass=NullPool,
     )
+    _configure_sqlite_engine(engine)
     Base.metadata.create_all(bind=engine)
     yield engine
     engine.dispose()
@@ -123,11 +138,37 @@ def _start_api_server():
     
     # Prepare environment for subprocess with test database
     env = os.environ.copy()
-    env["DATABASE_URL"] = f"sqlite:///{test_db_path}"
+    env["DATABASE_URL"] = f"sqlite:///{api_test_db_path}"
     env["STORAGE_ROOT"] = str(test_storage_root)
     env["PLUGINS_ROOT"] = str(test_plugins_root)
     env["ENABLE_FILE_LOGGING"] = "false"
     env["SMTP_MOCK_DELIVERY"] = "true"
+
+    api_engine = create_engine(
+        f"sqlite:///{api_test_db_path}",
+        connect_args={
+            "check_same_thread": False,
+            "timeout": 30,
+        },
+        poolclass=NullPool,
+    )
+    _configure_sqlite_engine(api_engine)
+    Base.metadata.create_all(bind=api_engine)
+    api_session = sessionmaker(bind=api_engine)()
+    try:
+        service = UserService(api_session)
+        if not service.get_user_by_username("admin"):
+            service.create_user(
+                username="admin",
+                email="admin@local.test",
+                display_name="Admin",
+                password="admin1234",
+                is_admin=True,
+                is_active=True,
+            )
+    finally:
+        api_session.close()
+        api_engine.dispose()
     
     cmd = [
         sys.executable,
