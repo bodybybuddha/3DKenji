@@ -15,7 +15,7 @@
 ✅ **Integration & Polish complete** – DI wiring, schemas, thumbnails, log rotation.  
 ✅ **Documentation complete** – Comprehensive README, API docs, plugin guides.  
 ✅ **MVP Feature-Complete** – All 50 of 50 tasks finished (Feb 21, 2026)  
-✅ **Version 1.0.0 Released** – Production ready, fully tested
+✅ **Version 0.1.0 Tagged** – Pre-production milestone baseline
 ✅ **Web UI complete** – Theme system, templates, HTMX, admin UI, validation
 ✅ **QA Infrastructure complete** – E2E tests, validation tests, CI/CD pipeline (Feb 22, 2026)
 ✅ **Filesystem Architecture** – Project directories, ProjectInfo.md, PrintHistory.md with frontmatter
@@ -263,7 +263,7 @@ Total Project Completion                   92/92 ✅
   - Automatic timestamps, module, function, line number tracking
   - Extra fields support (user_id, request_id, duration_ms)
   - Rotating file handler (10MB files, 5 backups)
-  - Logs to stdout + file (/workspace/data/logs/app.log)
+  - Logs to stdout + file (${PROJECT_ROOT}/data/logs/app.log)
 - **Health check endpoints** (T040):
   - `GET /api/v1/health` – Full system status (storage, database)
   - `GET /api/v1/health/ready` – Kubernetes readiness probe
@@ -345,7 +345,7 @@ Total Project Completion                   92/92 ✅
 
 ## Steps to Resume
 
-1. **Set environment**: `source /workspace/.venv/bin/activate`
+1. **Set environment**: `source .venv/bin/activate`
 2. **Check status**: `git log --oneline -n 5` (see recent commits)
 3. **Review tests**: `make test` (should show 9 passing)
 4. **Next task**: See "In Progress" section above
@@ -393,7 +393,7 @@ git log --oneline specs/001-title-3d-kenji/tasks.md
 
 ---
 
-## Release Information (v1.0.0)
+## Release Information (v0.1.0)
 
 ### Release Date
 **February 21, 2026**

@@ -147,7 +147,7 @@ After merge, GitHub should automatically delete the merged `feature/*` branch.
 #### 4. Create Release PR to `main`
 ```bash
 # From dev branch, create PR to main
-gh pr create --base main --head dev --title "Release v1.1.0"
+gh pr create --base main --head dev --title "Release v0.2.0"
 ```
 
 #### 5. Merge to `main` (Production Release)
@@ -161,8 +161,8 @@ gh pr create --base main --head dev --title "Release v1.1.0"
 ```bash
 git checkout main
 git pull origin main
-git tag -a v1.1.0 -m "Release v1.1.0"
-git push origin v1.1.0
+git tag -a v0.2.0 -m "Release v0.2.0"
+git push origin v0.2.0
 ```
 
 ## 🛠️ Manual Configuration (Optional)

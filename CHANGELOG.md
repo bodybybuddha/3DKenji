@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### 🔧 Changed - Pre-Production Version Labels
+
+- Corrected historical pre-production labels from `1.0.0`/`1.1.0` to `0.1.0`/`0.2.0` to match actual release maturity.
+- Reserved `1.0.0` for the first production-stable release.
+
 ### 🔧 Fixed - Projects Table Row Layout (Bug #25)
 
 - Fixed projects list table rows stacking vertically after the card-grid → Tabulator migration. A custom `display: flex` CSS override on `.tabulator-cell` conflicted with Tabulator v6's `inline-flex` row flow model; removed the override and kept `align-items: center` only.
@@ -107,7 +112,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## [1.1.0] - 2026-02-22
+## [0.2.0] - 2026-02-22
 
 ### ✨ Added - QA Infrastructure
 
@@ -146,7 +151,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## [1.0.0] - 2026-02-21
+## [0.1.0] - 2026-02-21
 
 ### ✨ Features (MVP Release)
 
@@ -295,7 +300,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Document project directory defaults and storage-root behavior
 - Document `ProjectInfo.md` and `PrintHistory.md` structure and expected contents
 
-### Planned Features for v1.1.0
+### Planned Features for v0.3.0
 
 #### Authentication
 - GitHub OAuth plugin
@@ -324,7 +329,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Upgrading from Pre-1.0
 
-Version 1.0.0 is the first release and does not have prior versions to upgrade from.
+Version 0.1.0 is the first pre-production release and does not have prior versions to upgrade from.
 
 For initial deployment:
 
@@ -353,7 +358,7 @@ This project is licensed under the MIT License - see [LICENSE](../LICENSE) file 
 
 ## Release Notes
 
-### What's New in 1.0.0
+### What's New in 0.1.0
 
 This is the initial release of 3DKenji with all MVP features:
 
@@ -379,4 +384,4 @@ None reported in initial release. Please file issues on [GitHub](https://github.
 
 ### Future Roadmap
 
-See [Planned Features for v1.1.0](#planned-features-for-v110) above.
+See [Planned Features for v0.3.0](#planned-features-for-v030) above.

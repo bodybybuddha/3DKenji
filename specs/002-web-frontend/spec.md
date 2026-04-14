@@ -630,7 +630,7 @@ project/
 # backend/plugins/themes/high_contrast_theme.py
 class HighContrastTheme(ThemePlugin):
     name = "high-contrast"
-    version = "1.0.0"
+    version = "0.1.0"
     css_variables = {...}
 ```
 
