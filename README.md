@@ -15,16 +15,19 @@ Self-hosted knowledge keeper for 3D printing projects. Manage, organize, and tra
 This repository uses one release path and treats it as the canonical workflow:
 
 - `feature/*` branches merge into `dev`
+- `bugfix/*` branches merge into `dev`
+- `docs/*` branches merge into `dev`
+- `chore/*` branches merge into `dev`
 - `dev` merges into `main`
 - Direct commits to `dev` or `main` are not part of the workflow
 - `dev` and `main` must remain protected and must not be deleted
-- Feature branches should be deleted automatically after they are merged into `dev`
+- Short-lived working branches should be deleted automatically after they are merged into `dev`
 
 Automation in this repository supports that policy in three places:
 
 - `.github/pull_request_template.md` reminds authors which source and target branches are allowed
-- `.github/workflows/branch-strategy.yml` fails PRs that do not follow `feature/* -> dev` or `dev -> main`
-- `.github/setup_branch_protection.sh` configures branch protection and automatic deletion of merged feature branches
+- `.github/workflows/branch-strategy.yml` fails PRs that do not follow `(feature|bugfix|docs|chore)/* -> dev` or `dev -> main`
+- `.github/setup_branch_protection.sh` configures branch protection and automatic deletion of merged working branches
 
 ## Features
 
@@ -424,7 +427,7 @@ make lint
 
 ### Making Changes
 
-1. Create a feature branch: `git checkout -b feature/my-feature`
+1. Create a working branch: `git checkout -b feature/my-feature`
 2. Make changes following project structure
 3. Write tests for new functionality
 4. Run test suite: `make test`
@@ -538,7 +541,7 @@ Logs are written to:
 Contributions welcome! Please:
 
 1. Fork the repository
-2. Create a feature branch from `dev`
+2. Create a working branch from `dev` using `feature/*`, `bugfix/*`, `docs/*`, or `chore/*`
 3. Add tests for new features
 4. Ensure all tests pass locally
 5. Submit a pull request to `dev`
@@ -547,7 +550,7 @@ See [.github/SETUP_GUIDE.md](.github/SETUP_GUIDE.md) for detailed setup instruct
 
 ## Development Workflow
 
-This project follows a **feature → dev → main** workflow with branch protection:
+This project follows a **working branch → dev → main** workflow with branch protection:
 
 ### Branch Structure
 
@@ -556,7 +559,7 @@ main (production)    ← Stable releases only, requires approval
   ↑
 dev (integration)    ← Active development, requires CI to pass
   ↑
-feature branches     ← Individual features/fixes
+working branches     ← Feature, bugfix, docs, and chore work
 ```
 
 ### Creating a New Feature
@@ -566,7 +569,7 @@ feature branches     ← Individual features/fixes
 git checkout dev
 git pull origin dev
 
-# 2. Create feature branch
+# 2. Create working branch
 git checkout -b feature/my-awesome-feature
 
 # 3. Make changes and commit
@@ -589,7 +592,7 @@ gh pr create --base dev --head feature/my-awesome-feature
 - ✅ All conversations resolved
 - ✅ Code reviewed (optional but recommended)
 - Merge via GitHub UI
-- Delete feature branch after merge
+- Delete the merged working branch after merge
 
 ### Creating a Release
 

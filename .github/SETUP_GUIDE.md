@@ -16,7 +16,7 @@ This will configure:
 - ✅ Required status checks
 - ✅ Pull request reviews
 - ✅ Prevent branch deletion
-- ✅ Automatic deletion of merged feature branches
+- ✅ Automatic deletion of merged working branches
 
 ## 📋 What Was Configured
 
@@ -25,6 +25,9 @@ This will configure:
 The canonical branch policy is documented in `README.md` and enforced as:
 
 - `feature/* -> dev`
+- `bugfix/* -> dev`
+- `docs/* -> dev`
+- `chore/* -> dev`
 - `dev -> main`
 - no direct pushes to `dev` or `main`
 
@@ -69,7 +72,7 @@ The canonical branch policy is documented in `README.md` and enforced as:
    - Checks formatting
 
 3. **Branch Strategy Job**:
-   - Rejects PRs to `dev` unless the source branch matches `feature/*`
+   - Rejects PRs to `dev` unless the source branch matches `feature/*`, `bugfix/*`, `docs/*`, or `chore/*`
    - Rejects PRs to `main` unless the source branch is `dev`
 
 ### 3. Code Owners
@@ -104,7 +107,7 @@ Standardized formats for:
 ### Standard Flow
 
 ```
-feature/my-feature → dev → main
+feature|bugfix|docs|chore/my-branch → dev → main
         ↓              ↓      ↓
        PR            PR    Release
 ```
@@ -117,7 +120,7 @@ feature/my-feature → dev → main
 git checkout dev
 git pull origin dev
 
-# Create feature branch
+# Create working branch
 git checkout -b feature/my-awesome-feature
 
 # Work on your feature
@@ -142,7 +145,7 @@ gh pr create --base dev --head feature/my-awesome-feature
 - All conversations resolved ✅
 - Click "Merge pull request" on GitHub
 
-After merge, GitHub should automatically delete the merged `feature/*` branch.
+After merge, GitHub should automatically delete the merged working branch.
 
 #### 4. Create Release PR to `main`
 ```bash
@@ -201,13 +204,13 @@ gh api repos/bodybybuddha/3DKenji/branches/dev/protection
 ### Test CI Pipeline
 
 ```bash
-# Push to a feature branch
-git checkout -b test/ci-check
+# Push to a working branch
+git checkout -b chore/ci-check
 git commit --allow-empty -m "Test CI"
-git push origin test/ci-check
+git push origin chore/ci-check
 
 # Check workflow status
-gh run list --branch test/ci-check
+gh run list --branch chore/ci-check
 ```
 
 ## 📊 Repository Status
@@ -223,9 +226,9 @@ View at: https://github.com/bodybybuddha/3DKenji
 ## 🔒 Security Best Practices
 
 1. **Never commit directly to `main`** - Always use PRs
-2. **Never commit directly to `dev`** - Always merge feature branches through PRs
+2. **Never commit directly to `dev`** - Always merge working branches through PRs
 3. **Keep `dev` stable** - Test thoroughly before merging
-4. **Delete merged feature branches** - Let GitHub remove them automatically after merge
+4. **Delete merged working branches** - Let GitHub remove them automatically after merge
 5. **Run tests locally** - Before pushing: `make test`
 6. **Keep dependencies updated** - Review Dependabot alerts
 7. **Rotate secrets regularly** - Update GitHub secrets as needed
@@ -238,8 +241,8 @@ View at: https://github.com/bodybybuddha/3DKenji
 **Solution**: Create a pull request instead of pushing directly.
 
 ```bash
-git checkout -b feature/my-fix
-git push origin feature/my-fix
+git checkout -b bugfix/my-fix
+git push origin bugfix/my-fix
 gh pr create --base dev
 ```
 

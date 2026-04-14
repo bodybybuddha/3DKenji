@@ -24,6 +24,10 @@ Instruction files in this directory provide focused, domain-specific guidance so
    - Scope: test strategy and quality gate expectations.
    - Auto-attach: `tests/**/*.py`
 
+5. `dev-cycle.instructions.md`
+   - Scope: commit, PR, merge, branch-protection, and tag/release workflow guidance.
+   - Trigger: on-demand when repository delivery workflow or GitHub operations are involved.
+
 ## Notes
 
 - Keep one concern per instruction file.

@@ -24,7 +24,7 @@ echo ""
 
 echo "🔁 Enabling automatic deletion of merged branches"
 gh api -X PATCH "/repos/$REPO" -F delete_branch_on_merge=true >/dev/null
-echo "   ✅ Merged feature branches will be deleted automatically"
+echo "   ✅ Merged working branches will be deleted automatically"
 echo ""
 
 # Function to enable branch protection
@@ -108,10 +108,10 @@ echo "🎉 Branch protection setup complete!"
 echo ""
 echo "📋 Summary:"
 echo "  - main: Strict protection (dev -> main only, reviews required, no deletions)"
-echo "  - dev: Standard protection (feature/* -> dev only, no direct pushes, no deletions)"
-echo "  - merged feature branches: automatically deleted by GitHub"
+echo "  - dev: Standard protection ((feature|bugfix|docs|chore)/* -> dev only, no direct pushes, no deletions)"
+echo "  - merged working branches: automatically deleted by GitHub"
 echo ""
 echo "⚙️  Review settings at: https://github.com/$REPO/settings/branches"
 echo ""
 echo "💡 Workflow:"
-echo "  feature/* → dev (via PR) → main (via PR from dev)"
+echo "  (feature|bugfix|docs|chore)/* → dev (via PR) → main (via PR from dev)"

@@ -4,7 +4,7 @@
 ## Branch Strategy
 <!-- Confirm this PR follows the required branch flow -->
 
-- [ ] This PR targets `dev` from a `feature/*` branch
+- [ ] This PR targets `dev` from an allowed working branch (`feature/*`, `bugfix/*`, `docs/*`, or `chore/*`)
 - [ ] This PR targets `main` from `dev` for a release/promotion
 
 ## Type of Change
