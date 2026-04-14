@@ -1,6 +1,6 @@
 # Implementation Progress
 
-**Last Updated**: 2026-04-10  
+**Last Updated**: 2026-04-14  
 **MVP Status**: ✅ COMPLETE – QA Infrastructure Phase 7 complete
 **Current Branch**: 🚀 Filesystem Architecture & Archive Feature (COMPLETE)
 
@@ -20,6 +20,21 @@
 ✅ **QA Infrastructure complete** – E2E tests, validation tests, CI/CD pipeline (Feb 22, 2026)
 ✅ **Filesystem Architecture** – Project directories, ProjectInfo.md, PrintHistory.md with frontmatter
 ✅ **Archive Feature** – Archive-on-delete with configurable deletion policy
+
+---
+
+## v1.0 Readiness Focus (Current Plan)
+
+### Must-Have Before 1.0.0
+- OAuth login support (GitHub and Google)
+- Admin recovery path that works without OAuth
+- API key authentication and authorization fully wired and tested end-to-end
+- Resolution of known API key scope validation gap with regression coverage
+- Completion of in-flight 0.3.0 hardening/documentation tasks
+
+### Explicitly Deferred Until After 1.0.0
+- Cloud storage backends (S3, Azure Blob)
+- Cosmetic/UI polish items that do not affect correctness, security, or release readiness
 
 ---
 
@@ -440,7 +455,7 @@ make test
 
 ### Known Limitations
 - No rate limiting (add via reverse proxy)
-- Single authentication provider (plugins available for OAuth)
+- OAuth providers not yet implemented (planned as a 1.0.0 must-have)
 - File download endpoint not implemented
 - No real-time WebSocket support
 - No built-in 3D rendering
@@ -449,13 +464,14 @@ make test
 1. Deploy using Docker or local setup
 2. Create user account via API
 3. Start managing projects and uploading models
-4. Extend with plugins (GitHub OAuth, S3 storage, etc.)
+4. Track 1.0.0 scope completion: OAuth + admin fallback + API key auth validation
+5. Plan post-1.0 extensions (S3/Azure and cosmetic improvements)
 
 ### Repository Status
-- ✅ Feature branch `001-title-3d-kenji` complete
-- ✅ Ready to merge to `dev` branch
-- ✅ Ready for production deployment
-- ✅ All commits pushed to remote
+- ✅ Core platform and pre-production milestones complete
+- 🚧 1.0.0 scope in progress (auth expansion + API key auth hardening)
+- ✅ Branch workflow and CI quality gates active on `dev`
+- ✅ Planning artifacts aligned to roadmap/spec/plan/tasks workflow
 
 ### Support & Feedback
 - **Documentation**: [Online docs](docs/index.md)

@@ -2,7 +2,7 @@
 
 Self-hosted knowledge keeper for 3D printing projects. Manage, organize, and track your 3D models and printing projects with a modern REST API.
 
-**Status**: MVP Complete ✅ | Pre-production Release Track | All Core Features Implemented
+**Status**: MVP Complete ✅ | Pre-production Release Track | v1 Scope Locked (OAuth + Admin Fallback + API Key Auth Validation)
 
 ## Versioning Policy
 
@@ -689,8 +689,9 @@ For more details, see [.github/SETUP_GUIDE.md](.github/SETUP_GUIDE.md).
 - Structured logging
 
 ### 🚀 Future Features
-- OAuth integrations (GitHub, Google)
-- S3 and cloud storage backends
+- OAuth integrations (GitHub, Google) with admin fallback path (target: v1.0.0)
+- API key auth flow hardening and end-to-end validation (target: v1.0.0)
+- S3 and cloud storage backends (post-v1)
 - 3D model rendering and preview
 - WebSocket for real-time updates
 - Print job tracking
