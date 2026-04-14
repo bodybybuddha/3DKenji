@@ -3,7 +3,7 @@
 **Branch**: `spec/003-directory-storage-architecture`  
 **Date**: 2026-04-09  
 **Spec**: `spec.md`  
-**Version**: 1.2.0 (target release after all phases complete)
+**Version**: 0.3.0 (target release after all phases complete)
 
 ---
 
@@ -330,13 +330,13 @@ Two sub-sessions due to HTMX complexity.
 
 ## Phase 8: Polish, Testing & Release
 
-**Goal**: Final integration testing, cleanup, and 1.2.0 release preparation.
+**Goal**: Final integration testing, cleanup, and 0.3.0 release preparation.
 
 **What's done**:
 - End-to-end test: create project → upload model → log print → view history
-- Update CHANGELOG.md with v1.2.0
+- Update CHANGELOG.md with v0.3.0
 - Update PROGRESS.md
-- Update pyproject.toml version to `1.2.0`
+- Update pyproject.toml version to `0.3.0`
 - Clear TODO.md completed items
 - Run full test suite; ensure 0 failures
 - Update BUGS.md: close any bugs fixed in this work

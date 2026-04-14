@@ -2,7 +2,13 @@
 
 Self-hosted knowledge keeper for 3D printing projects. Manage, organize, and track your 3D models and printing projects with a modern REST API.
 
-**Status**: MVP Complete ✅ | Production Ready | All Core Features Implemented
+**Status**: MVP Complete ✅ | Pre-production Release Track | All Core Features Implemented
+
+## Versioning Policy
+
+- `0.x.y` releases are pre-production milestones.
+- `0.1.0` and `0.2.0` are historical pre-production releases.
+- `1.0.0` is reserved for the first production-stable release.
 
 ## Branch Strategy
 
@@ -458,7 +464,7 @@ readinessProbe:
 - [ ] Set strong `SECRET_KEY`
 - [ ] Use production PostgreSQL instance
 - [ ] Configure persistent storage volume
-- [ ] Set up log rotation (use `/workspace/scripts/log-rotate.sh`)
+- [ ] Set up log rotation (use `scripts/log-rotate.sh`)
 - [ ] Enable HTTPS/TLS
 - [ ] Configure CORS for frontend domain
 - [ ] Set up monitoring and alerting
@@ -589,18 +595,18 @@ gh pr create --base dev --head feature/my-awesome-feature
 
 ```bash
 # 1. When dev is ready for production
-gh pr create --base main --head dev --title "Release v1.1.0"
+gh pr create --base main --head dev --title "Release v0.2.0"
 
 # 2. After approval and CI pass, merge to main
 
 # 3. Tag the release
 git checkout main
 git pull origin main
-git tag -a v1.1.0 -m "Release v1.1.0: New features and fixes"
-git push origin v1.1.0
+git tag -a v0.2.0 -m "Release v0.2.0: New features and fixes"
+git push origin v0.2.0
 
 # 4. Create GitHub release from tag (optional)
-gh release create v1.1.0 --notes "Release notes here"
+gh release create v0.2.0 --notes "Release notes here"
 ```
 
 ### Branch Protection Rules
@@ -661,7 +667,17 @@ For more details, see [.github/SETUP_GUIDE.md](.github/SETUP_GUIDE.md).
 
 ## Status & Roadmap
 
-### ✅ MVP Complete (v1.0.0)
+### Documentation Workflow
+
+- `ROADMAP.md`: strategic priorities and release sequencing
+- `PROGRESS.md`: high-level status dashboard
+- `specs/<id>/spec.md`: requirements and acceptance criteria
+- `specs/<id>/plan.md`: implementation approach and decisions
+- `specs/<id>/tasks.md`: day-to-day execution tracking
+- `CHANGELOG.md`: user-facing release notes
+- `TODO.md`: deprecated placeholder (kept only as redirect)
+
+### ✅ MVP Complete (v0.1.0)
 - User authentication with JWT
 - Project and model management
 - File upload and storage

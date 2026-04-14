@@ -301,8 +301,8 @@ The script:
 To keep paths predictable across environments:
 
 - Always set `STORAGE_ROOT` explicitly in runtime environment
-- In development, prefer a workspace path, for example:
-  - `STORAGE_ROOT=/workspace/data/storage`
+- In development, prefer a project-relative path, for example:
+  - `STORAGE_ROOT=./data/storage`
 - In production, map `STORAGE_ROOT` to a persistent volume
 
 ## Verification Checklist

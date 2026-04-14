@@ -403,7 +403,7 @@ class CustomTheme(ThemePlugin):
     """Your custom company theme"""
     
     name = "custom"
-    version = "1.0.0"
+    version = "0.1.0"
     is_default = False
     
     css_variables = {

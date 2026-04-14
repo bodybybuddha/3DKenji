@@ -939,7 +939,7 @@
   - Example: Create "custom-company" theme
 - [ ] Update `CHANGELOG.md`:
   - Add web frontend features
-  - Update version to 1.1.0 (or 2.0.0 if major rewrite)
+  - Update version to 0.2.0 (or 1.0.0 when production-stable)
 - [ ] Add deployment section to `docs/configuration.md`:
   - Docker setup for frontend + API
   - Nginx reverse proxy configuration

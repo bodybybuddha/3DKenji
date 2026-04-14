@@ -46,7 +46,7 @@ Example:
 /data/storage/Projects/alice-prints/test-project-2
 ```
 
-Note: set `STORAGE_ROOT` to the root path only (for example `/workspace/data/storage`), not to a nested `.../Projects` path.
+Note: set `STORAGE_ROOT` to the root path only (for example `./data/storage`), not to a nested `.../Projects` path.
 
 Ensure directory exists and is writable:
 ```bash
@@ -213,9 +213,9 @@ Create `.env` file in project root:
 
 ```bash
 DATABASE_URL=postgresql://kenji:kenji@localhost:5432/kenji
-STORAGE_ROOT=/workspace/data/storage
-PLUGINS_ROOT=/workspace/working/plugins
-LOG_DIR=/workspace/data/logs
+STORAGE_ROOT=./data/storage
+PLUGINS_ROOT=./working/plugins
+LOG_DIR=./data/logs
 LOG_LEVEL=DEBUG
 SECRET_KEY=dev-secret-key-change-in-production
 TOKEN_EXPIRE_HOURS=24
@@ -443,7 +443,7 @@ spec:
     spec:
       containers:
       - name: kenji
-        image: kenji:1.0.0
+        image: kenji:0.2.0
         env:
         - name: DATABASE_URL
           valueFrom:

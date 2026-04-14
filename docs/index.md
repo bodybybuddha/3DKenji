@@ -58,9 +58,9 @@ docs/
 
 ## Version Info
 
-- **Current Version**: 1.0.0
-- **Release Date**: February 21, 2026
-- **Status**: Production Ready ✅
+- **Current Version**: 0.2.0
+- **Release Date**: February 22, 2026
+- **Status**: Pre-production, release candidate track ✅
 
 ---
 

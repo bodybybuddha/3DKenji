@@ -62,7 +62,7 @@ Each plugin package must contain a `plugin.yaml` manifest. Example:
 ```yaml
 id: core-themes
 name: Core Themes
-version: 1.0.0
+version: 0.1.0
 author: 3DKenji
 type: cosmetic
 description: Bundled dark and light themes.
