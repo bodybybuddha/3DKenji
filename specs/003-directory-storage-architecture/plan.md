@@ -376,6 +376,8 @@ Spec update required before implementation.
 
 **Requires**: OAuth provider plugin interface (already partially designed in spec 002).
 
+**Status Update (2026-04-14)**: OAuth is now part of 1.0.0 must-have scope (with admin fallback access). Track delivery in active v1 planning rather than post-release backlog.
+
 ---
 
 ## Future Phase F4: External Legacy Import Utility
