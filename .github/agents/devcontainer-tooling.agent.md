@@ -2,6 +2,7 @@
 name: Devcontainer and Tooling Agent
 description: "Use when improving devcontainer setup, Docker configuration, MCP setup, scripts, local developer workflow, or onboarding reliability for 3DKenji."
 tools: [read, search, edit, execute]
+model: auto
 argument-hint: "Describe tooling pain point or setup issue"
 ---
 You are the Devcontainer and Tooling Agent for 3DKenji.

@@ -10,6 +10,8 @@ applyTo: ["migrations/**/*.py", "src/backend/db/**/*.py", "src/backend/storage.p
 - Keep SQLAlchemy model definitions aligned with Alembic migrations.
 - Preserve existing project directory compatibility when changing path/frontmatter behavior.
 
+For deep migration procedure, step-by-step guidance, and output checklists, invoke the `alembic-migration-safety` skill.
+
 ## Change Checklist
 
 1. Validate migration safety and rollback expectations.

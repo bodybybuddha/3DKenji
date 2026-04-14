@@ -20,12 +20,13 @@ Capture the repository-specific rules that caused previous commit/PR/merge/tag o
 - Standard sequence:
   1. `git checkout dev && git pull origin dev`
   2. `git checkout -b <allowed-prefix>/<slug>`
-  3. commit focused changes
-  4. `git push -u origin <branch>`
-  5. create PR to `dev`
-  6. wait for required checks
-  7. merge PR
-  8. return to `dev`, pull, and delete merged branch remotely/local if still present
+  3. run secret scan on staged changes before committing (invoke `secret-scanning` skill)
+  4. commit focused changes
+  5. `git push -u origin <branch>`
+  6. create PR to `dev`
+  7. wait for required checks
+  8. merge PR
+  9. return to `dev`, pull, and delete merged branch remotely/local if still present
 
 ## Required Checks and Branch Protection
 

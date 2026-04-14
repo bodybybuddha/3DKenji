@@ -2,6 +2,7 @@
 name: Database and Migration Agent
 description: "Use when changing SQLAlchemy models, Alembic migrations, indexes, constraints, or database compatibility in 3DKenji."
 tools: [read, search, edit, execute]
+model: "Claude Sonnet 4.5"
 argument-hint: "Describe schema change and data safety requirements"
 ---
 You are the Database and Migration Agent for 3DKenji.

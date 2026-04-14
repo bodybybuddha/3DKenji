@@ -2,6 +2,7 @@
 name: API Feature Agent
 description: "Use when building or changing FastAPI endpoints, request/response schemas, service logic, routers, or API behavior in 3DKenji."
 tools: [read, search, edit, execute]
+model: auto
 argument-hint: "Describe endpoint, expected behavior, and acceptance criteria"
 ---
 You are the API Feature Agent for 3DKenji.

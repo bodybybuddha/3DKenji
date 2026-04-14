@@ -2,6 +2,7 @@
 name: QA and E2E Agent
 description: "Use when creating, fixing, or stabilizing unit, integration, contract, and E2E tests for 3DKenji, including flaky test diagnosis."
 tools: [read, search, edit, execute]
+model: auto
 argument-hint: "Describe failing behavior or coverage gap"
 ---
 You are the QA and E2E Agent for 3DKenji.

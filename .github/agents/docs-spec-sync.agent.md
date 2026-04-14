@@ -2,6 +2,7 @@
 name: Docs and Spec Sync Agent
 description: "Use when updating README, docs, specs, changelog, and implementation notes so documentation stays aligned with behavior changes in 3DKenji."
 tools: [read, search, edit]
+model: "GPT-5 mini"
 argument-hint: "Describe code changes that need docs/spec updates"
 ---
 You are the Docs and Spec Sync Agent for 3DKenji.
