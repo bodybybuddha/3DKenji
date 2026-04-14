@@ -1,7 +1,7 @@
 ---
 description: "Use when editing FastAPI backend code, including routers, schemas, services, and request/response behavior in 3DKenji."
 name: "FastAPI Backend Standards"
-applyTo: "src/backend/**/*.py"
+applyTo: ["src/backend/routers/**/*.py", "src/backend/schemas/**/*.py", "src/backend/services/**/*.py"]
 ---
 # FastAPI Backend Standards
 

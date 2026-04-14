@@ -2,6 +2,7 @@
 name: Delivery Orchestrator Agent
 description: "Use when delivering a feature end-to-end in 3DKenji, including planning, agent delegation, implementation, test/quality validation, docs/changelog updates, and release readiness."
 tools: [agent, todo, read, search, edit, execute]
+model: auto
 argument-hint: "Describe feature goal, constraints, and release target"
 agents:
   - "API Feature Agent"

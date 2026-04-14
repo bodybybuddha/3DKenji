@@ -2,6 +2,7 @@
 name: Project Storage Agent
 description: "Use when working on project filesystem layout, markdown frontmatter parsing, ProjectInfo.md, PrintHistory.md, or storage-path logic in 3DKenji."
 tools: [read, search, edit, execute]
+model: auto
 argument-hint: "Describe storage or frontmatter behavior to add/fix"
 ---
 You are the Project Storage Agent for 3DKenji.

@@ -1,6 +1,6 @@
 ---
 name: postgresql-optimization
-description: 'Awesome-derived PostgreSQL optimization skill. Use for query tuning, index strategy, and Postgres-specific performance improvements.'
+description: 'Awesome-derived PostgreSQL optimization skill. Use when investigating slow queries, missing indexes, N+1 patterns, EXPLAIN/EXPLAIN ANALYZE results, sequential scans, index bloat, connection pooling, or vacuum tuning in 3DKenji.'
 argument-hint: 'Query/workload context and performance target'
 user-invocable: true
 disable-model-invocation: false
