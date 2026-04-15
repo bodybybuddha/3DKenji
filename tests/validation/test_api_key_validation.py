@@ -75,25 +75,22 @@ class TestAPIKeyCreationValidation:
         assert key["expires_at"] is not None
 
     def test_create_key_without_expiration(self, auth_client):
-        """Test creating key without expiration (never expires)."""
+        """Test creating key without expiration (never expires) — expires_at is null."""
         response = auth_client.post("/api/v1/keys", json={
             "name": "No Expiry Key"
         })
         
         assert response.status_code == 201
+        key = response.json()
+        assert key["expires_at"] is None
 
     def test_create_key_with_invalid_scopes(self, auth_client):
-        """Test invalid scopes are rejected."""
+        """Invalid / unknown scopes are rejected with 422 (Bug #24)."""
         response = auth_client.post("/api/v1/keys", json={
             "name": "Scoped Key",
             "scopes": ["invalid_scope", "another_invalid"]
         })
-        
-        # Depending on implementation:
-        # - 400 if strict validation
-        # - 201 with filtered scopes
-        # - 201 with all scopes if permissive
-        assert response.status_code in [201, 400]
+        assert response.status_code == 422
 
     def test_create_duplicate_key_name(self, auth_client):
         """Test creating keys with duplicate names."""
@@ -243,25 +240,21 @@ class TestAPIKeyUsageValidation:
         assert response.status_code == 401
 
     def test_use_key_with_insufficient_scope(self, auth_client, client):
-        """Test using key with insufficient permissions."""
-        # Create key with limited scope
+        """Key with read:projects scope cannot perform write operations (Bug #24)."""
         response = auth_client.post("/api/v1/keys", json={
             "name": "Limited Key",
             "scopes": ["read:projects"]
         })
-        
-        if response.status_code == 201:
-            api_key = response.json()["secret"]
+        assert response.status_code == 201, response.text
+        api_key = response.json()["secret"]
 
-            # Try to create project (write operation)
-            response = client.post(
-                "/api/v1/projects",
-                headers={"Authorization": f"Bearer {api_key}"},
-                json={"name": "Test Project"}
-            )
-            
-            # Should be forbidden when scopes are enforced
-            assert response.status_code == 403
+        # Try to create project (write operation requires write:projects)
+        response = client.post(
+            "/api/v1/projects",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={"name": "Test Project"}
+        )
+        assert response.status_code == 403, response.text
 
 
 class TestAPIKeyListValidation:

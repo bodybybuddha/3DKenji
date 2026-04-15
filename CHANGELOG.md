@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 - OIDC/OAuth2 provider support for single sign-on (works with Authentik, Keycloak, Okta, etc.)
+- API key scope validation enforced at creation: only known scopes (`read:projects`, `write:projects`, `read:models`, `write:models`, `read:settings`, `write:settings`) are accepted; arbitrary/unknown scopes are rejected with 422 (closes Bug #24).
+- API key scope enforcement wired end-to-end: endpoints using `require_scopes` reject API keys that lack the required scope with 403.
+- API keys now record `last_used_at` timestamp updated on every authenticated request.
+- Flexible API key expiration: keys default to **no expiration** (null); callers can optionally supply a specific date via `expires_at` (JSON) or the date-picker form field. The previous silent 1-year default has been removed.
+- Key creation form now shows a date-picker for custom expiration instead of a fixed dropdown.
+- Database migration 010: adds `last_used_at` column to `api_keys` table.
 - Account linking: OIDC identity automatically linked to existing local account by email match
 - Manual account link/unlink endpoints (unlink requires a local password to be set)
 - Admin recovery login endpoint (`/api/v1/auth/admin/recovery-login`) — local credential login always available

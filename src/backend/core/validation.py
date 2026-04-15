@@ -4,6 +4,17 @@ from typing import Optional, Any, Dict
 from pydantic import BaseModel, Field, validator, ValidationError
 import re
 
+# Canonical set of permission scopes available to API keys.
+# Any new scope must be added here before it can be granted or enforced.
+VALID_SCOPES: list[str] = [
+    "read:models",
+    "write:models",
+    "read:projects",
+    "write:projects",
+    "read:settings",
+    "write:settings",
+]
+
 
 # Username validation
 def validate_username(username: str) -> str:
@@ -213,7 +224,7 @@ class CreateProjectRequest(BaseModel):
 class CreateAPIKeyRequest(BaseModel):
     """API key creation form validation."""
     name: str = Field(..., min_length=1, max_length=255)
-    scopes: list[str] = Field(default=["read:models"])
+    scopes: list[str] = Field(default=["read:projects"])
     expiry_days: Optional[int] = Field(None)
 
     @validator("name")
@@ -224,19 +235,11 @@ class CreateAPIKeyRequest(BaseModel):
 
     @validator("scopes")
     def validate_scopes(cls, v):
-        valid_scopes = [
-            "read:models",
-            "write:models",
-            "read:projects",
-            "write:projects",
-            "read:settings",
-            "write:settings",
-        ]
         if not v:
             raise ValueError("At least one scope must be selected")
         for scope in v:
-            if scope not in valid_scopes:
-                raise ValueError(f"Invalid scope: {scope}")
+            if scope not in VALID_SCOPES:
+                raise ValueError(f"Invalid scope: {scope}. Must be one of: {', '.join(VALID_SCOPES)}")
         return v
 
     @validator("expiry_days")

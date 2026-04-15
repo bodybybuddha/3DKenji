@@ -216,6 +216,13 @@ def _get_user_id_from_api_key(
                 detail="API key does not have required scope",
             )
 
+    # Record last use — best-effort, never block authentication on failure
+    try:
+        api_key.last_used_at = datetime.utcnow()  # type: ignore[assignment]
+        db.commit()
+    except Exception:
+        db.rollback()
+
     return api_key.owner_id
 
 
