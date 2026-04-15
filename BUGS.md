@@ -12,14 +12,7 @@ This file is organized by canonical bug ID in ascending order. It can be retired
 
 ## Open Issues
 
-### Bug #24: API key scope validation missing
-- Status: Open
-- Severity: Low
-- Component: Backend/API Keys
-- Branch: unknown
-- Created: 2026-02-22
-- Description: API keys accept arbitrary scope values; API key auth flow is not fully implemented.
-- Evidence: tests/validation/test_api_key_validation.py::TestAPIKeyUsageValidation::test_use_key_with_insufficient_scope
+_No open bugs at this time._
 
 ## Resolved and Historical (Sequential)
 
@@ -223,6 +216,14 @@ This file is organized by canonical bug ID in ascending order. It can be retired
 - Resolved In: 2026-02-22
 - Resolution: Added admin user-create API and corrected modal path wiring.
 - Note: Renumbered from legacy duplicate Bug #16 entry to maintain unique sequential IDs.
+
+### Bug #24: API key scope validation missing
+- Status: Resolved
+- Severity: Low
+- Component: Backend/API Keys
+- Branch: feature/api-key-auth-e2e
+- Resolved In: 2026-04-15
+- Resolution: Added `VALID_SCOPES` constant and Pydantic validator on `CreateAPIKeyRequest`; arbitrary scopes now rejected with 422. Scope enforcement already wired via `require_scopes`; end-to-end regression tests added in `tests/integration/test_api_key_scopes.py` and `tests/validation/test_api_key_validation.py`.
 
 ## Branch Evidence Ledger
 

@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse, Response
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, validator
 from sqlalchemy.orm import Session
 import secrets
 import hashlib
@@ -13,7 +13,7 @@ import hashlib
 from backend.api.auth import get_current_user
 from backend.db import get_db
 from backend.models.api_key import APIKey
-from backend.core.validation import sanitize_text_input
+from backend.core.validation import sanitize_text_input, VALID_SCOPES
 from backend.api.frontend import templates
 from sqlalchemy import select
 
@@ -22,11 +22,20 @@ router = APIRouter(prefix="/keys", tags=["api-keys"])
 
 # Request Models
 class CreateAPIKeyRequest(BaseModel):
-    """Request to create an API key."""
+    """Request to create an API key via the JSON API."""
 
     name: str = Field(..., min_length=1, max_length=255, description="Human-friendly name for the key")
-    scopes: list[str] = Field(default=["read"], description="Permission scopes for the key")
-    expires_at: Optional[str] = Field(None, description="ISO 8601 datetime for key expiration (optional)")
+    scopes: list[str] = Field(default=["read:projects"], description="Permission scopes for the key")
+    expires_at: Optional[str] = Field(None, description="ISO 8601 date/datetime for key expiration; omit or null for no expiration")
+
+    @validator("scopes")
+    def validate_scopes(cls, v: list[str]) -> list[str]:
+        if not v:
+            raise ValueError("At least one scope must be selected")
+        for scope in v:
+            if scope not in VALID_SCOPES:
+                raise ValueError(f"Invalid scope: {scope!r}. Allowed: {', '.join(VALID_SCOPES)}")
+        return v
 
 
 # Response Models
@@ -83,6 +92,7 @@ async def create_api_key(
     name: Optional[str] = Form(None),
     scopes: Optional[list[str]] = Form(None),
     expiry_days: Optional[int] = Form(None),
+    expire_on: Optional[str] = Form(None),
     current_user_id: str = Depends(get_current_user),
     session: Session = Depends(get_db),
 ) -> APIKeyWithSecretResponse:
@@ -92,34 +102,48 @@ async def create_api_key(
     API keys are long-lived tokens that can be used for programmatic access.
     The secret is only shown at creation time; it cannot be retrieved later.
 
-    Args:
-        request: CreateAPIKeyRequest with name and scopes.
-        current_user_id: ID of authenticated user (injected).
-        session: Database session (injected).
-
-    Returns:
-        APIKeyWithSecretResponse with key details and secret (201 Created).
-        **IMPORTANT**: Save the secret immediately, it will not be shown again.
+    Expiration rules:
+    - JSON: ``expires_at`` ISO 8601 string → use that date; ``null`` or omitted → no expiration.
+    - Form: ``expire_on`` date string → use that date; ``expiry_days`` integer → offset from today;
+      both absent or empty → no expiration.
 
     Raises:
         400: If request is invalid.
         401: If user is not authenticated.
     """
     import uuid
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
     try:
-        # Support both JSON API clients and HTMX form submissions.
         content_type = req.headers.get("content-type", "")
         if "application/json" in content_type:
             body = await req.json()
             request = CreateAPIKeyRequest(**body)
+
+            # Determine expiry from JSON expires_at (null / omitted → never)
+            expires_at_dt = None
+            if request.expires_at:
+                try:
+                    expires_at_dt = datetime.fromisoformat(
+                        request.expires_at.replace("Z", "+00:00")
+                    ).replace(tzinfo=None)  # store naive UTC
+                    if expires_at_dt <= datetime.utcnow():
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="expires_at must be in the future",
+                        )
+                except ValueError as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Invalid expires_at format. Expected ISO 8601: {exc}",
+                    )
         else:
+            # Form path: validate via shared validator then compute expiry independently.
             from backend.core.validation import CreateAPIKeyRequest as ValidatedKeyRequest
 
             validated = ValidatedKeyRequest(
                 name=name or "",
-                scopes=scopes or ["read:models"],
+                scopes=scopes or ["read:projects"],
                 expiry_days=expiry_days,
             )
             request = CreateAPIKeyRequest(
@@ -128,45 +152,37 @@ async def create_api_key(
                 expires_at=None,
             )
 
-        # Validate and parse expires_at if provided
-        expires_at_dt = None
-        if request.expires_at:
-            try:
-                expires_at_dt = datetime.fromisoformat(request.expires_at.replace('Z', '+00:00'))
-                # Validate it's in the future
-                if expires_at_dt <= datetime.utcnow():
+            expires_at_dt = None
+            if expire_on and expire_on.strip():
+                try:
+                    expires_at_dt = datetime.strptime(expire_on.strip(), "%Y-%m-%d")
+                    if expires_at_dt.date() <= datetime.utcnow().date():
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Expiration date must be in the future",
+                        )
+                except ValueError as exc:
                     raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="expires_at must be in the future"
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Invalid expiration date format (expected YYYY-MM-DD): {exc}",
                     )
-            except ValueError as e:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"Invalid expires_at format. Expected ISO 8601: {str(e)}"
-                )
-        else:
-            # Default: keys expire in 1 year
-            expires_at_dt = datetime.utcnow() + timedelta(days=365)
-        
-        # Validate name is not just whitespace
+            elif expiry_days:
+                expires_at_dt = datetime.utcnow() + timedelta(days=expiry_days)
+            # else: expires_at_dt stays None → never expires
+
+        # Sanitize name
         if request.name.strip() == "":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="name cannot be empty or whitespace only"
+                detail="name cannot be empty or whitespace only",
             )
-        
-        # Sanitize name to prevent XSS
         try:
             sanitized_name = sanitize_text_input(request.name.strip(), "API key name")
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e)
-            )
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
         identifier, secret_hash, secret = _generate_key_pair()
 
-        # Create API key record
         api_key = APIKey(
             id=str(uuid.uuid4()),
             owner_id=current_user_id,
@@ -181,7 +197,6 @@ async def create_api_key(
         session.commit()
         session.refresh(api_key)
 
-        # Build response with the plaintext secret (only shown once)
         return APIKeyWithSecretResponse(
             id=api_key.id,  # type: ignore[arg-type]
             name=api_key.name,  # type: ignore[arg-type]
@@ -190,20 +205,20 @@ async def create_api_key(
             created_at=api_key.created_at.isoformat(),  # type: ignore[arg-type]
             expires_at=api_key.expires_at.isoformat() if api_key.expires_at else None,  # type: ignore[arg-type]
             key=secret,
-            secret=secret,  # This is the only time it's returned!
+            secret=secret,  # Only shown at creation time — save it!
         )
 
     except HTTPException:
         raise
-    except ValidationError as e:
+    except ValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=e.errors(),
+            detail=exc.errors(),
         )
-    except Exception as e:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create API key: {str(e)}",
+            detail=f"Failed to create API key: {str(exc)}",
         )
 
 
@@ -332,8 +347,10 @@ async def get_create_key_modal(
     current_user_id: str = Depends(get_current_user),
 ) -> str:
     """Get the create API key modal form."""
+    from datetime import date
     return templates.TemplateResponse("keys/form-modal.html", {
         "request": request,
+        "today": date.today().isoformat(),
     }).body.decode()
 
 # Form validation endpoints
