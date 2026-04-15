@@ -150,6 +150,68 @@ Content-Type: application/json
 - `400` – Old password incorrect
 - `400` – New password too weak
 
+### OAuth / OIDC Endpoints
+
+These endpoints enable external OIDC authentication and account linking. Replace `{provider}` with your configured provider slug (default: `oidc`). OAuth configuration is now stored in the database through the admin settings screen. See [docs/oauth-setup.md](docs/oauth-setup.md) for operator setup and examples.
+
+- `GET /auth/oauth/{provider}/authorize` — Initiate OIDC login (redirects to provider).
+  - Auth: public
+  - Response: HTTP 302 redirect to provider authorization URL.
+  - Errors: `400` for misconfiguration, `503` if IdP unreachable.
+
+- `GET /auth/oauth/{provider}/callback` — OIDC callback endpoint.
+  - Auth: public (called by provider)
+  - Behavior: validates `state` and ID token, issues 3DKenji JWT, sets cookie (if configured), and redirects to frontend or returns JSON depending on client.
+  - Errors: `400` invalid/expired state, `401` invalid ID token, `500` internal validation error.
+
+- `POST /auth/oauth/{provider}/link` — Start link flow for logged-in users.
+  - Auth: requires existing authenticated session (Bearer token or cookie)
+  - Request: empty body
+  - Response (200): `{ "authorize_url": "https://..." }` — a URL the client can open to complete linking.
+  - Errors: `401` unauthenticated, `400` provider misconfigured.
+
+- `DELETE /auth/oauth/{provider}/unlink` — Unlink a provider from your account.
+  - Auth: requires authenticated session and user must have a local password set
+  - Request: empty body
+  - Response (204): No content on success
+  - Errors: `401` unauthenticated, `403` local password not set (prevents lockout), `404` provider not linked.
+
+- `POST /auth/admin/recovery-login` — Admin-only local credential recovery.
+  - Auth: public (used as fallback)
+  - Request JSON:
+    ```json
+    { "username": "admin", "password": "LocalPassword!" }
+    ```
+  - Response (200): `{ "access_token": "...", "token_type": "bearer" }`
+  - Errors: `401` invalid credentials, `403` account is not an admin.
+
+- `POST /auth/admin/set-local-password` — Admin sets a local password (useful if admin account was created via OIDC).
+  - Auth: requires admin JWT (logged in via OIDC or recovery)
+  - Request JSON:
+    ```json
+    { "new_password": "NewRecoveryPassword!" }
+    ```
+  - Response (200): `{ "message": "Local password set" }`
+  - Errors: `401` unauthenticated, `403` not an admin, `400` weak password.
+
+### Admin OAuth Configuration
+
+- `POST /admin/settings/oauth` — Save database-backed OAuth / OIDC settings from the admin settings page.
+  - Auth: requires admin session or admin JWT cookie/session
+  - Content type: `application/x-www-form-urlencoded` (used by the admin UI)
+  - Request fields:
+    - `enabled` — checkbox; enables OIDC login
+    - `provider_name` — URL slug such as `oidc`
+    - `issuer_url` — provider issuer URL
+    - `client_id` — provider client ID
+    - `client_secret` — new client secret value; leave blank to keep the stored secret
+    - `callback_url` — full OIDC callback URL
+    - `scopes` — space-separated scopes
+    - `cookie_secure` — checkbox; mark auth cookie as secure
+    - `clear_client_secret` — checkbox; removes the stored secret
+  - Response (200): HTML success fragment used by the admin settings page
+  - Errors: `400` invalid or incomplete settings, `403` admin access required
+
 ---
 
 ## Projects Endpoints

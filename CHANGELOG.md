@@ -2,7 +2,29 @@
 
 All notable changes to 3DKenji are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0/).
+
+## [Unreleased / v1.0.0-rc.1]
+
+### Added
+- OIDC/OAuth2 provider support for single sign-on (works with Authentik, Keycloak, Okta, etc.)
+- Account linking: OIDC identity automatically linked to existing local account by email match
+- Manual account link/unlink endpoints (unlink requires a local password to be set)
+- Admin recovery login endpoint (`/api/v1/auth/admin/recovery-login`) — local credential login always available
+- Admin local password setup endpoint (`/api/v1/auth/admin/set-local-password`) — allows OIDC-only admins to set a recovery password
+- PKCE (S256) enforced on all OAuth authorization flows
+- ID token validation: issuer, audience, expiry, and JWKS signature verified
+- Database migration 009: adds `oauth_identities` table, makes `password_hash` nullable for OIDC-only accounts
+
+### Changed
+- OAuth / OIDC provider configuration now lives in the database through the admin settings page, enabling first-install local admin bootstrap followed by in-app OAuth setup.
+- Stored OAuth client secrets are encrypted at rest using a key derived from `SECRET_KEY`.
+- Removed legacy `OIDC_*` environment fallback. OAuth runtime configuration is now database-only.
+
+### Security
+- OAuth state is single-use and expires in 5 minutes
+- Client secrets and tokens are never logged
+- Bcrypt is not used for OAuth client secrets because those secrets must be decrypted for token exchange; reversible encryption is now used instead.
 
 ## [Unreleased]
 

@@ -186,6 +186,8 @@ Get response with secret (shown once only):
 
 All protected endpoints require `Authorization: Bearer <token>` header.
 
+Note: 3DKenji also supports OIDC/OpenID Connect SSO (Authentik, Keycloak, Okta, etc.). The recommended setup flow is: create the first admin locally, then configure OAuth from `/admin/settings`. See [docs/oauth-setup.md](docs/oauth-setup.md) for the operator guide and admin recovery instructions.
+
 ### Projects
 - `GET /api/v1/projects` – List user's projects (paginated)
   - Query: `skip`, `limit`
@@ -236,6 +238,8 @@ LOG_BACKUP_COUNT=5
 # Security
 SECRET_KEY=your-secret-key-for-jwt-signing
 ```
+
+OAuth / OIDC is configured after first boot from `/admin/settings` and stored in the database. Keep `SECRET_KEY` stable after setup because it is also used to decrypt the stored OAuth client secret.
 
 Project directories are created at:
 
