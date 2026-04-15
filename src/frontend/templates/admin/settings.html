@@ -192,9 +192,7 @@
                         <input type="password" name="client_secret" class="form-control" value=""
                             placeholder="{% if oauth_settings and oauth_settings.client_secret_configured %}Leave blank to keep the stored secret{% else %}Paste provider secret{% endif %}" />
                         {% if oauth_settings and oauth_settings.client_secret_configured %}
-                        <small style="color: var(--text-tertiary); display: block; margin-top: var(--spacing-xs);">A
-                            client secret is already stored. Leave this blank to keep it, or enter a new value to rotate
-                            it.</small>
+                        <small style="color: var(--text-tertiary); display: block; margin-top: var(--spacing-xs);">A client secret is already stored. Leave this blank to keep it, or enter a new value to rotate it.</small>
                         {% endif %}
                     </div>
                     <div style="display: flex; gap: var(--spacing-lg); align-items: center; flex-wrap: wrap;">
