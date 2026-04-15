@@ -24,12 +24,13 @@ class User(BaseModel):
     )
     email = Column(String(255), unique=True, nullable=False, index=True)
     display_name = Column(String(255), nullable=False)
-    password_hash = Column(Text, nullable=False)  # Hashed password for local auth
+    password_hash = Column(Text, nullable=True)  # Hashed password; null for OIDC-only accounts
     is_admin = Column(Boolean, nullable=False, default=False)
     is_active = Column(Boolean, nullable=False, default=True)
 
     # Relationships
     projects = relationship("Project", back_populates="owner")
+    oauth_identities = relationship("OAuthIdentity", back_populates="user", cascade="all, delete-orphan")
     api_keys = relationship("APIKey", back_populates="owner")
     project_collaborations = relationship(
         "ProjectCollaborator",

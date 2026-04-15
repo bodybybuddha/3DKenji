@@ -137,6 +137,87 @@
                 </div>
             </form>
         </div>
+
+        <div class="card" style="margin-bottom: var(--spacing-lg);">
+            <div style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color);">
+                <h3>OAuth / OIDC Configuration</h3>
+                <p style="margin-top: var(--spacing-xs); color: var(--text-secondary);">Configure single sign-on after
+                    your first admin account exists. The client secret is stored encrypted in the database using your
+                    app secret key.</p>
+            </div>
+            <form hx-post="/api/v1/admin/settings/oauth" hx-target="#oauth-settings-feedback" hx-swap="innerHTML">
+                <div style="padding: var(--spacing-lg); display: grid; gap: var(--spacing-md);">
+                    <div id="oauth-settings-feedback"></div>
+                    <label style="display: flex; gap: var(--spacing-xs); align-items: center;">
+                        <input type="checkbox" name="enabled" {% if oauth_settings and oauth_settings.enabled
+                            %}checked{% endif %} />
+                        Enable OAuth / OIDC sign-in
+                    </label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+                        <div>
+                            <label>Provider Slug</label>
+                            <input type="text" name="provider_name" class="form-control"
+                                value="{{ oauth_settings.provider_name if oauth_settings else 'oidc' }}"
+                                placeholder="oidc" />
+                        </div>
+                        <div>
+                            <label>Scopes</label>
+                            <input type="text" name="scopes" class="form-control"
+                                value="{{ oauth_settings.scopes if oauth_settings else 'openid email profile' }}"
+                                placeholder="openid email profile" />
+                        </div>
+                    </div>
+                    <div>
+                        <label>Issuer URL</label>
+                        <input type="url" name="issuer_url" class="form-control"
+                            value="{{ oauth_settings.issuer_url if oauth_settings else '' }}"
+                            placeholder="https://auth.example.com/application/o/3dkenji/" />
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+                        <div>
+                            <label>Client ID</label>
+                            <input type="text" name="client_id" class="form-control"
+                                value="{{ oauth_settings.client_id if oauth_settings else '' }}"
+                                placeholder="3dkenji-client" />
+                        </div>
+                        <div>
+                            <label>Callback URL</label>
+                            <input type="url" name="callback_url" class="form-control"
+                                value="{{ oauth_settings.callback_url if oauth_settings else '' }}"
+                                placeholder="https://3dkenji.example.com/api/v1/auth/oauth/oidc/callback" />
+                        </div>
+                    </div>
+                    <div>
+                        <label>Client Secret</label>
+                        <input type="password" name="client_secret" class="form-control" value=""
+                            placeholder="{% if oauth_settings and oauth_settings.client_secret_configured %}Leave blank to keep the stored secret{% else %}Paste provider secret{% endif %}" />
+                        {% if oauth_settings and oauth_settings.client_secret_configured %}
+                        <small style="color: var(--text-tertiary); display: block; margin-top: var(--spacing-xs);">A
+                            client secret is already stored. Leave this blank to keep it, or enter a new value to rotate
+                            it.</small>
+                        {% endif %}
+                    </div>
+                    <div style="display: flex; gap: var(--spacing-lg); align-items: center; flex-wrap: wrap;">
+                        <label style="display: flex; gap: var(--spacing-xs); align-items: center;">
+                            <input type="checkbox" name="cookie_secure" {% if oauth_settings and
+                                oauth_settings.cookie_secure %}checked{% endif %} />
+                            Mark auth cookie as Secure
+                        </label>
+                        <label style="display: flex; gap: var(--spacing-xs); align-items: center;">
+                            <input type="checkbox" name="clear_client_secret" />
+                            Clear stored client secret
+                        </label>
+                    </div>
+                    <small style="color: var(--text-tertiary);">
+                        Keep <strong>SECRET_KEY</strong> stable. If you rotate it, saved OAuth client secrets must be
+                        re-entered because they are decrypted with a key derived from that value.
+                    </small>
+                </div>
+                <div style="padding: var(--spacing-lg); border-top: 1px solid var(--border-color); text-align: right;">
+                    <button type="submit" class="btn btn-primary">Save OAuth Settings</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}

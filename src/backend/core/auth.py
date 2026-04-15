@@ -1,5 +1,6 @@
 """Authentication utilities for token handling."""
 
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import jwt
@@ -7,7 +8,7 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 # JWT Configuration
-JWT_SECRET = "your-secret-key-change-in-production"  # TODO: Move to config
+JWT_SECRET = os.environ.get("SECRET_KEY", "your-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 

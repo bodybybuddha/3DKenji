@@ -1059,10 +1059,17 @@ async def admin_settings(request: Request, session: Session = Depends(get_db)):
     user = await get_optional_user(request, session)
     if not user or not user.is_admin:
         return RedirectResponse(url="/projects", status_code=303)
-    smtp_settings = AppSettingsService(session).get_smtp_settings()
+    settings_service = AppSettingsService(session)
+    smtp_settings = settings_service.get_smtp_settings()
+    oauth_settings = settings_service.get_oauth_settings()
     return templates.TemplateResponse(
         "admin/settings.html",
-        {"request": request, "user": user, "smtp_settings": smtp_settings},
+        {
+            "request": request,
+            "user": user,
+            "smtp_settings": smtp_settings,
+            "oauth_settings": oauth_settings,
+        },
     )
 
 

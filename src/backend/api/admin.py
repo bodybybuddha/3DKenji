@@ -263,6 +263,20 @@ class SMTPSettingsRequest(BaseModel):
     mock_delivery: bool = False
 
 
+class OAuthSettingsRequest(BaseModel):
+    """Request to update database-backed OAuth configuration."""
+
+    enabled: bool = False
+    provider_name: str = "oidc"
+    issuer_url: str = ""
+    client_id: str = ""
+    client_secret: str = ""
+    callback_url: str = ""
+    scopes: str = "openid email profile"
+    cookie_secure: bool = False
+    clear_client_secret: bool = False
+
+
 # Response Models
 class StatsResponse(BaseModel):
     """Admin statistics response."""
@@ -895,6 +909,73 @@ async def update_smtp_settings(
                 "request": request,
                 "message": "Could not save SMTP settings",
                 "errors": {"smtp": [str(exc)]},
+            },
+            status_code=400,
+        )
+
+
+@router.post("/settings/oauth", response_class=HTMLResponse)
+async def update_oauth_settings(
+    request: Request,
+    enabled: Optional[str] = Form(None),
+    provider_name: str = Form("oidc"),
+    issuer_url: str = Form(""),
+    client_id: str = Form(""),
+    client_secret: str = Form(""),
+    callback_url: str = Form(""),
+    scopes: str = Form("openid email profile"),
+    cookie_secure: Optional[str] = Form(None),
+    clear_client_secret: Optional[str] = Form(None),
+    session: Session = Depends(get_db),
+    admin_user: str = Depends(require_admin),
+) -> HTMLResponse:
+    """Persist OAuth/OIDC settings used by the authentication flow."""
+    service = AppSettingsService(session)
+    current_settings = service.get_oauth_settings()
+    try:
+        normalized = OAuthSettingsRequest(
+            enabled=bool(enabled),
+            provider_name=provider_name.strip() or "oidc",
+            issuer_url=issuer_url.strip(),
+            client_id=client_id.strip(),
+            client_secret=client_secret,
+            callback_url=callback_url.strip(),
+            scopes=scopes.strip() or "openid email profile",
+            cookie_secure=bool(cookie_secure),
+            clear_client_secret=bool(clear_client_secret),
+        )
+
+        has_secret = bool(client_secret) or current_settings.get("client_secret_configured")
+        if normalized.clear_client_secret:
+            has_secret = False
+
+        if normalized.enabled and not all([
+            normalized.issuer_url,
+            normalized.client_id,
+            normalized.callback_url,
+            has_secret,
+        ]):
+            raise ValueError(
+                "Enabled OAuth requires issuer URL, client ID, callback URL, and a client secret"
+            )
+
+        settings = service.update_oauth_settings(normalized.dict(), updated_by=admin_user)
+        return templates.TemplateResponse(
+            "fragments/success-alert.html",
+            {
+                "request": request,
+                "message": f"OAuth settings saved for provider {settings.get('provider_name', 'oidc')}",
+            },
+            status_code=200,
+        )
+    except Exception as exc:
+        logger.warning("Failed to update OAuth settings: %s", exc)
+        return templates.TemplateResponse(
+            "fragments/error-alert.html",
+            {
+                "request": request,
+                "message": "Could not save OAuth settings",
+                "errors": {"oauth": [str(exc)]},
             },
             status_code=400,
         )

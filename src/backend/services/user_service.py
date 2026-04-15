@@ -44,18 +44,21 @@ class UserService:
         username: str,
         email: str,
         display_name: str,
-        password: str,
+        password: Optional[str] = None,
         nickname: Optional[str] = None,
         is_admin: bool = False,
         is_active: bool = True,
     ) -> UserDTO:
-        """Create a new user with password.
+        """Create a new user with optional password.
         
         Args:
             username: Unique username
             email: Unique email address
             display_name: Display name
-            password: Plain text password (will be hashed)
+            password: Plain text password (will be hashed). None for OIDC-only accounts.
+            nickname: Optional nickname for filesystem identity
+            is_admin: Whether user is admin
+            is_active: Whether user is active
             
         Returns:
             UserDTO with created user data
@@ -81,8 +84,8 @@ class UserService:
         base_nickname = self.normalize_nickname(nickname or username)
         unique_nickname = self._ensure_unique_nickname(base_nickname)
 
-        # Hash password
-        password_hash = self._hash_password(password)
+        # Hash password if provided (None for OIDC-only accounts)
+        password_hash = self._hash_password(password) if password else None
 
         # Create user
         user = User(
@@ -147,6 +150,39 @@ class UserService:
         
         return self._to_dto(user) if user else None
 
+    def get_user_by_id_orm(self, user_id: str) -> Optional[User]:
+        """Get User ORM object by ID.
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            User ORM object or None if not found
+        """
+        return self.session.execute(
+            select(User).where(User.id == user_id)
+        ).scalar_one_or_none()
+
+    def set_password(self, user_id: str, plain_password: str) -> None:
+        """Set password for a user (for admin recovery or OIDC users adding local auth).
+        
+        Args:
+            user_id: User ID
+            plain_password: New plain text password (will be hashed)
+            
+        Raises:
+            ValueError: If user not found or password invalid
+        """
+        if len(plain_password) < 8:
+            raise ValueError("Password must be at least 8 characters")
+
+        user = self.get_user_by_id_orm(user_id)
+        if not user:
+            raise ValueError(f"User '{user_id}' not found")
+
+        user.password_hash = self._hash_password(plain_password)  # type: ignore[attr-defined]
+        self.session.commit()
+
     def verify_password(self, username: str, password: str) -> Optional[UserDTO]:
         """Verify user password.
         
@@ -165,6 +201,10 @@ class UserService:
             return None
 
         if not user.is_active:  # type: ignore[attr-defined]
+            return None
+
+        # OIDC-only accounts with no password cannot authenticate via password
+        if not user.password_hash:  # type: ignore[attr-defined]
             return None
 
         if self._verify_password(password, user.password_hash):  # type: ignore[arg-type]
