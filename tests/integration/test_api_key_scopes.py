@@ -18,7 +18,7 @@ def _register_and_login() -> tuple[requests.Session, str]:
         f"{_base_url()}/api/v1/auth/register",
         json={
             "username": uname,
-            "email": f"{uname}@test.local",
+            "email": f"{uname}@example.com",
             "password": "Scope1234!",
             "display_name": "Scope Test User",
         },
