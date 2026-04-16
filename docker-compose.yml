@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: kenji
+      POSTGRES_PASSWORD: kenji
+      POSTGRES_DB: kenji
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/app/src
+      - ./data:/data
+      - ./plugins:/data/plugins
+    environment:
+      DATABASE_URL: postgres://kenji:kenji@db:5432/kenji
+      PLUGINS_ROOT: /data/plugins
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+volumes:
+  db_data:

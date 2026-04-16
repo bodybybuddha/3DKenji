@@ -1,0 +1,126 @@
+{% extends "admin/base.html" %}
+
+{% block admin_content %}
+<div>
+    <h1>Admin Dashboard</h1>
+    <p class="section-description">System overview and statistics</p>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-4" style="margin-top: var(--spacing-2xl);">
+        <div class="card card-compact">
+            <div class="card-body">
+                <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Total Users</p>
+                <p id="user-count" style="margin: var(--spacing-sm) 0 0 0; font-size: 2rem; font-weight: bold;">-</p>
+            </div>
+        </div>
+
+        <div class="card card-compact">
+            <div class="card-body">
+                <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Total Projects</p>
+                <p id="project-count" style="margin: var(--spacing-sm) 0 0 0; font-size: 2rem; font-weight: bold;">-</p>
+            </div>
+        </div>
+
+        <div class="card card-compact">
+            <div class="card-body">
+                <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Total Models</p>
+                <p id="model-count" style="margin: var(--spacing-sm) 0 0 0; font-size: 2rem; font-weight: bold;">-</p>
+            </div>
+        </div>
+
+        <div class="card card-compact">
+            <div class="card-body">
+                <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Storage Used</p>
+                <p id="storage-used" style="margin: var(--spacing-sm) 0 0 0; font-size: 2rem; font-weight: bold;">-</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Status -->
+    <div class="grid grid-2" style="margin-top: var(--spacing-2xl);">
+        <div class="card">
+            <div class="card-header">
+                <h3 style="margin: 0;">System Status</h3>
+            </div>
+            <div class="card-body stack-md">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>API Status</span>
+                    <span style="color: var(--color-success); font-weight: 600;">● Healthy</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Database</span>
+                    <span style="color: var(--color-success); font-weight: 600;">● Connected</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Storage</span>
+                    <span style="color: var(--color-success); font-weight: 600;">● Available</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 style="margin: 0;">Quick Actions</h3>
+            </div>
+            <div class="card-body stack-sm">
+                <a href="/admin/users" class="btn btn-secondary" style="text-align: center;">Manage Users</a>
+                <a href="/admin/plugins" class="btn btn-secondary" style="text-align: center;">Manage Plugins</a>
+                <a href="/admin/logs" class="btn btn-secondary" style="text-align: center;">View Logs</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Version Info -->
+    <div class="card" style="margin-top: var(--spacing-2xl);">
+        <div class="card-header">
+            <h4 style="margin: 0;">Version Information</h4>
+        </div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--spacing-lg);">
+                <div>
+                    <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">3DKenji Version</p>
+                    <p style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">1.0.0</p>
+                </div>
+                <div>
+                    <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Deployment Date</p>
+                    <p style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;" id="deployment-date">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Load dashboard stats via fetch for better error handling
+        fetch('/api/v1/admin/stats')
+            .then(response => response.json())
+            .then(data => {
+                if (data.total_users !== undefined) {
+                    document.getElementById('user-count').textContent = data.total_users;
+                }
+                if (data.total_projects !== undefined) {
+                    document.getElementById('project-count').textContent = data.total_projects;
+                }
+                if (data.total_models !== undefined) {
+                    document.getElementById('model-count').textContent = data.total_models;
+                }
+                if (data.total_storage_bytes !== undefined) {
+                    document.getElementById('storage-used').textContent = formatBytes(data.total_storage_bytes);
+                }
+            })
+            .catch(error => {
+                console.error('Failed to load stats:', error);
+                // Keep the dashes if load fails
+            });
+    });
+</script>
+{% endblock %}

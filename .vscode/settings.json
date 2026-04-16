@@ -1,0 +1,9 @@
+{
+	"chat.mcp.autostart": true,
+	"python.testing.pytestEnabled": true,
+	"python.testing.unittestEnabled": false,
+	"python.testing.nosetestsEnabled": false,
+	"python.testing.pytestArgs": [
+		"src/backend"
+	]
+}

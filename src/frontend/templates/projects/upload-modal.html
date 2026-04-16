@@ -1,0 +1,91 @@
+<div id="upload-model-modal" class="modal"
+    style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
+    <div class="card" style="max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;">
+        <div
+            style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin: 0;">Upload Model</h2>
+            <button hx-on="click: this.closest('#upload-model-modal').remove()"
+                style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">
+                ×
+            </button>
+        </div>
+
+        <form hx-post="/api/v1/projects/{{ project_id }}/models" hx-encoding="multipart/form-data" hx-swap="none"
+            hx-on:htmx:xhr:progress="updateProgress(event)" hx-on:htmx:after-request="handleUploadComplete(event)"
+            hx-on:htmx:response-error="handleUploadError(event)">
+            <div style="padding: var(--spacing-lg); display: grid; gap: var(--spacing-md);">
+                <div>
+                    <label>Model File</label>
+                    <input type="file" name="file" accept=".stl,.3mf,.obj,.gcode" required class="form-control" />
+                    <small style="color: var(--text-secondary);">Supported: .stl, .3mf, .obj, .gcode</small>
+                </div>
+
+                <div>
+                    <label>Source URL (optional)</label>
+                    <input type="url" name="source_url" placeholder="https://example.com/model" class="form-control" />
+                </div>
+
+                <div>
+                    <label>Description</label>
+                    <textarea name="description" placeholder="Describe your model..." rows="3"
+                        class="form-control"></textarea>
+                </div>
+
+                <div>
+                    <label>Tags (optional)</label>
+                    <input type="text" name="tags" placeholder="prototype, test" class="form-control" />
+                </div>
+
+                <!-- Progress Bar -->
+                <div id="upload-progress" style="display: none;">
+                    <div style="background: var(--bg-secondary); border-radius: 4px; overflow: hidden; height: 24px;">
+                        <div id="progress-bar"
+                            style="background: var(--primary); width: 0%; height: 100%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: bold;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                style="padding: var(--spacing-lg); border-top: 1px solid var(--border-color); display: flex; gap: var(--spacing-md); justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="this.closest('#upload-model-modal').remove();">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    Upload
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function updateProgress(event) {
+        document.getElementById('upload-progress').style.display = 'block';
+        const progress = Math.round((event.detail.loaded / event.detail.total) * 100);
+        document.getElementById('progress-bar').style.width = progress + '%';
+        document.getElementById('progress-bar').textContent = progress + '%';
+    }
+
+    function handleUploadComplete(event) {
+        if (event.detail.successful) {
+            HTMXHelper.showToast('Model uploaded successfully', 'success');
+            setTimeout(function () {
+                const modal = document.getElementById('upload-model-modal');
+                if (modal) {
+                    modal.remove();
+                }
+                htmx.ajax('GET', '/api/v1/projects/{{ project_id }}/models?format=html', '#models-list');
+                htmx.ajax('GET', '/api/v1/projects/{{ project_id }}/files?format=html', '#project-files-browser');
+            }, 250);
+        } else {
+            const error = (event.detail.xhr && event.detail.xhr.responseText) ? event.detail.xhr.responseText : 'Upload failed';
+            HTMXHelper.showToast(error, 'error');
+        }
+    }
+
+    function handleUploadError(event) {
+        const error = (event.detail.xhr && event.detail.xhr.responseText) ? event.detail.xhr.responseText : 'Upload failed';
+        HTMXHelper.showToast(error, 'error');
+    }
+</script>

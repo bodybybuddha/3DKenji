@@ -1,0 +1,68 @@
+{% extends "admin/base.html" %}
+
+{% block admin_content %}
+<div>
+    <h2>System Health</h2>
+    <p class="section-description">Monitor system components and performance</p>
+
+    <!-- Detailed Health Information -->
+    <div id="health-details" class="card">
+        <div style="padding: var(--spacing-lg); text-align: center;">
+            <p style="color: var(--text-secondary); margin: 0;">Loading detailed health information...</p>
+        </div>
+    </div>
+
+    <!-- Performance Metrics -->
+    <div id="performance-metrics" class="card" style="margin-top: var(--spacing-lg);">
+        <div style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color);">
+            <h3>Performance Metrics</h3>
+        </div>
+        <div style="padding: var(--spacing-lg); text-align: center;">
+            <p style="color: var(--text-secondary); margin: 0;">Loading performance data...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.htmx || typeof htmx.ajax !== 'function') {
+            return;
+        }
+
+        // Load health details
+        htmx.ajax('GET', '/api/v1/admin/health?format=html', {
+            target: '#health-details',
+            swap: 'innerHTML'
+        });
+
+        // Load performance metrics using fetch for better control
+        fetch('/api/v1/admin/metrics')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                return response.text();
+            })
+            .then(html => {
+                document.getElementById('performance-metrics').innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Failed to load metrics:', error);
+                document.getElementById('performance-metrics').innerHTML =
+                    '<div style="padding: var(--spacing-lg); text-align: center; color: var(--color-danger);">Failed to load: ' + error + '</div>';
+            });
+
+        // Debug: Log any htmx errors
+        document.body.addEventListener('htmx:responseError', function (evt) {
+            console.error('HTMX Error:', evt.detail);
+            if (evt.detail.target.id === 'performance-metrics') {
+                document.getElementById('performance-metrics').innerHTML =
+                    '<div style="padding: var(--spacing-lg); text-align: center; color: var(--color-danger);">Failed to load metrics</div>';
+            }
+        });
+
+        // Status indicators - ✅ = healthy, ⚠️ = degraded, ❌ = down
+        // These will be updated by the HTMX response
+    });
+</script>
+{% endblock %}

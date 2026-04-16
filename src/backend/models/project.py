@@ -1,0 +1,45 @@
+"""Project model."""
+
+from sqlalchemy import Column, String, Boolean, BigInteger, ForeignKey, UniqueConstraint, JSON
+from sqlalchemy.orm import relationship
+
+from backend.db.base import BaseModel
+
+
+class Project(BaseModel):
+    """Project model for organizing 3D printing projects."""
+
+    __tablename__ = "projects"
+
+    id = Column(String(36), primary_key=True, index=True)
+    owner_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+
+    # Directory-based storage fields
+    slug = Column(String(64), nullable=False)
+    category = Column(String(255), nullable=False, default="Uncategorized")
+    visibility = Column(String(20), nullable=False, default="private", index=True)
+    directory_path = Column(String(1024), nullable=True)
+    disk_size_bytes = Column(BigInteger, nullable=True, default=0)
+    tags_cache = Column(JSON, nullable=True)
+    is_archived = Column(Boolean, nullable=False, default=False)
+    
+    # Deletion policy: 'archive' (default) or 'hard_delete'
+    deletion_policy = Column(String(50), nullable=False, default="archive")
+
+    __table_args__ = (
+        UniqueConstraint("owner_id", "category", "slug", name="uq_project_owner_category_slug"),
+    )
+
+    # Relationships
+    owner = relationship("User", back_populates="projects")
+    collaborators = relationship(
+        "ProjectCollaborator",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+    invitations = relationship(
+        "ProjectInvitation",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )

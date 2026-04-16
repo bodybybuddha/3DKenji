@@ -1,0 +1,41 @@
+{
+    "servers": {
+        "github": {
+            "type": "http",
+            "url": "https://api.githubcopilot.com/mcp"
+        },
+        "postgres": {
+            "type": "stdio",
+            "command": "/bin/bash",
+            "args": [
+                "${workspaceFolder}/scripts/run-mcp-postgres.sh"
+            ]
+        },
+        "playwright": {
+            "type": "stdio",
+            "command": "/usr/bin/npx",
+            "args": [
+                "-y",
+                "@playwright/mcp@0.0.70",
+                "--headless",
+                "--browser",
+                "chromium"
+            ]
+        },
+        "chromeDevtools": {
+            "type": "stdio",
+            "command": "/usr/bin/npx",
+            "args": [
+                "-y",
+                "chrome-devtools-mcp@0.21.0",
+                "--headless",
+                "--isolated",
+                "--no-usage-statistics",
+                "--chromeArg",
+                "--no-sandbox",
+                "--chromeArg",
+                "--disable-dev-shm-usage"
+            ]
+        }
+    }
+}

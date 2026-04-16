@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Project Members - 3DKenji{% endblock %}
+
+{% block content %}
+<div class="container" style="padding: var(--spacing-2xl) var(--spacing-lg); max-width: 1100px;">
+    <div style="margin-bottom: var(--spacing-lg);">
+        <a href="/project/{{ project.id }}" style="color: var(--color-primary);">← Back to Project</a>
+    </div>
+
+    <div class="section-header">
+        <h1>Project Members</h1>
+        <p class="section-description">Project: {{ project.title }}</p>
+    </div>
+
+    <div class="card" style="margin-top: var(--spacing-xl); margin-bottom: var(--spacing-xl);">
+        <div style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color);">
+            <h3 style="margin: 0;">Invite New Collaborator</h3>
+        </div>
+        <form method="post" action="/project/{{ project.id }}/invitations">
+            <div
+                style="padding: var(--spacing-lg); display: grid; grid-template-columns: 2fr 1fr 1fr; gap: var(--spacing-md);">
+                <div>
+                    <label>Email</label>
+                    <input class="form-control" type="email" name="email" required placeholder="user@example.com" />
+                </div>
+                <div>
+                    <label>Role</label>
+                    <select class="form-control" name="role">
+                        <option value="viewer">viewer</option>
+                        <option value="editor">editor</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Expires (days)</label>
+                    <input class="form-control" type="number" name="expires_in_days" value="7" min="1" max="30" />
+                </div>
+            </div>
+            <div style="padding: var(--spacing-lg); border-top: 1px solid var(--border-color); text-align: right;">
+                <button type="submit" class="btn btn-primary">Send Invitation</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card" style="overflow: hidden;">
+        <div style="padding: var(--spacing-lg); border-bottom: 1px solid var(--border-color);">
+            <h3 style="margin: 0;">Members and Pending Invitations</h3>
+        </div>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead style="background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);">
+                <tr>
+                    <th style="padding: var(--spacing-md); text-align: left;">Type</th>
+                    <th style="padding: var(--spacing-md); text-align: left;">Member</th>
+                    <th style="padding: var(--spacing-md); text-align: left;">Email</th>
+                    <th style="padding: var(--spacing-md); text-align: left;">Role</th>
+                    <th style="padding: var(--spacing-md); text-align: left;">Added</th>
+                    <th style="padding: var(--spacing-md); text-align: left;">Expires</th>
+                    <th style="padding: var(--spacing-md); text-align: left;">Status</th>
+                    <th style="padding: var(--spacing-md); text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in member_rows %}
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: var(--spacing-md);">{{ item.member_type }}</td>
+                    <td style="padding: var(--spacing-md);">{{ item.display_name }}</td>
+                    <td style="padding: var(--spacing-md);">{{ item.email }}</td>
+                    <td style="padding: var(--spacing-md);">{{ item.role }}</td>
+                    <td style="padding: var(--spacing-md);">{{ item.created_at | dateformat }}</td>
+                    <td style="padding: var(--spacing-md);">
+                        {% if item.expires_at %}
+                        {{ item.expires_at | dateformat }}
+                        {% else %}
+                        <span style="color: var(--text-secondary);">-</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: var(--spacing-md);">
+                        {% if item.status == 'active' %}
+                        <span style="color: var(--color-success);">active</span>
+                        {% elif item.status == 'pending' %}
+                        <span style="color: var(--color-info);">pending</span>
+                        {% else %}
+                        <span style="color: var(--text-secondary);">{{ item.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: var(--spacing-md); text-align: right;">
+                        {% if item.is_owner %}
+                        <span style="color: var(--text-secondary);">Owner</span>
+                        {% elif item.member_type == 'Collaborator' %}
+                        <form method="post"
+                            action="/project/{{ project.id }}/collaborators/{{ item.collaborator_user_id }}/role"
+                            style="display: inline-flex; gap: var(--spacing-xs);">
+                            <select class="form-control" name="role" style="width: 120px;">
+                                <option value="viewer" {% if item.role=='viewer' %}selected{% endif %}>viewer</option>
+                                <option value="editor" {% if item.role=='editor' %}selected{% endif %}>editor</option>
+                            </select>
+                            <button class="btn btn-secondary btn-sm" type="submit">Update</button>
+                        </form>
+                        <form method="post"
+                            action="/project/{{ project.id }}/collaborators/{{ item.collaborator_user_id }}/remove"
+                            style="display: inline; margin-left: var(--spacing-xs);">
+                            <button class="btn btn-danger btn-sm" type="submit">Remove</button>
+                        </form>
+                        {% elif item.member_type == 'Pending Invitation' %}
+                        <form method="post" action="/project/{{ project.id }}/invitations/{{ item.invitation_id }}/role"
+                            style="display: inline-flex; gap: var(--spacing-xs);">
+                            <select class="form-control" name="role" style="width: 120px;">
+                                <option value="viewer" {% if item.role=='viewer' %}selected{% endif %}>viewer</option>
+                                <option value="editor" {% if item.role=='editor' %}selected{% endif %}>editor</option>
+                            </select>
+                            <button class="btn btn-secondary btn-sm" type="submit">Update</button>
+                        </form>
+                        <form method="post"
+                            action="/project/{{ project.id }}/invitations/{{ item.invitation_id }}/revoke"
+                            style="display: inline; margin-left: var(--spacing-xs);">
+                            <button class="btn btn-danger btn-sm" type="submit">Revoke</button>
+                        </form>
+                        {% else %}
+                        <span style="color: var(--text-secondary);">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not member_rows or member_rows|length == 0 %}
+                <tr>
+                    <td colspan="8"
+                        style="padding: var(--spacing-xl); text-align: center; color: var(--text-secondary);">
+                        No members found.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

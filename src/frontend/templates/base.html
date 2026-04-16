@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="3DKenji - 3D Model Management and Printing Platform">
+
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token }}">
+
+    <title>{% block title %}3DKenji{% endblock %}</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/components/buttons.css">
+    <link rel="stylesheet" href="/static/css/components/cards.css">
+    <link rel="stylesheet" href="/static/css/components/forms.css">
+    <link rel="stylesheet" href="/static/css/components/alerts.css">
+    <link rel="stylesheet" href="/static/css/layout/base.css">
+    <link rel="stylesheet" href="/static/css/layout/navbar.css">
+    <link rel="stylesheet" href="/static/css/layout/footer.css">
+    <link rel="stylesheet" href="/static/css/utilities/typography.css">
+    <link rel="stylesheet" href="/static/css/utilities/responsive.css">
+
+    <!-- Theme CSS will be loaded dynamically via app.js -->
+
+    {% block extra_css %}{% endblock %}
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+</head>
+
+<body>
+    <!-- Navigation -->
+    {% block navbar %}
+    <nav class="navbar">
+        <div class="container">
+            <div class="flex flex-space-between">
+                <div class="navbar-brand">
+                    <a href="/" class="navbar-brand-link">
+                        <strong>3DKenji</strong>
+                    </a>
+                </div>
+
+                <ul class="navbar-menu">
+                    {% if user %}
+                    <li><a href="/projects">Projects</a></li>
+                    <li>
+                        <a href="/invitations" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                            Invitations
+                            <span id="invite-count-badge"
+                                style="display: none; min-width: 1.25rem; height: 1.25rem; border-radius: 999px; background: var(--color-danger); color: white; font-size: 0.72rem; align-items: center; justify-content: center; padding: 0 0.3rem; line-height: 1;">0</span>
+                        </a>
+                    </li>
+                    <li><a href="/keys">API Keys</a></li>
+                    {% if user.is_admin %}
+                    <li><a href="/admin">Admin</a></li>
+                    {% endif %}
+                    <li>
+                        <div class="navbar-dropdown">
+                            <button class="btn btn-secondary" id="user-menu-btn">
+                                {{ user.username }} ▼
+                            </button>
+                            <div class="dropdown-menu" id="user-menu">
+                                <a href="/settings/profile">Profile Settings</a>
+                                <hr>
+                                <a href="#" onclick="event.preventDefault(); ThemeManager.toggle();">Toggle Theme</a>
+                                <hr>
+                                <a href="#"
+                                    onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Logout</a>
+                            </div>
+                        </div>
+                        <!-- Hidden logout form -->
+                        <form id="logout-form" method="post" action="/api/v1/auth/logout" style="display: none;">
+                        </form>
+            </div>
+            </li>
+            {% else %}
+            <li><a href="/login">Login</a></li>
+            <li><a href="/register">Register</a></li>
+            <li>
+                <button class="btn btn-secondary btn-sm" onclick="ThemeManager.toggle();">
+                    🌙
+                </button>
+            </li>
+            {% endif %}
+            </ul>
+        </div>
+        </div>
+    </nav>
+    {% endblock %}
+
+    <!-- Messages/Alerts -->
+    {% if messages %}
+    {% for message in messages %}
+    <div class="container mt-md">
+        <div class="alert alert-{{ message.type }}">
+            <div class="alert-content">
+                {% if message.title %}<h4 class="alert-title">{{ message.title }}</h4>{% endif %}
+                <p class="alert-message">{{ message.text }}</p>
+            </div>
+            <button class="alert-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    {% block footer %}
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 3DKenji. All rights reserved.</p>
+                <div class="footer-links">
+                    <a href="https://github.com/bodybybuddha/3DKenji" target="_blank" rel="noopener">GitHub</a>
+                    <a href="/docs" target="_blank" rel="noopener">Documentation</a>
+                    <a href="mailto:support@3dkenji.local">Support</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    {% endblock %}
+
+    <!-- JavaScript -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="/static/js/app.js"></script>
+    {% if user %}
+    <script>
+        (function () {
+            const badge = document.getElementById("invite-count-badge");
+            if (!badge) {
+                return;
+            }
+
+            fetch("/api/v1/projects/invitations/mine", {
+                headers: {
+                    "Accept": "application/json"
+                }
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        return [];
+                    }
+                    return response.json();
+                })
+                .then((items) => {
+                    const count = Array.isArray(items) ? items.length : 0;
+                    if (count > 0) {
+                        badge.textContent = count > 99 ? "99+" : String(count);
+                        badge.style.display = "inline-flex";
+                    }
+                })
+                .catch(() => {
+                    // Keep navbar stable if invitation count cannot be loaded.
+                });
+        })();
+    </script>
+    {% endif %}
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

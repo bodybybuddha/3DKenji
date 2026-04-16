@@ -1,0 +1,35 @@
+# CODEOWNERS file for 3DKenji
+# These owners will be the default owners for everything in the repo
+# They will be requested for review when someone opens a pull request
+
+# Default owner for all files
+* @bodybybuddha
+
+# Backend source code
+/src/backend/ @bodybybuddha
+/backend/ @bodybybuddha
+
+# Database and migrations
+/migrations/ @bodybybuddha
+/alembic.ini @bodybybuddha
+
+# Tests
+/tests/ @bodybybuddha
+
+# Documentation
+/docs/ @bodybybuddha
+/README.md @bodybybuddha
+/CHANGELOG.md @bodybybuddha
+
+# Configuration
+/pyproject.toml @bodybybuddha
+/docker-compose.yml @bodybybuddha
+/Dockerfile @bodybybuddha
+/.github/ @bodybybuddha
+
+# Frontend templates
+/frontend/ @bodybybuddha
+
+# Scripts and automation
+/scripts/ @bodybybuddha
+/Makefile @bodybybuddha

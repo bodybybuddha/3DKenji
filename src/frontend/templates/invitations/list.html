@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Invitations - 3DKenji{% endblock %}
+
+{% block content %}
+<div class="container" style="padding: var(--spacing-2xl) var(--spacing-lg); max-width: 980px;">
+    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1>Pending Invitations</h1>
+            <p class="section-description">Review and accept invitations addressed to your account.</p>
+        </div>
+        <a class="btn btn-secondary" href="/projects">Back to Projects</a>
+    </div>
+
+    {% if invitations and invitations|length > 0 %}
+    <div class="card" style="margin-top: var(--spacing-xl); overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead style="background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);">
+                <tr>
+                    <th style="padding: var(--spacing-md); text-align: left;">Project</th>
+                    <th style="padding: var(--spacing-md); text-align: left;">Role</th>
+                    <th style="padding: var(--spacing-md); text-align: left;">Invited Email</th>
+                    <th style="padding: var(--spacing-md); text-align: left;">Expires</th>
+                    <th style="padding: var(--spacing-md); text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in invitations %}
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: var(--spacing-md);">{{ item.project_title }}</td>
+                    <td style="padding: var(--spacing-md);">{{ item.role }}</td>
+                    <td style="padding: var(--spacing-md); color: var(--text-secondary);">{{ item.invited_email }}</td>
+                    <td style="padding: var(--spacing-md);">{{ item.expires_at | dateformat }}</td>
+                    <td style="padding: var(--spacing-md); text-align: right;">
+                        <form method="post" action="/invitations/id/{{ item.invitation_id }}/accept"
+                            style="display: inline;">
+                            <button type="submit" class="btn btn-primary btn-sm">Accept</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card" style="margin-top: var(--spacing-xl); padding: var(--spacing-xl); text-align: center;">
+        <p style="margin: 0; color: var(--text-secondary);">No pending invitations right now.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

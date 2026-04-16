@@ -1,0 +1,1469 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.title }} - 3DKenji{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.5/dist/css/tabulator.min.css">
+<link rel="stylesheet" href="https://releases.transloadit.com/uppy/v3.25.2/uppy.min.css">
+<style>
+    /* Project Files Browser */
+    #project-files-browser {
+        display: grid;
+        gap: var(--spacing-sm);
+        position: relative;
+        transition: background-color var(--transition-fast), box-shadow var(--transition-fast);
+        border-radius: var(--radius-md);
+        padding: var(--spacing-sm);
+    }
+
+    #project-files-browser.file-drop-active {
+        background: color-mix(in srgb, var(--color-primary) 10%, var(--bg-secondary));
+        box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-primary) 65%, white 35%);
+    }
+
+    .file-drop-hint {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+    }
+
+    .file-browser-main {
+        display: grid;
+        grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr);
+        gap: var(--spacing-md);
+        align-items: start;
+    }
+
+    .file-browser-table-pane {
+        min-width: 0;
+        display: grid;
+        gap: var(--spacing-sm);
+    }
+
+    .file-browser-preview-pane {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        background: var(--bg-primary);
+        min-height: 420px;
+        overflow: hidden;
+    }
+
+    .file-browser-preview-head {
+        margin: 0;
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    #project-file-preview {
+        padding: var(--spacing-md);
+    }
+
+    .file-browser-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--spacing-sm);
+        flex-wrap: wrap;
+    }
+
+    .file-browser-toolbar-actions {
+        display: flex;
+        gap: var(--spacing-sm);
+        align-items: center;
+    }
+
+    #project-files-uploader {
+        border: 1px dashed var(--border-color);
+        border-radius: var(--radius-md);
+        background: var(--bg-secondary);
+        overflow: hidden;
+        max-height: 0;
+        opacity: 0;
+        pointer-events: none;
+        transition: max-height var(--transition-fast), opacity var(--transition-fast);
+    }
+
+    #project-files-uploader.is-open {
+        max-height: 4rem;
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    #project-files-uploader.is-open.is-dragging {
+        border-color: var(--color-primary);
+        background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-secondary));
+    }
+
+    #project-files-uploader .uppy-Root,
+    #project-files-uploader .uppy-DragDrop-container {
+        background: transparent;
+        color: var(--text-primary);
+        border: 0;
+        min-height: 3.25rem;
+        padding: 0.35rem 0.75rem;
+    }
+
+    #project-files-uploader .uppy-DragDrop-inner {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+    }
+
+    #project-files-uploader .uppy-DragDrop-arrow,
+    #project-files-uploader .uppy-DragDrop-note {
+        display: none;
+    }
+
+    #project-files-uploader .uppy-DragDrop-label {
+        color: var(--text-secondary);
+        margin: 0;
+        font-size: 0.82rem;
+    }
+
+    .file-browser-path {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        flex-wrap: wrap;
+        min-height: 2rem;
+        flex: 1;
+    }
+
+    .file-path-pill {
+        border: 1px solid var(--border-color);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-radius: 999px;
+        padding: 0.15rem 0.6rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .file-path-pill:hover {
+        background: color-mix(in srgb, var(--color-primary) 15%, var(--bg-secondary));
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+    }
+
+    .file-path-pill[disabled] {
+        cursor: default;
+        color: var(--text-tertiary);
+        background: var(--bg-secondary);
+    }
+
+    /* Tabulator Overrides */
+    .tabulator {
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-size: 0.95rem;
+    }
+
+    .tabulator .tabulator-header {
+        background: linear-gradient(135deg, var(--color-primary) 0%, #1e40af 100%);
+        border-bottom: 2px solid var(--color-primary);
+        color: white;
+        font-weight: 600;
+        padding: 0.2rem 0;
+    }
+
+    .tabulator .tabulator-header .tabulator-col {
+        background: transparent !important;
+        color: white !important;
+        text-align: left;
+        border-right: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .tabulator .tabulator-header .tabulator-col .tabulator-col-title {
+        color: #ffffff !important;
+        opacity: 1 !important;
+        font-weight: 700;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+        line-height: 1.1;
+    }
+
+    .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+        padding: 0.3rem 0.55rem;
+    }
+
+    .tabulator .tabulator-header .tabulator-col .tabulator-arrow {
+        border-bottom-color: rgba(255, 255, 255, 0.85) !important;
+    }
+
+    .tabulator .tabulator-row {
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        height: 2.5rem;
+        transition: background-color var(--transition-fast);
+    }
+
+    .tabulator .tabulator-row:hover {
+        background: color-mix(in srgb, var(--color-primary) 15%, var(--bg-secondary)) !important;
+    }
+
+    .tabulator .tabulator-cell {
+        color: var(--text-primary);
+        padding: 0.5rem 0.75rem;
+    }
+
+    .tabulator .tabulator-header .tabulator-col.tabulator-row-header,
+    .tabulator .tabulator-row .tabulator-cell.tabulator-row-header {
+        border-right: 1px solid var(--border-color);
+        text-align: center;
+        width: 36px;
+        min-width: 36px;
+        max-width: 36px;
+    }
+
+    .tabulator .tabulator-header .tabulator-col.tabulator-row-header {
+        background: transparent !important;
+        padding: 0.2rem 0 !important;
+    }
+
+    .tabulator .tabulator-row .tabulator-cell.tabulator-row-header {
+        background: var(--bg-secondary) !important;
+        padding: 0.5rem 0 !important;
+    }
+
+    .tabulator .tabulator-header .tabulator-col.tabulator-row-header input[type="checkbox"],
+    .tabulator .tabulator-row .tabulator-cell.tabulator-row-header input[type="checkbox"] {
+        margin: 0;
+        vertical-align: middle;
+    }
+
+    .tabulator .tabulator-cell.tabulator-sortable:hover {
+        background: rgba(59, 130, 246, 0.1) !important;
+    }
+
+    /* Row clickability for folders */
+    .tabulator .tabulator-row.folder-row {
+        cursor: pointer;
+    }
+
+    .tabulator .tabulator-row.folder-row:hover {
+        background: color-mix(in srgb, var(--color-info) 20%, var(--bg-secondary)) !important;
+    }
+
+    .tabulator .tabulator-row.file-download-draggable {
+        cursor: grab;
+    }
+
+    .tabulator .tabulator-row.file-download-draggable:active {
+        cursor: grabbing;
+    }
+
+    .file-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--spacing-xs);
+    }
+
+    .file-action-btn {
+        border: 1px solid var(--border-color);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-radius: 6px;
+        cursor: pointer;
+        padding: 0.35rem 0.6rem;
+        line-height: 1;
+        font-size: 0.8rem;
+        transition: all var(--transition-fast);
+    }
+
+    .file-action-btn:hover {
+        border-color: var(--color-primary);
+        color: white;
+        background: var(--color-primary);
+    }
+
+    .file-table-error {
+        color: var(--color-danger);
+        margin: 0;
+        font-size: 0.875rem;
+        padding: var(--spacing-sm) 0;
+    }
+
+    .file-table-loading {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        padding: var(--spacing-sm) 0;
+    }
+
+    .project-meta-grid {
+        grid-column: 1 / 4;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--spacing-lg);
+    }
+
+    @media (max-width: 768px) {
+        .file-browser-main {
+            grid-template-columns: 1fr;
+        }
+
+        .project-meta-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .file-browser-preview-pane {
+            min-height: 280px;
+        }
+
+        #project-files-table {
+            overflow: auto;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="padding: var(--spacing-2xl) var(--spacing-lg);">
+    <div style="margin-bottom: var(--spacing-lg);">
+        <a href="/projects" style="color: var(--color-primary);">← Back to Projects</a>
+    </div>
+
+    <div class="section-header">
+        <div id="project-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h1 id="project-name">{{ project.title }}</h1>
+                <p class="section-description" id="project-description">{{ project.category }}</p>
+            </div>
+            <div class="flex gap-md">
+                <a class="btn btn-secondary" href="/project/{{ project_id }}/invitations">
+                    Manage Members
+                </a>
+                <button class="btn btn-secondary" hx-get="/api/v1/projects/{{ project_id }}/edit-modal" hx-target="body"
+                    hx-swap="beforeend">
+                    Edit
+                </button>
+                <button class="btn btn-danger" hx-delete="/api/v1/projects/{{ project_id }}"
+                    hx-confirm="Delete project '{{ project.title }}'? This cannot be undone."
+                    hx-on::after-request="if (event.detail.successful) { window.location.href = '/projects'; }">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-3" style="gap: var(--spacing-2xl); margin-top: var(--spacing-2xl);">
+        <!-- Project Files Card - Full Width, First Priority -->
+        <div style="grid-column: 1 / 4;">
+            <div class="card">
+                <div class="card-header"
+                    style="display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-md);">
+                    <h3 style="margin: 0;">Project Files</h3>
+                    <p style="margin: 0; color: var(--text-secondary); font-size: 0.875rem;">Browse and manage project
+                        files</p>
+                </div>
+
+                <div id="project-files-browser" class="card-body">
+                    <div class="file-browser-toolbar">
+                        <div class="file-browser-path" id="project-files-path"></div>
+                        <div class="file-browser-toolbar-actions">
+                            <input id="project-files-upload-input" type="file" multiple hidden>
+                            <button class="btn btn-sm btn-secondary" id="project-files-create" type="button">New
+                                File</button>
+                            <button class="btn btn-sm btn-secondary" id="project-files-create-folder" type="button">New
+                                Folder</button>
+                            <button class="btn btn-sm btn-secondary" id="project-files-rename"
+                                type="button">Rename</button>
+                            <button class="btn btn-sm btn-secondary" id="project-files-move" type="button">Move</button>
+                            <button class="btn btn-sm btn-primary" id="project-files-upload" type="button">Upload
+                                File</button>
+                            <button class="btn btn-sm btn-secondary" id="project-files-drop-toggle" type="button">Drop
+                                Zone</button>
+                            <button class="btn btn-sm btn-secondary" id="project-files-refresh"
+                                type="button">Refresh</button>
+                        </div>
+                    </div>
+                    <p id="project-files-feedback" class="file-table-loading">Loading files...</p>
+                    <div class="file-browser-main">
+                        <div class="file-browser-table-pane">
+                            <div id="project-files-table"></div>
+                            <div id="project-files-uploader"></div>
+                            <p class="file-drop-hint">Tip: drop files anywhere on this card to upload. Drag file rows
+                                out to your desktop to download.</p>
+                        </div>
+                        <aside class="file-browser-preview-pane">
+                            <p class="file-browser-preview-head">Preview</p>
+                            <div id="project-file-preview">
+                                <p style="color: var(--text-secondary); margin: 0;">
+                                    Select a file from Project Files to preview it.
+                                </p>
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="project-meta-grid">
+            <div class="card card-compact">
+                <div class="card-header">
+                    <h4 style="margin: 0;">Info</h4>
+                </div>
+                <div class="card-body stack-md">
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Created</p>
+                        <p id="created-at" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">{{
+                            project.created_at | timeago }}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Files</p>
+                        <p id="file-count" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Folders</p>
+                        <p id="folder-count" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Total Size</p>
+                        <p id="total-size" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-compact">
+                <div class="card-header">
+                    <h4 style="margin: 0;">Storage Details</h4>
+                </div>
+                <div class="card-body stack-md">
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Directory Path</p>
+                        <p id="storage-directory-path"
+                            style="margin: var(--spacing-xs) 0 0 0; font-weight: 500; word-break: break-all;">{{
+                            project_fs_path }}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">Directory Exists</p>
+                        <p id="storage-directory-exists" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">{%
+                            if project_directory_exists
+                            %}Yes{% else %}No{% endif %}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">ProjectInfo.md</p>
+                        <p id="storage-project-info" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">{% if
+                            project_info_exists
+                            %}Present{% else %}Missing{% endif %}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; color: var(--text-tertiary); font-size: 0.875rem;">PrintHistory.md</p>
+                        <p id="storage-print-history" style="margin: var(--spacing-xs) 0 0 0; font-weight: 500;">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/tabulator-tables@6.2.5/dist/js/tabulator.min.js"></script>
+<script src="https://releases.transloadit.com/uppy/v3.25.2/uppy.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.htmx || typeof htmx.ajax !== 'function') {
+            return;
+        }
+
+        const projectId = '{{ project_id }}';
+
+        if (!window.Tabulator) {
+            htmx.ajax('GET', `/api/v1/projects/${projectId}/files?format=html`, '#project-files-browser');
+            return;
+        }
+
+        const tableElement = document.getElementById('project-files-table');
+        const browserElement = document.getElementById('project-files-browser');
+        const pathElement = document.getElementById('project-files-path');
+        const feedbackElement = document.getElementById('project-files-feedback');
+        const previewElement = document.getElementById('project-file-preview');
+        const refreshButton = document.getElementById('project-files-refresh');
+        const uploadInput = document.getElementById('project-files-upload-input');
+        const uploadButton = document.getElementById('project-files-upload');
+        const dropToggleButton = document.getElementById('project-files-drop-toggle');
+        const createFileButton = document.getElementById('project-files-create');
+        const createFolderButton = document.getElementById('project-files-create-folder');
+        const renameButton = document.getElementById('project-files-rename');
+        const moveButton = document.getElementById('project-files-move');
+        const uploaderElement = document.getElementById('project-files-uploader');
+
+        const fileCountElement = document.getElementById('file-count');
+        const folderCountElement = document.getElementById('folder-count');
+        const totalSizeElement = document.getElementById('total-size');
+        const storagePathElement = document.getElementById('storage-directory-path');
+        const storageDirectoryExistsElement = document.getElementById('storage-directory-exists');
+        const storageProjectInfoElement = document.getElementById('storage-project-info');
+        const storagePrintHistoryElement = document.getElementById('storage-print-history');
+
+        let currentPath = '';
+        let dragDepth = 0;
+        let uppy = null;
+        let previewAbortController = null;
+        let previewRequestSequence = 0;
+
+        function setFeedback(message, isError = false) {
+            feedbackElement.textContent = message;
+            feedbackElement.className = isError ? 'file-table-error' : 'file-table-loading';
+        }
+
+        function setUploaderExpanded(expanded) {
+            if (!uploaderElement) {
+                return;
+            }
+            uploaderElement.classList.toggle('is-open', !!expanded);
+            if (dropToggleButton) {
+                dropToggleButton.textContent = expanded ? 'Hide Drop Zone' : 'Drop Zone';
+                dropToggleButton.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+            }
+        }
+
+        function renderPathPills(path) {
+            pathElement.innerHTML = '';
+
+            const rootPill = document.createElement('button');
+            rootPill.type = 'button';
+            rootPill.className = 'file-path-pill';
+            rootPill.textContent = '/';
+            if (path === '') {
+                rootPill.disabled = true;
+            } else {
+                rootPill.addEventListener('click', function () {
+                    loadDirectory('');
+                });
+            }
+            pathElement.appendChild(rootPill);
+
+            if (!path) {
+                return;
+            }
+
+            const parts = path.split('/');
+            let soFar = '';
+            for (const part of parts) {
+                soFar = soFar ? `${soFar}/${part}` : part;
+                const separator = document.createElement('span');
+                separator.textContent = '/';
+                separator.style.color = 'var(--text-tertiary)';
+                pathElement.appendChild(separator);
+
+                const pill = document.createElement('button');
+                pill.type = 'button';
+                pill.className = 'file-path-pill';
+                pill.textContent = part;
+                if (soFar === path) {
+                    pill.disabled = true;
+                } else {
+                    const target = soFar;
+                    pill.addEventListener('click', function () {
+                        loadDirectory(target);
+                    });
+                }
+                pathElement.appendChild(pill);
+            }
+        }
+
+        function setElementText(element, value, fallback = '-') {
+            if (!element) {
+                return;
+            }
+            element.textContent = value || fallback;
+        }
+
+        function renderPreviewMarkup(markup) {
+            if (!previewElement) {
+                return;
+            }
+
+            const template = document.createElement('template');
+            template.innerHTML = markup;
+
+            const fragment = template.content.cloneNode(true);
+            const scripts = Array.from(fragment.querySelectorAll('script'));
+
+            for (const script of scripts) {
+                const executableScript = document.createElement('script');
+                for (const attribute of script.attributes) {
+                    executableScript.setAttribute(attribute.name, attribute.value);
+                }
+                executableScript.textContent = script.textContent;
+                script.parentNode.replaceChild(executableScript, script);
+            }
+
+            previewElement.replaceChildren(fragment);
+        }
+
+        function setPreviewMessage(message, isError = false) {
+            if (!previewElement) {
+                return;
+            }
+
+            const color = isError ? '#fca5a5' : 'var(--text-secondary)';
+            const paragraph = document.createElement('p');
+            paragraph.style.color = color;
+            paragraph.style.margin = '0';
+            paragraph.textContent = message;
+            previewElement.replaceChildren(paragraph);
+        }
+
+        async function loadProjectSummary() {
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/summary`, {
+                    credentials: 'same-origin',
+                    headers: {
+                        Accept: 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load summary (${response.status})`);
+                }
+
+                const payload = await response.json();
+                setElementText(fileCountElement, String(payload.file_count ?? 0));
+                setElementText(folderCountElement, String(payload.directory_count ?? 0));
+                setElementText(totalSizeElement, payload.total_size || '-');
+
+                const storage = payload.storage || {};
+                setElementText(storagePathElement, storage.directory_path || '-');
+                setElementText(storageDirectoryExistsElement, storage.directory_exists ? 'Yes' : 'No');
+                setElementText(storageProjectInfoElement, storage.project_info_exists ? 'Present' : 'Missing');
+                setElementText(storagePrintHistoryElement, storage.print_history_exists ? 'Present' : 'Missing');
+            } catch (_error) {
+                // Keep existing server-rendered values if summary fetch fails.
+            }
+        }
+
+        async function openPreview(relativePath) {
+            if (!previewElement) {
+                return;
+            }
+
+            if (previewAbortController) {
+                previewAbortController.abort();
+            }
+
+            const requestSequence = ++previewRequestSequence;
+            previewAbortController = new AbortController();
+            const params = new URLSearchParams({
+                format: 'html',
+                path: relativePath,
+            });
+            setPreviewMessage('Loading preview...');
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/preview?${params.toString()}`, {
+                    credentials: 'same-origin',
+                    headers: {
+                        Accept: 'text/html',
+                    },
+                    signal: previewAbortController.signal,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load preview (${response.status})`);
+                }
+
+                const markup = await response.text();
+                if (requestSequence !== previewRequestSequence) {
+                    return;
+                }
+
+                renderPreviewMarkup(markup);
+            } catch (error) {
+                if (error && error.name === 'AbortError') {
+                    return;
+                }
+                if (requestSequence !== previewRequestSequence) {
+                    return;
+                }
+
+                setPreviewMessage(error && error.message ? error.message : 'Unable to load preview.', true);
+            } finally {
+                if (requestSequence === previewRequestSequence) {
+                    previewAbortController = null;
+                }
+            }
+        }
+
+        function downloadFile(relativePath) {
+            const params = new URLSearchParams({ path: relativePath });
+            window.location.href = `/api/v1/projects/${projectId}/files/download?${params.toString()}`;
+        }
+
+        function buildDownloadUrl(relativePath) {
+            const params = new URLSearchParams({ path: relativePath });
+            return `${window.location.origin}/api/v1/projects/${projectId}/files/download?${params.toString()}`;
+        }
+
+        function openEditor(relativePath) {
+            const params = new URLSearchParams({ path: relativePath });
+            window.open(`/projects/${projectId}/files/editor?${params.toString()}`, '_blank', 'noopener');
+        }
+
+        function openFolder(relativePath) {
+            loadDirectory(relativePath);
+        }
+
+        function initializeUppy() {
+            if (!uploaderElement || !window.Uppy || !window.Uppy.Uppy || !window.Uppy.DragDrop || !window.Uppy.XHRUpload) {
+                return;
+            }
+
+            uppy = new window.Uppy.Uppy({
+                autoProceed: true,
+                restrictions: {
+                    maxNumberOfFiles: 50,
+                },
+            });
+
+            uppy.use(window.Uppy.DragDrop, {
+                target: '#project-files-uploader',
+                note: '',
+            });
+
+            uppy.use(window.Uppy.XHRUpload, {
+                endpoint: `/api/v1/projects/${projectId}/files/upload`,
+                fieldName: 'file',
+                formData: true,
+                bundle: false,
+                withCredentials: true,
+            });
+
+            uppy.on('file-added', function (file) {
+                uppy.setFileMeta(file.id, {
+                    path: currentPath || '',
+                });
+            });
+
+            uppy.on('upload', function () {
+                setFeedback('Uploading file(s)...');
+            });
+
+            uppy.on('complete', async function (result) {
+                const successCount = (result && result.successful ? result.successful.length : 0);
+                const failedCount = (result && result.failed ? result.failed.length : 0);
+
+                if (successCount > 0) {
+                    await loadDirectory(currentPath);
+                    await loadProjectSummary();
+                }
+
+                if (failedCount === 0) {
+                    setFeedback(`Uploaded ${successCount} file(s).`);
+                } else if (successCount === 0) {
+                    const firstError = result.failed && result.failed[0] && result.failed[0].error
+                        ? result.failed[0].error.message
+                        : 'Upload failed.';
+                    setFeedback(firstError, true);
+                } else {
+                    setFeedback(`Uploaded ${successCount} file(s), ${failedCount} failed.`, true);
+                }
+            });
+
+            uppy.on('error', function (error) {
+                setFeedback(error && error.message ? error.message : 'Uploader unavailable.', true);
+            });
+        }
+
+        const table = new Tabulator(tableElement, {
+            layout: 'fitColumns',
+            responsiveLayout: 'hide',
+            placeholder: 'No files found in this directory.',
+            selectableRows: true,
+            initialSort: [
+                { column: 'is_dir', dir: 'desc' },
+                { column: 'name', dir: 'asc' },
+            ],
+            rowHeader: {
+                formatter: 'rowSelection',
+                titleFormatter: 'rowSelection',
+                hozAlign: 'center',
+                headerSort: false,
+                minWidth: 36,
+                width: 36,
+                cellClick: function (_event, cell) {
+                    cell.getRow().toggleSelect();
+                },
+            },
+            columns: [
+                {
+                    title: 'Name',
+                    field: 'name',
+                    minWidth: 260,
+                    responsive: 0,
+                    formatter: function (cell) {
+                        const data = cell.getRow().getData();
+                        let icon = '📄';
+                        if (data.is_dir) {
+                            icon = '📁';
+                        } else {
+                            const ext = (data.extension || '').toLowerCase();
+                            if (['stl', '3mf', 'obj', 'gcode'].includes(ext)) icon = '🗿';
+                            else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) icon = '🖼️';
+                            else if (['md', 'markdown'].includes(ext)) icon = '📝';
+                            else if (['txt', 'log', 'rtf'].includes(ext)) icon = '📄';
+                            else if (['json', 'yaml', 'yml', 'toml', 'xml', 'ini', 'cfg', 'conf'].includes(ext)) icon = '🧩';
+                            else if (['js', 'ts', 'py', 'sh', 'sql'].includes(ext)) icon = '💻';
+                            else if (['pdf'].includes(ext)) icon = '📕';
+                            else if (['zip', 'tar', 'gz', 'rar'].includes(ext)) icon = '📦';
+                        }
+                        return `${icon} <strong>${data.name}</strong>`;
+                    },
+                },
+                {
+                    title: 'Size',
+                    field: 'size',
+                    width: 120,
+                    responsive: 2,
+                    hozAlign: 'left',
+                    formatter: function (cell) {
+                        const data = cell.getRow().getData();
+                        if (data.is_dir) return '-';
+                        return cell.getValue() || '-';
+                    },
+                },
+                {
+                    title: 'Actions',
+                    field: 'relative_path',
+                    width: 240,
+                    minWidth: 210,
+                    responsive: 0,
+                    headerSort: false,
+                    hozAlign: 'right',
+                    formatter: function (cell) {
+                        const data = cell.getRow().getData();
+                        if (data.is_dir) {
+                            return '<div class="file-actions"><button type="button" class="file-action-btn" data-action="open" title="Open folder">📂 Open</button></div>';
+                        }
+                        return [
+                            '<div class="file-actions">',
+                            data.is_editable ? '<button type="button" class="file-action-btn" data-action="edit" title="Edit">✏️ Edit</button>' : '',
+                            '<button type="button" class="file-action-btn" data-action="preview" title="Preview">👁️ View</button>',
+                            data.is_editable ? '' : '<button type="button" class="file-action-btn" data-action="download" title="Download">⬇️ Save</button>',
+                            '</div>',
+                        ].join('');
+                    },
+                    cellClick: function (e, cell) {
+                        const action = e.target && e.target.dataset ? e.target.dataset.action : null;
+                        if (!action) {
+                            return;
+                        }
+                        const row = cell.getRow();
+                        const wasSelected = row.isSelected();
+                        const data = row.getData();
+                        if (action === 'open') {
+                            openFolder(data.relative_path);
+                        } else if (action === 'preview') {
+                            openPreview(data.relative_path);
+                        } else if (action === 'edit') {
+                            openEditor(data.relative_path);
+                        } else if (action === 'download') {
+                            downloadFile(data.relative_path);
+                        }
+
+                        // Action buttons should not toggle row checkbox selection.
+                        if (wasSelected && !row.isSelected()) {
+                            row.select();
+                        } else if (!wasSelected && row.isSelected()) {
+                            row.deselect();
+                        }
+                    },
+                },
+            ],
+            rowFormatter: function (row) {
+                const data = row.getData();
+                const element = row.getElement();
+                element.style.cursor = 'pointer';
+                element.dataset.relativePath = data.relative_path || '';
+                element.dataset.fileName = data.name || '';
+                element.dataset.isDir = data.is_dir ? '1' : '0';
+                if (data.is_dir) {
+                    element.classList.add('folder-row');
+                    element.classList.remove('file-download-draggable');
+                    element.draggable = false;
+                } else {
+                    element.classList.remove('folder-row');
+                    element.classList.add('file-download-draggable');
+                    element.draggable = true;
+                }
+            },
+            rowClick: function (e, row) {
+                const data = row.getData();
+                const target = e && e.target ? e.target : null;
+                const isActionClick = !!(target && typeof target.closest === 'function' && target.closest('.file-action-btn'));
+                const isSelectionClick = !!(target && typeof target.closest === 'function' && target.closest('.tabulator-row-header'));
+                if (isActionClick) {
+                    return;
+                }
+                if (isSelectionClick) {
+                    return;
+                }
+
+                if (data.is_dir) {
+                    openFolder(data.relative_path);
+                } else {
+                    openPreview(data.relative_path);
+                }
+            },
+            rowDblClick: function (_e, row) {
+                const data = row.getData();
+                if (data.is_dir) {
+                    openFolder(data.relative_path);
+                } else {
+                    openPreview(data.relative_path);
+                }
+            },
+        });
+
+        async function loadDirectory(path) {
+            currentPath = path || '';
+            if (uppy) {
+                uppy.setMeta({ path: currentPath });
+            }
+            renderPathPills(currentPath);
+            setFeedback(`Loading /${currentPath}...`);
+
+            const params = new URLSearchParams();
+            if (currentPath) {
+                params.set('path', currentPath);
+            }
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files?${params.toString()}`, {
+                    credentials: 'same-origin',
+                    headers: {
+                        Accept: 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load files (${response.status})`);
+                }
+
+                const payload = await response.json();
+                table.replaceData(payload.items || []);
+                setFeedback(payload.items && payload.items.length ? `Showing ${payload.items.length} item(s)` : 'Directory is empty.');
+            } catch (error) {
+                table.replaceData([]);
+                setFeedback(error.message || 'Unable to load files.', true);
+            }
+        }
+
+        async function createNewFile() {
+            const suggested = currentPath ? `${currentPath.replace(/\//g, '-')}-note` : 'new-file';
+            const nameInput = window.prompt('New file name (extension optional):', suggested);
+            if (nameInput === null) {
+                return;
+            }
+
+            const typeInput = window.prompt('File type: md, txt, rtf, json, yaml, csv, log, py, sql, html', 'md');
+            if (typeInput === null) {
+                return;
+            }
+
+            const name = nameInput.trim();
+            const fileType = typeInput.trim().toLowerCase();
+            if (!name || !fileType) {
+                setFeedback('File name and file type are required.', true);
+                return;
+            }
+
+            createFileButton.disabled = true;
+            const originalLabel = createFileButton.textContent;
+            createFileButton.textContent = 'Creating...';
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/create`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: currentPath || '',
+                        name,
+                        file_type: fileType,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let detail = `Create failed (${response.status})`;
+                    try {
+                        const payload = await response.json();
+                        if (payload && payload.detail) {
+                            detail = payload.detail;
+                        }
+                    } catch (_jsonError) {
+                        // Keep default error message.
+                    }
+                    throw new Error(detail);
+                }
+
+                const payload = await response.json();
+                await loadDirectory(currentPath);
+                await loadProjectSummary();
+                setFeedback(`Created ${payload.name}.`);
+            } catch (error) {
+                setFeedback(error.message || 'Unable to create file.', true);
+            } finally {
+                createFileButton.disabled = false;
+                createFileButton.textContent = originalLabel;
+            }
+        }
+
+        async function createNewFolder() {
+            const suggested = currentPath ? `${currentPath.replace(/\//g, '-')}-folder` : 'new-folder';
+            const nameInput = window.prompt('New folder name:', suggested);
+            if (nameInput === null) {
+                return;
+            }
+
+            const name = nameInput.trim();
+            if (!name) {
+                setFeedback('Folder name is required.', true);
+                return;
+            }
+
+            if (createFolderButton) {
+                createFolderButton.disabled = true;
+            }
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/create-folder`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: currentPath || '',
+                        name,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let detail = `Create folder failed (${response.status})`;
+                    try {
+                        const payload = await response.json();
+                        if (payload && payload.detail) {
+                            detail = payload.detail;
+                        }
+                    } catch (_jsonError) {
+                        // Keep default error message.
+                    }
+                    throw new Error(detail);
+                }
+
+                const payload = await response.json();
+                await loadDirectory(currentPath);
+                await loadProjectSummary();
+                setFeedback(`Created folder ${payload.name}.`);
+            } catch (error) {
+                setFeedback(error.message || 'Unable to create folder.', true);
+            } finally {
+                if (createFolderButton) {
+                    createFolderButton.disabled = false;
+                }
+            }
+        }
+
+        function getSelectedEntries() {
+            return table.getSelectedData() || [];
+        }
+
+        function hasOverlappingSelections(paths) {
+            const cleaned = (paths || []).map(function (path) {
+                return String(path || '').trim().replace(/^\/+|\/+$/g, '');
+            }).filter(Boolean);
+
+            const sorted = cleaned.slice().sort(function (a, b) {
+                return a.length - b.length;
+            });
+
+            for (let i = 0; i < sorted.length; i += 1) {
+                for (let j = i + 1; j < sorted.length; j += 1) {
+                    if (sorted[j].startsWith(`${sorted[i]}/`)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        async function renameSelectedEntry() {
+            const selected = getSelectedEntries();
+            if (selected.length !== 1) {
+                setFeedback('Select exactly one file or folder to rename.', true);
+                return;
+            }
+
+            const item = selected[0];
+            const nameInput = window.prompt('New name:', item.name || '');
+            if (nameInput === null) {
+                return;
+            }
+
+            const newName = nameInput.trim();
+            if (!newName) {
+                setFeedback('New name is required.', true);
+                return;
+            }
+
+            if (renameButton) {
+                renameButton.disabled = true;
+            }
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/rename`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: item.relative_path,
+                        new_name: newName,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let detail = `Rename failed (${response.status})`;
+                    try {
+                        const payload = await response.json();
+                        if (payload && payload.detail) {
+                            detail = payload.detail;
+                        }
+                    } catch (_jsonError) {
+                        // Keep default error message.
+                    }
+                    throw new Error(detail);
+                }
+
+                const payload = await response.json();
+                await loadDirectory(currentPath);
+                setFeedback(`Renamed to ${payload.name}.`);
+            } catch (error) {
+                setFeedback(error.message || 'Unable to rename selection.', true);
+            } finally {
+                if (renameButton) {
+                    renameButton.disabled = false;
+                }
+            }
+        }
+
+        async function moveSelectedEntries() {
+            const selected = getSelectedEntries();
+            if (!selected.length) {
+                setFeedback('Select one or more files/folders to move.', true);
+                return;
+            }
+
+            const selectedPaths = selected.map(function (item) { return item.relative_path; });
+            if (hasOverlappingSelections(selectedPaths)) {
+                setFeedback('Cannot move a folder together with one of its nested items.', true);
+                return;
+            }
+
+            const destinationInput = window.prompt(
+                'Destination folder path (leave blank for project root):',
+                currentPath || ''
+            );
+            if (destinationInput === null) {
+                return;
+            }
+
+            const destinationPath = destinationInput.trim();
+
+            if (moveButton) {
+                moveButton.disabled = true;
+            }
+
+            try {
+                const response = await fetch(`/api/v1/projects/${projectId}/files/move`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        paths: selectedPaths,
+                        destination_path: destinationPath,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let detail = `Move failed (${response.status})`;
+                    try {
+                        const payload = await response.json();
+                        if (payload && payload.detail) {
+                            detail = payload.detail;
+                        }
+                    } catch (_jsonError) {
+                        // Keep default error message.
+                    }
+                    throw new Error(detail);
+                }
+
+                const payload = await response.json();
+                table.deselectRow();
+                await loadDirectory(currentPath);
+                setFeedback(`Moved ${payload.moved_count} item(s).`);
+            } catch (error) {
+                setFeedback(error.message || 'Unable to move selection.', true);
+            } finally {
+                if (moveButton) {
+                    moveButton.disabled = false;
+                }
+            }
+        }
+
+        function setDropState(active) {
+            if (!browserElement) {
+                return;
+            }
+            browserElement.classList.toggle('file-drop-active', active);
+            if (uploaderElement) {
+                uploaderElement.classList.toggle('is-dragging', !!active);
+            }
+        }
+
+        function isFileDrag(event) {
+            if (!event.dataTransfer || !event.dataTransfer.types) {
+                return false;
+            }
+            return Array.from(event.dataTransfer.types).includes('Files');
+        }
+
+        function stopUploaderEventPropagation(event) {
+            if (!isFileDrag(event)) {
+                return;
+            }
+            event.stopPropagation();
+        }
+
+        async function uploadFiles(files) {
+            const items = Array.from(files || []).filter(function (file) {
+                return file instanceof File;
+            });
+            if (!items.length) {
+                return;
+            }
+
+            uploadButton.disabled = true;
+            const originalLabel = uploadButton.textContent;
+            uploadButton.textContent = items.length > 1 ? `Uploading ${items.length}...` : 'Uploading...';
+            setFeedback(`Uploading ${items.length} file(s)...`);
+
+            let successCount = 0;
+            const failures = [];
+
+            for (const file of items) {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('path', currentPath || '');
+
+                try {
+                    const response = await fetch(`/api/v1/projects/${projectId}/files/upload`, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        let detail = `Upload failed (${response.status})`;
+                        try {
+                            const payload = await response.json();
+                            if (payload && payload.detail) {
+                                detail = payload.detail;
+                            }
+                        } catch (_jsonError) {
+                            // Keep default detail text.
+                        }
+                        failures.push(`${file.name}: ${detail}`);
+                        continue;
+                    }
+
+                    successCount += 1;
+                } catch (error) {
+                    failures.push(`${file.name}: ${error.message || 'Network error.'}`);
+                }
+            }
+
+            if (successCount > 0) {
+                await loadDirectory(currentPath);
+                await loadProjectSummary();
+            }
+
+            if (failures.length === 0) {
+                setFeedback(`Uploaded ${successCount} file(s).`);
+            } else if (successCount === 0) {
+                setFeedback(failures[0], true);
+            } else {
+                setFeedback(`Uploaded ${successCount} file(s), ${failures.length} failed. First error: ${failures[0]}`, true);
+            }
+
+            uploadButton.disabled = false;
+            uploadButton.textContent = originalLabel;
+            uploadInput.value = '';
+        }
+
+        uploadButton.addEventListener('click', function () {
+            if (uppy && uploaderElement) {
+                const triggerInput = uploaderElement.querySelector('input[type="file"]');
+                if (triggerInput) {
+                    triggerInput.click();
+                    return;
+                }
+            }
+            uploadInput.click();
+        });
+
+        uploadInput.addEventListener('change', async function (event) {
+            const selected = event.target && event.target.files ? event.target.files : null;
+            if (!selected || !selected.length) {
+                return;
+            }
+
+            uploadFiles(selected);
+        });
+
+        tableElement.addEventListener('dragstart', function (event) {
+            const target = event.target;
+            if (!target || typeof target.closest !== 'function') {
+                return;
+            }
+
+            const rowElement = target.closest('.tabulator-row');
+            if (!rowElement || rowElement.dataset.isDir === '1') {
+                return;
+            }
+
+            const relativePath = rowElement.dataset.relativePath;
+            const fileName = rowElement.dataset.fileName || 'download';
+            if (!relativePath || !event.dataTransfer) {
+                return;
+            }
+
+            const downloadUrl = buildDownloadUrl(relativePath);
+            event.dataTransfer.effectAllowed = 'copy';
+            event.dataTransfer.setData('text/plain', downloadUrl);
+            event.dataTransfer.setData('text/uri-list', downloadUrl);
+            try {
+                event.dataTransfer.setData('DownloadURL', `application/octet-stream:${fileName}:${downloadUrl}`);
+            } catch (_error) {
+                // Some browsers block custom drag payloads.
+            }
+
+            setFeedback(`Drag ${fileName} to your desktop to download.`);
+        });
+
+        if (browserElement) {
+            browserElement.addEventListener('dragenter', function (event) {
+                if (!isFileDrag(event)) {
+                    return;
+                }
+                event.preventDefault();
+                dragDepth += 1;
+                setUploaderExpanded(true);
+                setDropState(true);
+                setFeedback(`Drop files to upload into /${currentPath || ''}`);
+            });
+
+            browserElement.addEventListener('dragover', function (event) {
+                if (!isFileDrag(event)) {
+                    return;
+                }
+                event.preventDefault();
+                if (event.dataTransfer) {
+                    event.dataTransfer.dropEffect = 'copy';
+                }
+            });
+
+            browserElement.addEventListener('dragleave', function (event) {
+                if (!isFileDrag(event)) {
+                    return;
+                }
+                event.preventDefault();
+                dragDepth = Math.max(0, dragDepth - 1);
+                if (dragDepth === 0) {
+                    setDropState(false);
+                }
+            });
+
+            browserElement.addEventListener('drop', function (event) {
+                if (!isFileDrag(event)) {
+                    return;
+                }
+                event.preventDefault();
+                dragDepth = 0;
+                setDropState(false);
+                const droppedFiles = event.dataTransfer ? event.dataTransfer.files : null;
+                if (!droppedFiles || droppedFiles.length === 0) {
+                    return;
+                }
+                uploadFiles(droppedFiles);
+            });
+        }
+
+        if (uploaderElement) {
+            uploaderElement.addEventListener('dragenter', stopUploaderEventPropagation);
+            uploaderElement.addEventListener('dragover', stopUploaderEventPropagation);
+            uploaderElement.addEventListener('dragleave', stopUploaderEventPropagation);
+            uploaderElement.addEventListener('drop', stopUploaderEventPropagation);
+        }
+
+        refreshButton.addEventListener('click', function () {
+            loadDirectory(currentPath);
+        });
+
+        if (dropToggleButton) {
+            dropToggleButton.addEventListener('click', function () {
+                const isOpen = uploaderElement && uploaderElement.classList.contains('is-open');
+                setUploaderExpanded(!isOpen);
+            });
+        }
+
+        createFileButton.addEventListener('click', function () {
+            createNewFile();
+        });
+
+        if (createFolderButton) {
+            createFolderButton.addEventListener('click', function () {
+                createNewFolder();
+            });
+        }
+
+        if (renameButton) {
+            renameButton.addEventListener('click', function () {
+                renameSelectedEntry();
+            });
+        }
+
+        if (moveButton) {
+            moveButton.addEventListener('click', function () {
+                moveSelectedEntries();
+            });
+        }
+
+        initializeUppy();
+        setUploaderExpanded(false);
+
+        loadProjectSummary();
+        loadDirectory('');
+    });
+</script>
+{% endblock %}
