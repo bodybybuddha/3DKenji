@@ -87,6 +87,8 @@ https://auth.example.com/application/o/3dkenji/
 
 ## Admin Recovery Path (critical for homelab operators)
 
+> **Warning**: If your primary admin account is OIDC-only and the identity provider becomes unavailable, you may lose administrative access. Set a local recovery password immediately after enabling OIDC.
+
 1. If you already have a local password for an admin account, you can always authenticate with `POST /api/v1/auth/admin/recovery-login` using username/password.
 2. If an admin account was created via OIDC (no local password):
    - Log in once via OIDC (if provider is reachable) and obtain your JWT cookie/session.

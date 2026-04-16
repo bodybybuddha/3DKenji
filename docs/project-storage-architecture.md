@@ -3,9 +3,18 @@ layout: default
 title: Project Storage Architecture
 ---
 
+
 # Project Storage Architecture
 
 This document describes the current filesystem-backed project model with frontmatter-based metadata and related markdown files.
+
+## Contents
+
+- [Overview](#overview)
+- [Storage Root](#storage-root)
+- [Visibility and Category](#visibility-and-category)
+- [Compatibility and Path Resolution](#compatibility-and-path-resolution)
+- [Project Directory Layout](#project-directory-layout)
 
 ## Overview
 

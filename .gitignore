@@ -59,3 +59,7 @@ build/
 # PR helper files
 PR_DESCRIPTION.md
 create_pr.sh
+
+# E2E runtime artifacts
+tests/e2e/screenshots/*.png
+!tests/e2e/screenshots/.gitkeep

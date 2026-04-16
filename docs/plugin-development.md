@@ -7,6 +7,14 @@ title: Plugin Development
 
 3DKenji now loads plugins from an installation-specific external plugin root instead of from `src/backend/plugins`. This guide explains the v1 package layout and how to build plugins that can be discovered safely at startup.
 
+## Contents
+
+- [Plugin System Overview](#plugin-system-overview)
+- [Plugin Root](#plugin-root)
+- [Manifest Files](#manifest-files)
+- [Plugin Best Practices](#plugin-best-practices)
+- [Plugin Interfaces](#plugin-interfaces)
+
 ## Plugin System Overview
 
 The plugin system allows you to extend 3DKenji with custom implementations for:
