@@ -3,18 +3,18 @@ layout: default
 title: QA Setup
 ---
 
-# QA Setup Complete! 🎉
+# QA Setup Complete
 
 ## What Was Created
 
 I've set up a comprehensive QA infrastructure for your 3D Kenji application with the following components:
 
-### 1. **Documentation** 📚
+### 1. Documentation
 - **[docs/qa-strategy.md](docs/qa-strategy.md)** - Complete QA strategy guide with testing pyramid, tools, and best practices
 - **[tests/e2e/README.md](tests/e2e/README.md)** - E2E testing guide with Playwright
 - **[tests/validation/README.md](tests/validation/README.md)** - Input validation testing guide
 
-### 2. **E2E Tests** 🌐 (Browser-based)
+### 2. E2E Tests (Browser-based)
 Location: `tests/e2e/`
 - **Page Object Models:**
   - `pages/base_page.py` - Base page with reusable methods
@@ -27,14 +27,14 @@ Location: `tests/e2e/`
 - **Configuration:**
   - `conftest.py` - Playwright setup with screenshots on failure
 
-### 3. **Validation Tests** ✅ (API-level)
+### 3. Validation Tests (API-level)
 Location: `tests/validation/`
 - `test_auth_validation.py` - 20+ auth validation tests
 - `test_project_validation.py` - 25+ project validation tests  
 - `test_api_key_validation.py` - 30+ API key validation tests
 - `conftest.py` - Test data (XSS payloads, SQL injection, etc.)
 
-### 4. **Test Data Factories** 🏭
+### 4. Test Data Factories
 Location: `tests/fixtures/`
 - `factories.py` - Data factories for:
   - Users (valid/invalid variations)
@@ -44,7 +44,7 @@ Location: `tests/fixtures/`
   - Boundary values
   - Random data generation
 
-### 5. **QA Scripts** 🛠️
+### 5. QA Scripts
 - **`scripts/run-qa-tests.sh`** - Comprehensive test runner with levels:
   - `fast` - Contract tests (~30s)
   - `standard` - Contract + Integration (~2min)
@@ -54,7 +54,7 @@ Location: `tests/fixtures/`
   - `coverage` - With coverage report
   - `security` - Security-focused tests
 
-### 6. **Manual QA Checklist** 📋
+### 6. Manual QA Checklist
 - **[tests/manual/qa-checklist.md](tests/manual/qa-checklist.md)** - Comprehensive checklist covering:
   - Authentication flows
   - Project management
@@ -68,7 +68,7 @@ Location: `tests/fixtures/`
   - Accessibility
   - Performance
 
-### 7. **Updated Configuration** ⚙️
+### 7. Updated Configuration
 - **pyproject.toml** - Added playwright, pytest-playwright, faker
 - **pytest.ini** - Added test markers and coverage config
 - **Makefile** - Added test commands:
@@ -127,36 +127,36 @@ Open [tests/manual/qa-checklist.md](tests/manual/qa-checklist.md) and go through
 
 ---
 
-## What This Solves
+### What This Solves
 
 ### Before:
-- ❌ Finding bugs reactively after users report them
-- ❌ No systematic input validation testing
-- ❌ Manual testing for every change
-- ❌ Inconsistent validation between frontend/backend
-- ❌ Security issues (XSS, SQL injection) discovered late
+- Finding bugs reactively after users report them
+- No systematic input validation testing
+- Manual testing for every change
+- Inconsistent validation between frontend/backend
+- Security issues (XSS, SQL injection) discovered late
 
 ### After:
-- ✅ **Proactive bug detection** with automated tests
-- ✅ **Comprehensive validation** testing for all user inputs
-- ✅ **Fast feedback** - tests run in CI/CD
-- ✅ **Consistent validation** enforced by tests
-- ✅ **Security testing** for common vulnerabilities
-- ✅ **E2E tests** catch integration issues
-- ✅ **Manual checklist** for systematic QA
+- Proactive bug detection with automated tests
+- Comprehensive validation testing for all user inputs
+- Fast feedback via CI/CD
+- Consistent validation enforced by tests
+- Security testing for common vulnerabilities
+- E2E tests catch integration issues
+- Manual checklist for systematic QA
 
 ---
 
 ## Key Test Scenarios Covered
 
-### Security 🔒
+### Security
 - SQL injection attempts in all text inputs
 - XSS attempts in user-generated content
 - Path traversal in file uploads
 - CSRF protection verification
 - Authorization boundary testing
 
-### Input Validation ✍️
+### Input Validation
 - Empty/null values
 - Min/max length boundaries
 - Invalid formats (email, dates, URLs)
@@ -164,7 +164,7 @@ Open [tests/manual/qa-checklist.md](tests/manual/qa-checklist.md) and go through
 - Type coercion and casting
 - Uniqueness constraints
 
-### User Flows 👤
+### User Flows
 - Complete registration → login → action flows
 - Form submissions with errors
 - Modal interactions
@@ -221,10 +221,10 @@ Open [tests/manual/qa-checklist.md](tests/manual/qa-checklist.md) and go through
 
 ## Resources
 
-- 📖 [QA Strategy Guide](docs/qa-strategy.md)
-- 🌐 [Playwright Documentation](https://playwright.dev/python/)
-- ✅ [Manual QA Checklist](tests/manual/qa-checklist.md)
-- 🏭 [Test Factories](tests/fixtures/factories.py)
+- [QA Strategy Guide](docs/qa-strategy.md)
+- [Playwright Documentation](https://playwright.dev/python/)
+- [Manual QA Checklist](tests/manual/qa-checklist.md)
+- [Test Factories](tests/fixtures/factories.py)
 
 ---
 
@@ -237,4 +237,4 @@ Open [tests/manual/qa-checklist.md](tests/manual/qa-checklist.md) and go through
 
 ---
 
-Good luck with your QA improvements! This setup should significantly reduce the "whack-a-mole" bug fixing and catch issues proactively. 🚀
+Good luck with your QA improvements! This setup should significantly reduce the "whack-a-mole" bug fixing and catch issues proactively.

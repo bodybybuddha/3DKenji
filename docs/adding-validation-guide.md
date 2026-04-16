@@ -10,12 +10,12 @@ This guide shows how to add proper validation to your FastAPI endpoints to preve
 ## The Problem
 
 You mentioned fixing issues reactively as they pop up. This usually means:
-- ❌ Missing validation on required fields
-- ❌ No length limits enforced
-- ❌ Special characters not handled
-- ❌ Security vulnerabilities (XSS, SQL injection)
-- ❌ Inconsistent validation between frontend and backend
-- ❌ Poor error messages
+- Missing validation on required fields
+- No length limits enforced
+- Special characters not handled
+- Security vulnerabilities (XSS, SQL injection)
+- Inconsistent validation between frontend and backend
+- Poor error messages
 
 ## The Solution
 

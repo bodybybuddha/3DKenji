@@ -7,6 +7,14 @@ title: Configuration
 
 3DKenji configuration through environment variables.
 
+## Contents
+
+- [Environment Variables](#environment-variables)
+- [Project Structure and Frontmatter](#project-structure-and-frontmatter)
+- [Logging](#logging)
+- [Security](#security)
+- [Production Configuration](#production-configuration)
+
 ## Environment Variables
 
 ### Database
@@ -168,6 +176,8 @@ Set to a strong random value:
 SECRET_KEY=your-secret-key-here-min-32-chars
 ```
 
+> **Warning**: Keep `SECRET_KEY` stable after initial setup. Changing this value will prevent decryption of stored OAuth client secrets and may invalidate existing sessions and encrypted data.
+
 **ALGORITHM** (Optional, default: `HS256`)
 JWT signing algorithm (HS256 recommended for single server).
 
@@ -294,6 +304,8 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 # Output: TlJ_V1z3...  (copy this value)
 export SECRET_KEY=TlJ_V1z3...
 ```
+
+> **Note**: OAuth client secrets saved in the admin settings are encrypted using a key derived from `SECRET_KEY`. If you rotate `SECRET_KEY`, re-enter any saved OAuth client secrets.
 
 ### Database Setup
 

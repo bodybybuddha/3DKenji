@@ -7,6 +7,17 @@ title: Getting Started
 
 Get up and running with 3DKenji in minutes.
 
+## Contents
+
+- [Installation](#installation)
+- [Your First Project](#your-first-project)
+- [Interactive API Documentation](#interactive-api-documentation)
+- [Common Tasks](#common-tasks)
+- [File Upload Details](#file-upload-details)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Next Steps](#next-steps)
+
 ## Installation
 
 ### Option 1: Docker Compose (Recommended)
@@ -255,11 +266,11 @@ make test
 ```
 
 Tests verify:
-- ✅ User authentication and JWT tokens
-- ✅ Project CRUD operations
-- ✅ File upload and validation
-- ✅ API key generation
-- ✅ Health check endpoints
+- User authentication and JWT tokens
+- Project CRUD operations
+- File upload and validation
+- API key generation
+- Health check endpoints
 
 ## Troubleshooting
 

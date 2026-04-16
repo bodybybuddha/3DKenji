@@ -1,25 +1,25 @@
 # Implementation Progress
 
 **Last Updated**: 2026-04-14  
-**MVP Status**: ✅ COMPLETE – QA Infrastructure Phase 7 complete
-**Current Branch**: 🚀 Filesystem Architecture & Archive Feature (COMPLETE)
+**MVP Status**: • COMPLETE – QA Infrastructure Phase 7 complete
+**Current Branch**: Filesystem Architecture & Archive Feature (COMPLETE)
 
 ---
 
 ## Summary
 
-✅ **Auth complete** – JWT, password plugin, and 3 endpoints ready.  
-✅ **Storage complete** – LocalStorageBackend filesystem plugin working.  
-✅ **API endpoints complete** – Projects CRUD, Models upload/list, API Keys.  
-✅ **Observability complete** – Structured JSON logging + health checks.  
-✅ **Integration & Polish complete** – DI wiring, schemas, thumbnails, log rotation.  
-✅ **Documentation complete** – Comprehensive README, API docs, plugin guides.  
-✅ **MVP Feature-Complete** – All 50 of 50 tasks finished (Feb 21, 2026)  
-✅ **Version 0.1.0 Tagged** – Pre-production milestone baseline
-✅ **Web UI complete** – Theme system, templates, HTMX, admin UI, validation
-✅ **QA Infrastructure complete** – E2E tests, validation tests, CI/CD pipeline (Feb 22, 2026)
-✅ **Filesystem Architecture** – Project directories, ProjectInfo.md, PrintHistory.md with frontmatter
-✅ **Archive Feature** – Archive-on-delete with configurable deletion policy
+• **Auth complete** – JWT, password plugin, and 3 endpoints ready.  
+• **Storage complete** – LocalStorageBackend filesystem plugin working.  
+• **API endpoints complete** – Projects CRUD, Models upload/list, API Keys.  
+• **Observability complete** – Structured JSON logging + health checks.  
+• **Integration & Polish complete** – DI wiring, schemas, thumbnails, log rotation.  
+• **Documentation complete** – Comprehensive README, API docs, plugin guides.  
+• **MVP Feature-Complete** – All 50 of 50 tasks finished (Feb 21, 2026)  
+• **Version 0.1.0 Tagged** – Pre-production milestone baseline
+• **Web UI complete** – Theme system, templates, HTMX, admin UI, validation
+• **QA Infrastructure complete** – E2E tests, validation tests, CI/CD pipeline (Feb 22, 2026)
+• **Filesystem Architecture** – Project directories, ProjectInfo.md, PrintHistory.md with frontmatter
+• **Archive Feature** – Archive-on-delete with configurable deletion policy
 
 ---
 
@@ -40,50 +40,50 @@
 
 ## Current Branch Status (Filesystem & Archive)
 
-**Completed: 10 of 10 tasks (100%) ✅**
+**Completed: 10 of 10 tasks (100%)**
 ```
-Filesystem Architecture (8/8)               ✅
-- STORAGE_ROOT configuration                 ✅
-- Project directory creation                 ✅
-- ProjectInfo.md with frontmatter            ✅
-- PrintHistory.md with frontmatter           ✅
-- Frontmatter parser (no deps)               ✅
-- Backfill migration script                  ✅
-- Documentation (architecture, config)       ✅
-- All frontmatter tests (57/57 passing)      ✅
+Filesystem Architecture (8/8)              
+- STORAGE_ROOT configuration                
+- Project directory creation                
+- ProjectInfo.md with frontmatter           
+- PrintHistory.md with frontmatter          
+- Frontmatter parser (no deps)              
+- Backfill migration script                 
+- Documentation (architecture, config)      
+- All frontmatter tests (57/57 passing)     
 
-Archive Feature (2/2)                        ✅
-- deletion_policy DB field + migration       ✅
-- Archive vs hard_delete logic               ✅
-- Comprehensive tests (3 new, 13/13 passing) ✅
-- ProjectDTO with deletion_policy field      ✅
-- Documentation updated (TODO, CHANGELOG)    ✅
+Archive Feature (2/2)                       
+- deletion_policy DB field + migration      
+- Archive vs hard_delete logic              
+- Comprehensive tests (3 new, 13/13 passing)
+- ProjectDTO with deletion_policy field     
+- Documentation updated (TODO, CHANGELOG)   
 ═════════════════════════════════════════════════════
-Branch Completion                           10/10 ✅
+Branch Completion                           10/10
 ```
 
 ---
 
 ## Progress Summary
 
-**Total Implementation Completion: 92 of 92 tasks (100%) ✅**
+**Total Implementation Completion: 92 of 92 tasks (100%)**
 ```
-Phase 1: Setup (4/4)                        ✅
-Phase 2: Tests (5/5)                        ✅
-Phase 3a: Plugin Framework (2/2)            ✅
-Phase 3a: Data Models (4/4)                 ✅
-Phase 3b: Services (3/3)                    ✅
-Phase 3c: Auth (6/6)                        ✅
-Phase 3d: Storage (4/4)                     ✅
-Phase 3e: API Endpoints (5/5)               ✅
-Phase 3f: Observability (2/2)               ✅
-Phase 4: Integration & Polish (5/5)         ✅
-Phase 5: Docs & Release (5/5)               ✅
-Phase 6: Web UI Frontend (30/30)            ✅
-Phase 7: QA Infrastructure (Phase 7)        ✅
-Phase 8: Filesystem & Archive (10/10)       ✅
+Phase 1: Setup (4/4)                       
+Phase 2: Tests (5/5)                       
+Phase 3a: Plugin Framework (2/2)           
+Phase 3a: Data Models (4/4)                
+Phase 3b: Services (3/3)                   
+Phase 3c: Auth (6/6)                       
+Phase 3d: Storage (4/4)                    
+Phase 3e: API Endpoints (5/5)              
+Phase 3f: Observability (2/2)              
+Phase 4: Integration & Polish (5/5)        
+Phase 5: Docs & Release (5/5)              
+Phase 6: Web UI Frontend (30/30)           
+Phase 7: QA Infrastructure (Phase 7)       
+Phase 8: Filesystem & Archive (10/10)      
 ═════════════════════════════════════════════════════
-Total Project Completion                   92/92 ✅
+Total Project Completion                   92/92
 
 🎉 BRANCH READY FOR MERGE - ALL FEATURES COMPLETE 🎉
 ```
@@ -101,20 +101,20 @@ Total Project Completion                   92/92 ✅
 
 ## Completed Phases
 
-### Phase 1: Setup ✅
+### Phase 1: Setup
 - Devcontainer configured
 - Docker and docker-compose ready
 - Project structure (pyproject.toml, Makefile, dependencies)
 - CI skeleton
 - **Status**: Ready to deploy
 
-### Phase 2: Tests ✅
+### Phase 2: Tests
 - Contract tests created (all 9 passing)
 - Integration test stubs in place
 - Tests auto-start API server on random port
 - **Status**: TDD baseline established
 
-### Phase 3a: Plugin Framework ✅
+### Phase 3a: Plugin Framework
 **Completed**: T015-T016
 - `PluginManager` class for discovery/loading
 - Base interfaces: `KeajiPlugin`, `AuthProvider`, `StorageBackend`, `MediaProcessor`, `Viewer`, `MetadataHandler`
@@ -122,7 +122,7 @@ Total Project Completion                   92/92 ✅
 - `backend/plugins/` directory ready for plugins
 - **Status**: Extensibility foundation ready
 
-### Phase 3a: Data Models & Migrations ✅
+### Phase 3a: Data Models & Migrations
 **Completed**: T017-T020
 - SQLAlchemy models: `User`, `Project`, `Model`, `APIKey`
 - Alembic setup with `migrations/env.py` and initial schema
@@ -132,7 +132,7 @@ Total Project Completion                   92/92 ✅
 
 ---
 
-### Phase 3b: Services ✅
+### Phase 3b: Services
 **Completed**: T021-T023 + comprehensive tests
 - `UserService` – CRUD + password hashing (bcrypt) + auth verification
 - `ProjectService` – CRUD + owner validation + ownership checks
@@ -142,7 +142,7 @@ Total Project Completion                   92/92 ✅
 
 ---
 
-## Phase 6: Web UI Frontend ✅
+## Phase 6: Web UI Frontend
 
 **Completed**: February 21, 2026  
 **Total tasks**: 30 (T051-T080)  
@@ -165,7 +165,7 @@ Total Project Completion                   92/92 ✅
 ---
 
 ### Phase 3c: Auth & Security
-**Completed**: T024-T029 ✅
+**Completed**: T024-T029
 - JWT token utilities (creation, validation, decode)  
 - PasswordAuthProvider plugin with async interface
 - Integration with UserService for password verification
@@ -174,25 +174,25 @@ Total Project Completion                   92/92 ✅
   - `POST /api/v1/auth/login` – Username/password authentication
   - `POST /api/v1/auth/password-change` – Change password (requires auth)
 - **Test status**: Endpoints implemented, cross-process database test setup pending
-- **Status**: Core auth complete ✅
+- **Status**: Core auth complete
 - **Files created**:
   - `backend/core/auth.py` – JWT token handling
   - `backend/plugins/auth_password.py` – PasswordAuthProvider
   - `backend/api/auth.py` – Auth endpoints
   - `backend/api/__init__.py` – API routing
 
-### Phase 3d: Storage Plugins ✅
+### Phase 3d: Storage Plugins
 **Completed**: T030-T033
 - `LocalStorageBackend` – Filesystem storage plugin with store/retrieve/delete/get_url
 - App factory integration – Storage initialized on startup
 - Health checks and error handling
 - **Test coverage**: 13 unit tests, all passing
-- **Status**: Storage layer ready for ModelService integration ✅
+- **Status**: Storage layer ready for ModelService integration
 - **Files created**:
   - `backend/plugins/storage_local.py` – LocalStorageBackend implementation
   - `tests/test_storage_backend.py` (13 tests)
 
-### Phase 7: QA Infrastructure ✅
+### Phase 7: QA Infrastructure
 **Completed**: February 22, 2026 (PR#3 merged to dev)
 
 **E2E Testing**:
@@ -236,11 +236,11 @@ Total Project Completion                   92/92 ✅
 - Pre-commit hook for validation
 - Makefile test targets
 
-**Status**: Full QA infrastructure operational ✅
+**Status**: Full QA infrastructure operational
 
 ---
 
-### Phase 3e: API Endpoints ✅
+### Phase 3e: API Endpoints
 **Completed**: T034-T038
 - **Projects CRUD** (T034-T035):
   - `POST /api/v1/projects` – Create project (201)
@@ -264,14 +264,14 @@ Total Project Completion                   92/92 ✅
   - Storage backend integration
   - Pydantic request/response models
 - **Test coverage**: 52 unit tests, all passing
-- **Status**: Full API surface ready ✅
+- **Status**: Full API surface ready
 - **Files created**:
   - `backend/api/projects.py` – Projects endpoints
   - `backend/api/models.py` – Models endpoints
   - `backend/api/keys.py` – API Keys endpoints
   - `backend/storage.py` – Storage initialization/DI
 
-### Phase 3f: Observability ✅
+### Phase 3f: Observability
 **Completed**: T039-T040
 - **Structured JSON logging** (T039):
   - JSONFormatter for machine-readable logs
@@ -283,9 +283,9 @@ Total Project Completion                   92/92 ✅
   - `GET /api/v1/health` – Full system status (storage, database)
   - `GET /api/v1/health/ready` – Kubernetes readiness probe
   - `GET /api/v1/health/live` – Kubernetes liveness probe
-- **Status**: Full observability integrated ✅
+- **Status**: Full observability integrated
 
-### Phase 4: Integration & Polish ✅
+### Phase 4: Integration & Polish
 **Completed**: T041-T045
 - **Dependency injection** (T041):
   - Auth dependency: get_current_user()
@@ -304,7 +304,7 @@ Total Project Completion                   92/92 ✅
   - Bash script for cleanup/rotation
   - Configurable retention (30 days default)
   - Can be scheduled via cron
-- **Status**: MVP fully integrated ✅
+- **Status**: MVP fully integrated
 
 ### Phase 5: Docs & Release (next)
 **Not started**: T046-T050
@@ -414,16 +414,16 @@ git log --oneline specs/001-title-3d-kenji/tasks.md
 **February 21, 2026**
 
 ### What's Included
-- ✅ Full MVP implementation (50/50 tasks complete)
-- ✅ 14 REST API endpoints across 4 resource types
-- ✅ User authentication with JWT tokens
-- ✅ Project and 3D model management
-- ✅ File storage with pluggable backends
-- ✅ API key generation and management
-- ✅ Health monitoring for Kubernetes
-- ✅ Structured JSON logging with rotation
-- ✅ Complete documentation and guides
-- ✅ 52 comprehensive tests (all passing)
+- • Full MVP implementation (50/50 tasks complete)
+- • 14 REST API endpoints across 4 resource types
+- • User authentication with JWT tokens
+- • Project and 3D model management
+- • File storage with pluggable backends
+- • API key generation and management
+- • Health monitoring for Kubernetes
+- • Structured JSON logging with rotation
+- • Complete documentation and guides
+- • 52 comprehensive tests (all passing)
 
 ### Documentation
 - **[README.md](README.md)** – Overview, features, quick start, API examples
@@ -468,10 +468,10 @@ make test
 5. Plan post-1.0 extensions (S3/Azure and cosmetic improvements)
 
 ### Repository Status
-- ✅ Core platform and pre-production milestones complete
+- • Core platform and pre-production milestones complete
 - 🚧 1.0.0 scope in progress (auth expansion + API key auth hardening)
-- ✅ Branch workflow and CI quality gates active on `dev`
-- ✅ Planning artifacts aligned to roadmap/spec/plan/tasks workflow
+- • Branch workflow and CI quality gates active on `dev`
+- • Planning artifacts aligned to roadmap/spec/plan/tasks workflow
 
 ### Support & Feedback
 - **Documentation**: [Online docs](docs/index.md)

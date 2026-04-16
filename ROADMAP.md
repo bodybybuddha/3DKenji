@@ -34,3 +34,10 @@
 - Add new feature ideas here at roadmap level.
 - Break accepted features into specs/<id>/spec.md, plan.md, and tasks.md.
 - Keep CHANGELOG.md strictly user-facing at release cut time.
+
+## Tracking Policy (v1.0+)
+
+- Planning and delivery tracking live in ROADMAP.md, PROGRESS.md, and specs/<id>/{spec,plan,tasks}.md.
+- Bug tracking lives in GitHub Issues (not repository markdown trackers).
+- Preferred bugfix branch naming: bugfix/<issue-number>-<short-slug>.
+- Use issue/PR links as the long-term source of truth for bug history and resolution context.

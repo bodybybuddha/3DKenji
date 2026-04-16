@@ -7,6 +7,15 @@ title: API Reference
 
 Complete documentation of all 3DKenji REST API endpoints.
 
+## Contents
+
+- [Authentication](#authentication)
+- [Authentication Endpoints](#authentication-endpoints)
+- [Projects](#projects-endpoints)
+- [Project Files](#project-files)
+- [API Keys](#api-keys)
+- [Health & Status](#health--status)
+
 ## Base URL
 
 ```

@@ -248,7 +248,7 @@ pytest --cov=src/backend --cov-report=term-missing
 - `日本語`
 - `Ñoño`
 - `Москва`
-- `😀🚀🎉`
+
 
 ## CI/CD Integration
 
@@ -312,8 +312,8 @@ chmod +x scripts/run-qa-tests.sh
 
 ## Resources
 
-- 📖 [Full QA Strategy](docs/qa-strategy.md)
-- 📋 [Manual Checklist](tests/manual/qa-checklist.md)
-- 🏭 [Test Factories](tests/fixtures/factories.py)
-- 🌐 [Playwright Docs](https://playwright.dev/python/)
-- ✅ [Pytest Docs](https://docs.pytest.org/)
+- [Full QA Strategy](docs/qa-strategy.md)
+- [Manual Checklist](tests/manual/qa-checklist.md)
+- [Test Factories](tests/fixtures/factories.py)
+- [Playwright Docs](https://playwright.dev/python/)
+- [Pytest Docs](https://docs.pytest.org/)
